@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "name": "PennyWise",
+    "slug": "pennywise-expense-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "android": {
+      "softwareKeyboardLayoutMode": "pan"
+    },
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}
