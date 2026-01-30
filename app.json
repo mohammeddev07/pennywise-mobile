@@ -1,15 +1,25 @@
 {
   "expo": {
+    "scheme": "pennywise",
     "name": "PennyWise",
     "slug": "pennywise-expense-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "dark",
     "android": {
       "softwareKeyboardLayoutMode": "pan"
     },
     "web": {
       "bundler": "metro"
-    }
+    },
+    "plugins": [
+      [
+        "expo-router",
+        {
+          "origin": false,
+          "root": "./src/app"
+        }
+      ]
+    ]
   }
 }
