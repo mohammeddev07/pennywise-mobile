@@ -1,13 +1,14 @@
 import { useEffect } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Dimensions, Pressable, Text, View } from "react-native";
 import { useRouter } from "expo-router";
-import ConfettiCannon from "react-native-confetti-cannon";
 import * as Haptics from "expo-haptics";
+import ConfettiCannon from "react-native-confetti-cannon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function AddTransactionSuccess() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { width } = Dimensions.get("window");
 
   useEffect(() => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
@@ -15,22 +16,24 @@ export default function AddTransactionSuccess() {
 
   return (
     <View
-      className="flex-1 bg-ink px-6 items-center justify-center"
-      style={{ paddingTop: insets.top + 10, paddingBottom: insets.bottom + 14 }}
+      className="flex-1 bg-ink items-center justify-center px-6"
+      style={{ paddingTop: insets.top + 12, paddingBottom: insets.bottom + 16 }}
     >
-      <ConfettiCannon count={70} origin={{ x: 0, y: 0 }} fadeOut />
+      <ConfettiCannon count={90} fadeOut origin={{ x: width / 2, y: 0 }} />
 
       <Text className="text-text text-2xl font-semibold">Transaction logged</Text>
       <Text className="text-muted mt-2 text-center">
-        Optimistic insert into activity feed comes next.
+        Added to your activity feed.
       </Text>
 
       <Pressable
         onPress={() => router.replace("/(tabs)/home")}
-        className="mt-10 h-12 w-full items-center justify-center rounded-full bg-accent"
+        className="mt-10 w-full rounded-full bg-accent py-4 items-center"
         android_ripple={{ color: "#00000022", borderless: false }}
       >
-        <Text className="text-black font-semibold">Back to Home</Text>
+        <Text style={{ color: "#000000", fontWeight: "800", letterSpacing: 1 }}>
+          DONE
+        </Text>
       </Pressable>
     </View>
   );

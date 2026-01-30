@@ -1,144 +1,132 @@
-import { useMemo, useRef, useState } from "react";
-import { Text, View } from "react-native";
+import { useRef } from "react";
+import { Text } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
+  Extrapolate,
   interpolate,
   runOnJS,
   useAnimatedStyle,
+  useDerivedValue,
   useSharedValue,
   withSpring,
-  withTiming,
 } from "react-native-reanimated";
 
 type Props = {
   onSubmit: () => void;
-  disabled?: boolean;
   label?: string;
 };
 
-/**
- * Robinhood-ish swipe-up control:
- * - Drag the pill upward
- * - If drag distance crosses threshold → success haptic → complete → calls onSubmit
- */
-export function SwipeUpToSubmit({ onSubmit, disabled, label = "Swipe up to submit" }: Props) {
-  const [measured, setMeasured] = useState({ height: 0 });
-  const didTriggerRef = useRef(false);
-  const didHapticThresholdRef = useRef(false);
+const HEIGHT = 76; // big, thumb-friendly
+const MAX_PULL = 60; // how far it can move
+const TRIGGER = 46; // swipe distance needed to submit (Robinhood-ish)
 
-  const translateY = useSharedValue(0);
-  const progress = useSharedValue(0);
+export function SwipeUpToSubmit({ onSubmit, label = "SWIPE UP TO SUBMIT" }: Props) {
+  const y = useSharedValue(0); // 0 -> -MAX_PULL
+  const firedRef = useRef(false);
 
-  // Micro-interaction tuning
-  const MAX_PULL = useMemo(() => 140, []); // px
-  const THRESHOLD = useMemo(() => 92, []); // px to trigger submit (≈ 2 thumb-nudges)
+  const progress = useDerivedValue(() => {
+    const p = Math.min(1, Math.max(0, -y.value / MAX_PULL));
+    return p;
+  });
 
-  const clamp = (v: number, min: number, max: number) => Math.min(Math.max(v, min), max);
-
-  const complete = () => {
-    if (didTriggerRef.current) return;
-    didTriggerRef.current = true;
+  const trigger = () => {
+    if (firedRef.current) return;
+    firedRef.current = true;
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-
-    // Fly up + fade
-    translateY.value = withTiming(-MAX_PULL - 40, { duration: 220 });
-    progress.value = withTiming(1, { duration: 180 }, (finished) => {
-      if (finished) runOnJS(onSubmit)();
-    });
+    onSubmit();
   };
 
-  const gesture = Gesture.Pan()
-    .enabled(!disabled)
-    .onBegin(() => {
-      // reset haptic gate each interaction
-      didHapticThresholdRef.current = false;
-      Haptics.selectionAsync().catch(() => {});
-    })
+  const pan = Gesture.Pan()
+    .activeOffsetY([-8, 8])
     .onUpdate((e) => {
-      // Swiping up => negative translationY, we store negative
-      const next = clamp(e.translationY, -MAX_PULL, 0);
-      translateY.value = next;
-
-      const pulled = Math.abs(next);
-      const p = clamp(pulled / THRESHOLD, 0, 1);
-      progress.value = p;
-
-      if (!didHapticThresholdRef.current && pulled >= THRESHOLD) {
-        didHapticThresholdRef.current = true;
-        runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Medium);
-      }
+      // clamp to upward pull only
+      const next = Math.max(-MAX_PULL, Math.min(0, e.translationY));
+      y.value = next;
     })
     .onEnd(() => {
-      const pulled = Math.abs(translateY.value);
+      const pulled = -y.value;
 
-      if (pulled >= THRESHOLD) {
-        runOnJS(complete)();
+      if (pulled >= TRIGGER) {
+        // snap to top and submit safely on JS thread
+        y.value = withSpring(-MAX_PULL, { damping: 18, stiffness: 220 });
+        runOnJS(trigger)();
         return;
       }
 
-      // Spring back
-      translateY.value = withSpring(0, { damping: 18, stiffness: 220 });
-      progress.value = withTiming(0, { duration: 140 });
+      // reset
+      y.value = withSpring(0, { damping: 18, stiffness: 220 });
     });
 
-  const pillStyle = useAnimatedStyle(() => {
-    const pulled = Math.abs(translateY.value);
-    const scale = interpolate(pulled, [0, THRESHOLD], [1, 0.985]);
-    const opacity = interpolate(progress.value, [0, 1], [1, 0.92]);
-    return {
-      transform: [{ translateY: translateY.value }, { scale }],
-      opacity,
-    };
-  });
+  const knobStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: y.value }],
+  }));
 
-  const fillStyle = useAnimatedStyle(() => {
-    const o = interpolate(progress.value, [0, 1], [0, 1]);
-    return { opacity: o };
-  });
+  const arrowStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: interpolate(progress.value, [0, 1], [0, -10], Extrapolate.CLAMP) }],
+    opacity: interpolate(progress.value, [0, 0.15, 1], [0.85, 1, 1], Extrapolate.CLAMP),
+  }));
 
-  const labelStyle = useAnimatedStyle(() => {
-    const o = interpolate(progress.value, [0, 1], [1, 0.35]);
-    return { opacity: o };
-  });
+  const labelStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(progress.value, [0, 0.85, 1], [1, 0.25, 0], Extrapolate.CLAMP),
+  }));
+
+  const releaseStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(progress.value, [0, 0.75, 1], [0, 0, 1], Extrapolate.CLAMP),
+  }));
 
   return (
-    <View
-      onLayout={(e) => setMeasured({ height: e.nativeEvent.layout.height })}
-      className="w-full"
-    >
-      <GestureDetector gesture={gesture}>
+    <GestureDetector gesture={pan}>
+      <Animated.View
+        style={{
+          height: HEIGHT,
+          borderRadius: 999,
+          backgroundColor: "#00C805", // Robinhood green
+          justifyContent: "center",
+          alignItems: "center",
+          overflow: "hidden",
+        }}
+      >
+        {/* subtle dark “cap” so it doesn’t look flat */}
         <Animated.View
-          className={`h-14 w-full rounded-full border border-stroke bg-surface overflow-hidden items-center justify-center ${
-            disabled ? "opacity-50" : ""
-          }`}
-          style={pillStyle}
-        >
-          {/* Accent fill that fades in as you approach threshold */}
-          <Animated.View
-            pointerEvents="none"
-            className="absolute inset-0 bg-accent"
-            style={fillStyle}
-          />
+          style={{
+            position: "absolute",
+            inset: 0,
+            backgroundColor: "rgba(0,0,0,0.12)",
+            opacity: interpolate(progress.value, [0, 1], [0.18, 0], Extrapolate.CLAMP),
+          }}
+        />
 
-          <Animated.View style={labelStyle} className="flex-row items-center gap-2">
-            <Ionicons name="arrow-up" size={16} color="#93A4B7" />
-            <Text className="text-muted font-semibold">{label}</Text>
+        {/* moving content (feels like you’re pulling the bar) */}
+        <Animated.View style={knobStyle}>
+          <Animated.View style={[{ alignItems: "center" }, arrowStyle]}>
+            <Ionicons name="chevron-up" size={22} color="#000000" />
           </Animated.View>
 
-          {/* When filled, swap to “Release to submit” */}
+          <Animated.View style={[{ marginTop: 6, alignItems: "center" }, labelStyle]}>
+            <Text style={{ color: "#000000", fontWeight: "800", letterSpacing: 1.2 }}>{label}</Text>
+          </Animated.View>
+
           <Animated.View
-            pointerEvents="none"
-            style={fillStyle}
-            className="absolute flex-row items-center gap-2"
+            style={[
+              {
+                position: "absolute",
+                left: 0,
+                right: 0,
+                top: 28,
+                alignItems: "center",
+              },
+              releaseStyle,
+            ]}
           >
-            <Ionicons name="checkmark" size={18} color="#000000" />
-            <Text className="text-black font-semibold">Release to submit</Text>
+            <Text style={{ color: "#000000", fontWeight: "800", letterSpacing: 1.2 }}>
+              RELEASE TO SUBMIT
+            </Text>
           </Animated.View>
         </Animated.View>
-      </GestureDetector>
-    </View>
+      </Animated.View>
+    </GestureDetector>
   );
 }
