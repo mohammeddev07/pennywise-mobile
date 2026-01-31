@@ -1,302 +1,131 @@
-import { useMemo, useState } from "react";
-import { Pressable, Text, View, useWindowDimensions } from "react-native";
-import { useRouter } from "expo-router";
+import { useMemo } from "react";
+import { Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { FlashList, type ListRenderItemInfo } from "@shopify/flash-list";
-import { LinearGradient } from "expo-linear-gradient";
-import Svg, { Defs, LinearGradient as SvgLG, Stop, Path } from "react-native-svg";
+import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { FlashList } from "@shopify/flash-list";
+import { isSameDay, parseISO } from "date-fns";
 
 import { tokens } from "@/shared/ui/theme/tokens";
+import { useTransactionsStore, type Transaction } from "@/features/transactions/store";
+import { TransactionRow } from "@/shared/ui/components/TransactionRow";
 
-type Period = "1D" | "1W" | "1M" | "3M" | "1Y" | "ALL";
+function formatMoney(cents: number) {
+  const sign = cents < 0 ? "-" : "";
+  const abs = Math.abs(cents);
+  const dollars = (abs / 100).toFixed(2);
+  const [i, d] = dollars.split(".");
+  const intWithSep = i.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return `${sign}$${intWithSep}.${d}`;
+}
 
-type ActivityItem = {
-  id: string;
-  title: string;
-  category: string;
-  amount: number; // +income / -expense
-  dateLabel: string;
-  icon: keyof typeof Ionicons.glyphMap;
-};
-
-const PERIODS: Period[] = ["1D", "1W", "1M", "3M", "1Y", "ALL"];
-
-const MOCK_ACTIVITY: ActivityItem[] = [
-  { id: "1", title: "Apple Store", category: "Electronics", amount: -899, dateLabel: "Today", icon: "bag-outline" },
-  { id: "2", title: "Direct Deposit", category: "Salary", amount: 2450, dateLabel: "Yesterday", icon: "arrow-down-outline" },
-  { id: "3", title: "Starbucks", category: "Food & Drink", amount: -14.5, dateLabel: "Yesterday", icon: "cafe-outline" },
-  { id: "4", title: "Uber", category: "Transport", amount: -24.12, dateLabel: "Apr 12", icon: "car-outline" },
-];
-
-function money(n: number) {
-  const sign = n < 0 ? "-" : "";
-  const abs = Math.abs(n);
-  return `${sign}$${abs.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+function safeDate(iso: string) {
+  try {
+    const d = parseISO(iso);
+    if (Number.isNaN(d.getTime())) return null;
+    return d;
+  } catch {
+    return null;
+  }
 }
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const transactions = useTransactionsStore((s) => s.transactions);
 
-  const [period, setPeriod] = useState<Period>("1D");
+  const { netCents, todayDeltaCents } = useMemo(() => {
+    let net = 0;
+    let today = 0;
+    const now = new Date();
 
-  // Mock totals (we’ll wire to store/API later)
-  const netBalance = 12450.0;
-  const deltaToday = 842.2;
-  const income = 4250.0;
-  const spending = 1120.5;
+    for (const tx of transactions) {
+      const signed = tx.kind === "income" ? tx.amountCents : -tx.amountCents;
+      net += signed;
 
-  const header = useMemo(() => {
-    const hour = new Date().getHours();
-    const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
-    return `${greeting}, Alex`;
-  }, []);
+      const d = safeDate(tx.occurredAt);
+      if (d && isSameDay(d, now)) today += signed;
+    }
 
-  const openAdd = () => {
-    // Step 4 will make this flow pixel-perfect Robinhood-like
-    router.push("/modals/add-transaction");
-  };
+    return { netCents: net, todayDeltaCents: today };
+  }, [transactions]);
 
-  const renderItem = ({ item }: ListRenderItemInfo<ActivityItem>) => {
-    const positive = item.amount > 0;
-    return (
-      <Pressable
-        className="flex-row items-center px-6 py-4"
-        android_ripple={{ color: "#FFFFFF10" }}
-        onPress={() => {}}
-      >
-        <View className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke">
-          <Ionicons name={item.icon} size={20} color={tokens.colors.text} />
-        </View>
+  const isUp = todayDeltaCents >= 0;
 
-        <View className="ml-4 flex-1">
-          <Text style={{ fontFamily: "Inter_600SemiBold" }} className="text-text text-base">
-            {item.title}
-          </Text>
-          <Text className="text-muted mt-0.5 text-sm">{item.category}</Text>
-        </View>
+  return (
+    <View className="flex-1 bg-app" style={{ paddingTop: insets.top + 10 }}>
+      {/* Header */}
+      <View className="px-6">
+        <View className="flex-row items-center justify-between">
+          <Pressable className="flex-row items-center" onPress={() => router.push("/modals/book-switcher")}>
+            <View>
+              <Text className="text-text text-2xl font-semibold">Personal</Text>
+              <Text className="text-muted mt-1">CashBook Pro</Text>
+            </View>
+            <Ionicons name="chevron-down" size={18} color={tokens.colors.accent} style={{ marginLeft: 10 }} />
+          </Pressable>
 
-        <View className="items-end">
-          <Text
-            style={{ fontFamily: "Inter_600SemiBold" }}
-            className={`text-base ${positive ? "text-accent" : "text-text"}`}
+          <Pressable
+            className="h-12 w-12 items-center justify-center rounded-full border border-stroke bg-surface"
+            android_ripple={{ color: "#FFFFFF12", borderless: true }}
+            onPress={() => {}}
           >
-            {positive ? `+${money(item.amount).replace("-", "")}` : money(item.amount)}
-          </Text>
-          <Text className="text-muted mt-0.5 text-sm">{item.dateLabel}</Text>
+            <Ionicons name="notifications-outline" size={20} color={tokens.colors.text} />
+          </Pressable>
         </View>
-      </Pressable>
-    );
-  };
 
-  return (
-    <View className="flex-1 bg-app">
-      <FlashList
-        data={MOCK_ACTIVITY}
-        keyExtractor={(it) => it.id}
-        renderItem={renderItem}
-        showsVerticalScrollIndicator={false}
-        ItemSeparatorComponent={() => <View className="h-px bg-stroke mx-6 opacity-60" />}
-        contentContainerStyle={{ paddingBottom: 160 }}
-        ListHeaderComponent={
-          <View>
-            {/* Top bar */}
-            <View className="px-6 pt-14">
-              <View className="flex-row items-center justify-between">
-                <Pressable
-                  className="flex-row items-center"
-                  android_ripple={{ color: "#FFFFFF10", borderless: true }}
-                  onPress={() => router.push("/modals/book-switcher")}
-                >
-                  <View>
-                    <Text style={{ fontFamily: "Inter_700Bold" }} className="text-text text-2xl">
-                      Personal
-                    </Text>
-                    <Text className="text-muted mt-1">CashBook Pro</Text>
-                  </View>
-                  <Ionicons name="chevron-down" size={18} color={tokens.colors.accent} style={{ marginLeft: 10, marginTop: 6 }} />
-                </Pressable>
+        {/* Hero */}
+        <View className="items-center mt-10">
+          <Text className="text-muted text-sm tracking-widest">NET BALANCE</Text>
+          <Text className="text-text text-6xl font-semibold mt-3">{formatMoney(netCents)}</Text>
 
-                <Pressable
-                  className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
-                  android_ripple={{ color: "#FFFFFF12", borderless: true }}
-                  onPress={() => {}}
-                >
-                  <Ionicons name="notifications-outline" size={20} color={tokens.colors.text} />
-                  <View className="absolute right-3 top-3 h-2 w-2 rounded-full bg-accent" />
-                </Pressable>
-              </View>
-            </View>
-
-            {/* Hero */}
-            <View className="px-6 mt-10 items-center">
-              <Text className="text-muted tracking-widest" style={{ fontFamily: "Inter_600SemiBold" }}>
-                NET BALANCE
-              </Text>
-
-              <View className="mt-3 flex-row items-end">
-                <Text style={{ fontFamily: "Inter_600SemiBold" }} className="text-text text-3xl mr-2">
-                  $
-                </Text>
-                <Text style={{ fontFamily: "Inter_800ExtraBold" }} className="text-text text-6xl">
-                  {netBalance.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                </Text>
-                <Text style={{ fontFamily: "Inter_600SemiBold" }} className="text-muted text-3xl mb-1 ml-1">
-                  .00
-                </Text>
-              </View>
-
-              <View className="mt-3 flex-row items-center">
-                <Ionicons name="trending-up-outline" size={16} color={tokens.colors.accent} />
-                <Text style={{ fontFamily: "Inter_600SemiBold" }} className="text-accent ml-2">
-                  +{money(deltaToday).replace("-", "")} (Today)
-                </Text>
-              </View>
-            </View>
-
-            {/* Chart-ish background (static, we’ll upgrade later) */}
-            <View className="mt-6">
-              <LinearGradient
-                colors={["#00C80518", "#00C80500"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 0, y: 1 }}
-                style={{ height: 190, width }}
-              />
-              <View style={{ position: "absolute", left: 0, right: 0, top: 0, height: 190 }}>
-                <Svg width={width} height={190}>
-                  <Defs>
-                    <SvgLG id="g" x1="0" y1="0" x2="0" y2="1">
-                      <Stop offset="0" stopColor="#00C805" stopOpacity="0.25" />
-                      <Stop offset="1" stopColor="#00C805" stopOpacity="0.0" />
-                    </SvgLG>
-                  </Defs>
-                  {/* Line */}
-                  <Path
-                    d={`M 0 150 C ${width * 0.2} 130, ${width * 0.35} 160, ${width * 0.5} 110
-                        C ${width * 0.65} 70, ${width * 0.8} 120, ${width} 60`}
-                    fill="none"
-                    stroke="#00C805"
-                    strokeWidth={3}
-                  />
-                  {/* Fill */}
-                  <Path
-                    d={`M 0 150 C ${width * 0.2} 130, ${width * 0.35} 160, ${width * 0.5} 110
-                        C ${width * 0.65} 70, ${width * 0.8} 120, ${width} 60
-                        L ${width} 190 L 0 190 Z`}
-                    fill="url(#g)"
-                  />
-                </Svg>
-              </View>
-            </View>
-
-            {/* Period segmented */}
-            <View className="px-6 mt-6">
-              <View className="flex-row rounded-2xl bg-surface border border-stroke p-1">
-                {PERIODS.map((p) => {
-                  const active = p === period;
-                  return (
-                    <Pressable
-                      key={p}
-                      onPress={() => setPeriod(p)}
-                      className={`flex-1 items-center justify-center py-2 rounded-xl ${
-                        active ? "bg-card" : "bg-transparent"
-                      }`}
-                      android_ripple={{ color: "#FFFFFF10" }}
-                    >
-                      <Text
-                        style={{ fontFamily: active ? "Inter_600SemiBold" : "Inter_500Medium" }}
-                        className={`${active ? "text-text" : "text-muted"}`}
-                      >
-                        {p}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
-
-            {/* Metric cards */}
-            <View className="px-6 mt-6 flex-row gap-4">
-              <MetricCard
-                title="Income"
-                value={money(income)}
-                accent="accent"
-                progress={0.72}
-              />
-              <MetricCard
-                title="Spending"
-                value={money(spending)}
-                accent="danger"
-                progress={0.32}
-              />
-            </View>
-
-            {/* Section header */}
-            <View className="px-6 mt-8 flex-row items-end justify-between">
-              <Text style={{ fontFamily: "Inter_700Bold" }} className="text-text text-2xl">
-                Recent Activity
-              </Text>
-              <Pressable onPress={() => router.push("/(tabs)/transactions")} android_ripple={{ color: "#FFFFFF10" }}>
-                <Text style={{ fontFamily: "Inter_600SemiBold" }} className="text-accent">
-                  SEE ALL
-                </Text>
-              </Pressable>
-            </View>
-
-            <View className="h-px bg-stroke mx-6 mt-4 opacity-60" />
+          <View className="flex-row items-center mt-2">
+            <Ionicons name={isUp ? "trending-up" : "trending-down"} size={16} color={tokens.colors.accent} />
+            <Text className="ml-2" style={{ color: tokens.colors.accent }}>
+              {todayDeltaCents >= 0 ? "+" : ""}
+              {formatMoney(todayDeltaCents)} (Today)
+            </Text>
           </View>
-        }
-      />
+        </View>
 
-      {/* Floating Add Button (temp; Step 3/4 we’ll integrate into custom tab bar) */}
-      <View className="absolute bottom-8 left-0 right-0 items-center">
-        <Pressable
-          onPress={openAdd}
-          className="h-16 w-16 rounded-full bg-accent items-center justify-center"
-          android_ripple={{ color: "#00000022", borderless: true }}
-          style={{
-            shadowColor: "#00C805",
-            shadowOpacity: 0.35,
-            shadowRadius: 18,
-            shadowOffset: { width: 0, height: 8 },
-            elevation: 12,
-          }}
-        >
-          <Ionicons name="add" size={30} color="#000000" />
-        </Pressable>
-
-        <Text className="text-muted mt-2" style={{ fontFamily: "Inter_500Medium" }}>
-          {header}
-        </Text>
+        {/* Recent Activity header */}
+        <View className="flex-row items-center justify-between mt-10">
+          <Text className="text-text text-2xl font-semibold">Recent Activity</Text>
+          <Pressable onPress={() => router.push("/(tabs)/transactions")}>
+            <Text style={{ color: tokens.colors.accent }} className="text-sm font-semibold">
+              SEE ALL
+            </Text>
+          </Pressable>
+        </View>
+        <View className="h-px bg-stroke mt-4" />
       </View>
-    </View>
-  );
-}
 
-function MetricCard({
-  title,
-  value,
-  accent,
-  progress,
-}: {
-  title: string;
-  value: string;
-  accent: "accent" | "danger";
-  progress: number; // 0..1
-}) {
-  const barColor = accent === "accent" ? "bg-accent" : "bg-danger";
-  return (
-    <View className="flex-1 rounded-2xl bg-surface border border-stroke p-4 overflow-hidden">
-      <Text className="text-muted" style={{ fontFamily: "Inter_500Medium" }}>
-        {title}
-      </Text>
-      <Text className="text-text mt-1 text-2xl" style={{ fontFamily: "Inter_700Bold" }}>
-        {value}
-      </Text>
-
-      <View className="mt-4 h-2 rounded-full bg-stroke overflow-hidden">
-        <View className={`h-full ${barColor}`} style={{ width: `${Math.max(0, Math.min(1, progress)) * 100}%` }} />
+      {/* Activity list */}
+      <View className="flex-1 px-6">
+        <FlashList
+          data={transactions}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => <TransactionRow item={item} />}
+          ItemSeparatorComponent={() => <View className="h-px bg-stroke" />}
+          contentContainerStyle={{ paddingBottom: 120 }}
+          showsVerticalScrollIndicator={false}
+        />
       </View>
+
+      {/* FAB */}
+      <Pressable
+        onPress={() => router.push("/modals/add-transaction")}
+        className="absolute self-center items-center justify-center rounded-full"
+        style={{
+          bottom: (insets.bottom || 0) + 22,
+          width: 72,
+          height: 72,
+          backgroundColor: tokens.colors.accent,
+        }}
+        android_ripple={{ color: "#00000022", borderless: true }}
+      >
+        <Ionicons name="add" size={34} color="#000000" />
+      </Pressable>
     </View>
   );
 }

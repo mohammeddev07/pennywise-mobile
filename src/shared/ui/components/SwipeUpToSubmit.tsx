@@ -1,132 +1,177 @@
-import { useRef } from "react";
-import { Text } from "react-native";
+import { Text, useWindowDimensions } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
+  Easing,
   Extrapolate,
   interpolate,
   runOnJS,
   useAnimatedStyle,
-  useDerivedValue,
   useSharedValue,
   withSpring,
+  withTiming,
 } from "react-native-reanimated";
+import * as Haptics from "expo-haptics";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import { tokens } from "@/shared/ui/theme/tokens";
 
 type Props = {
   onSubmit: () => void;
   label?: string;
+  disabled?: boolean;
 };
 
-const HEIGHT = 76; // big, thumb-friendly
-const MAX_PULL = 60; // how far it can move
-const TRIGGER = 46; // swipe distance needed to submit (Robinhood-ish)
+function clamp(v: number, min: number, max: number) {
+  "worklet";
+  return Math.min(max, Math.max(min, v));
+}
 
-export function SwipeUpToSubmit({ onSubmit, label = "SWIPE UP TO SUBMIT" }: Props) {
-  const y = useSharedValue(0); // 0 -> -MAX_PULL
-  const firedRef = useRef(false);
+/**
+ * Robinhood-like swipe:
+ * - Always render a full-height green sheet, initially translated down so only the footer is visible
+ * - Drag up to reveal; commit snaps to full screen then calls onSubmit
+ */
+export function SwipeUpToSubmit({ onSubmit, label = "SWIPE UP TO SUBMIT", disabled }: Props) {
+  const insets = useSafeAreaInsets();
+  const { height: screenH } = useWindowDimensions();
 
-  const progress = useDerivedValue(() => {
-    const p = Math.min(1, Math.max(0, -y.value / MAX_PULL));
-    return p;
-  });
+  const MIN_VISIBLE = 92; // visible bar when collapsed
+  const FULL_H = screenH + insets.bottom; // full coverage
+  const MAX_TRANSLATE = Math.max(0, FULL_H - (MIN_VISIBLE + insets.bottom));
 
-  const trigger = () => {
-    if (firedRef.current) return;
-    firedRef.current = true;
+  const translateY = useSharedValue(MAX_TRANSLATE);
+  const committed = useSharedValue(false);
+  const didThresholdHaptic = useSharedValue(false);
 
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    onSubmit();
+  const THRESHOLD_PROGRESS = 0.62;
+  const FAST_VELOCITY = -1200;
+
+  const hapticThreshold = () => {
+    try {
+      void Haptics.selectionAsync();
+    } catch {}
   };
 
-  const pan = Gesture.Pan()
-    .activeOffsetY([-8, 8])
-    .onUpdate((e) => {
-      // clamp to upward pull only
-      const next = Math.max(-MAX_PULL, Math.min(0, e.translationY));
-      y.value = next;
-    })
-    .onEnd(() => {
-      const pulled = -y.value;
+  const hapticSuccess = () => {
+    try {
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {}
+  };
 
-      if (pulled >= TRIGGER) {
-        // snap to top and submit safely on JS thread
-        y.value = withSpring(-MAX_PULL, { damping: 18, stiffness: 220 });
-        runOnJS(trigger)();
+  const gesture = Gesture.Pan()
+    .enabled(!disabled)
+    .onUpdate((e) => {
+      if (committed.value) return;
+
+      const next = clamp(MAX_TRANSLATE + e.translationY, 0, MAX_TRANSLATE);
+      translateY.value = next;
+
+      const p = MAX_TRANSLATE === 0 ? 1 : 1 - next / MAX_TRANSLATE;
+
+      if (!didThresholdHaptic.value && p >= THRESHOLD_PROGRESS) {
+        didThresholdHaptic.value = true;
+        runOnJS(hapticThreshold)();
+      }
+      if (didThresholdHaptic.value && p < THRESHOLD_PROGRESS - 0.12) {
+        didThresholdHaptic.value = false;
+      }
+    })
+    .onEnd((e) => {
+      if (committed.value) return;
+
+      const p = MAX_TRANSLATE === 0 ? 1 : 1 - translateY.value / MAX_TRANSLATE;
+      const shouldCommit = p >= THRESHOLD_PROGRESS || e.velocityY <= FAST_VELOCITY;
+
+      if (shouldCommit) {
+        committed.value = true;
+
+        translateY.value = withTiming(
+          0,
+          { duration: 260, easing: Easing.out(Easing.cubic) },
+          (finished) => {
+            if (!finished) return;
+            runOnJS(hapticSuccess)();
+            runOnJS(onSubmit)();
+          }
+        );
         return;
       }
 
-      // reset
-      y.value = withSpring(0, { damping: 18, stiffness: 220 });
+      translateY.value = withSpring(MAX_TRANSLATE, { damping: 18, stiffness: 180 });
+      didThresholdHaptic.value = false;
     });
 
-  const knobStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: y.value }],
-  }));
+  const sheetStyle = useAnimatedStyle(() => {
+    const p = MAX_TRANSLATE === 0 ? 1 : 1 - translateY.value / MAX_TRANSLATE;
+    const mx = interpolate(p, [0, 1], [18, 0], Extrapolate.CLAMP);
+    const r = interpolate(p, [0, 1], [34, 0], Extrapolate.CLAMP);
 
-  const arrowStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: interpolate(progress.value, [0, 1], [0, -10], Extrapolate.CLAMP) }],
-    opacity: interpolate(progress.value, [0, 0.15, 1], [0.85, 1, 1], Extrapolate.CLAMP),
-  }));
+    return {
+      height: FULL_H,
+      transform: [{ translateY: translateY.value }],
+      marginHorizontal: mx,
+      borderRadius: r,
+      backgroundColor: disabled ? "#0E141B" : tokens.colors.accent,
+    };
+  });
 
-  const labelStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(progress.value, [0, 0.85, 1], [1, 0.25, 0], Extrapolate.CLAMP),
-  }));
-
-  const releaseStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(progress.value, [0, 0.75, 1], [0, 0, 1], Extrapolate.CLAMP),
-  }));
+  const labelStyle = useAnimatedStyle(() => {
+    const p = MAX_TRANSLATE === 0 ? 1 : 1 - translateY.value / MAX_TRANSLATE;
+    const lift = interpolate(p, [0, 1], [0, -10], Extrapolate.CLAMP);
+    return { transform: [{ translateY: lift }] };
+  });
 
   return (
-    <GestureDetector gesture={pan}>
+    <GestureDetector gesture={gesture}>
       <Animated.View
-        style={{
-          height: HEIGHT,
-          borderRadius: 999,
-          backgroundColor: "#00C805", // Robinhood green
-          justifyContent: "center",
-          alignItems: "center",
-          overflow: "hidden",
-        }}
-      >
-        {/* subtle dark “cap” so it doesn’t look flat */}
-        <Animated.View
-          style={{
+        style={[
+          {
             position: "absolute",
-            inset: 0,
-            backgroundColor: "rgba(0,0,0,0.12)",
-            opacity: interpolate(progress.value, [0, 1], [0.18, 0], Extrapolate.CLAMP),
-          }}
-        />
-
-        {/* moving content (feels like you’re pulling the bar) */}
-        <Animated.View style={knobStyle}>
-          <Animated.View style={[{ alignItems: "center" }, arrowStyle]}>
-            <Ionicons name="chevron-up" size={22} color="#000000" />
-          </Animated.View>
-
-          <Animated.View style={[{ marginTop: 6, alignItems: "center" }, labelStyle]}>
-            <Text style={{ color: "#000000", fontWeight: "800", letterSpacing: 1.2 }}>{label}</Text>
-          </Animated.View>
-
-          <Animated.View
-            style={[
-              {
-                position: "absolute",
-                left: 0,
-                right: 0,
-                top: 28,
-                alignItems: "center",
-              },
-              releaseStyle,
-            ]}
+            left: 0,
+            right: 0,
+            bottom: 0,
+            overflow: "hidden",
+          },
+          sheetStyle,
+        ]}
+      >
+        {/* Affordance always centered in the visible bar */}
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            {
+              position: "absolute",
+              left: 0,
+              right: 0,
+              bottom: 0,
+              paddingBottom: insets.bottom + 18,
+              paddingTop: 14,
+              alignItems: "center",
+              justifyContent: "center",
+            },
+            labelStyle,
+          ]}
+        >
+          <Ionicons name="chevron-up" size={22} color={tokens.colors.ink} />
+          <Text
+            style={{
+              marginTop: 8,
+              color: tokens.colors.ink,
+              fontSize: 15,
+              letterSpacing: 1.2,
+              fontWeight: "800",
+              opacity: disabled ? 0.55 : 1,
+              textAlign: "center",
+            }}
           >
-            <Text style={{ color: "#000000", fontWeight: "800", letterSpacing: 1.2 }}>
-              RELEASE TO SUBMIT
-            </Text>
-          </Animated.View>
+            {label}
+          </Text>
         </Animated.View>
       </Animated.View>
     </GestureDetector>
   );
 }
+
+// Also export default so either import style works (prevents TS churn).
+export default SwipeUpToSubmit;
