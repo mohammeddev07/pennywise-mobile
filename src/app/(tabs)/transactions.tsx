@@ -7,8 +7,10 @@ import { router } from "expo-router";
 import { format, isSameDay, parseISO, startOfDay, subDays } from "date-fns";
 
 import { tokens } from "@/shared/ui/theme/tokens";
+import { BookPill } from "@/shared/ui/components/BookPill";
 import { useTransactionsStore, type Transaction } from "@/features/transactions/store";
 import { TransactionRow } from "@/shared/ui/components/TransactionRow";
+import { useBooksStore } from "@/features/books/store";
 
 type RangeKey = "today" | "week" | "month" | "all";
 
@@ -24,16 +26,13 @@ function inRange(tx: Transaction, range: RangeKey) {
 
   const now = new Date();
 
-  if (range === "today") {
-    return isSameDay(d, now);
-  }
+  if (range === "today") return isSameDay(d, now);
 
   if (range === "week") {
     const since = startOfDay(subDays(now, 6));
     return d >= since;
   }
 
-  // month = last 30 days (simple + stable for now)
   const since = startOfDay(subDays(now, 29));
   return d >= since;
 }
@@ -57,24 +56,36 @@ function dayTitle(d: Date) {
 
 function money(amountCents: number) {
   const abs = Math.abs(amountCents);
-  const dollars = (abs / 100).toFixed(2);
-  return dollars;
+  return (abs / 100).toFixed(2);
 }
 
 export default function TransactionsScreen() {
   const insets = useSafeAreaInsets();
+
   const transactions = useTransactionsStore((s) => s.transactions);
+  const selectedBookId = useBooksStore((s) => s.selectedBookId);
+  const books = useBooksStore((s) => s.books);
+
+  const selectedBookName = useMemo(() => {
+    return books.find((b) => b.id === selectedBookId)?.name ?? "Personal";
+  }, [books, selectedBookId]);
 
   const [range, setRange] = useState<RangeKey>("today");
   const [query, setQuery] = useState("");
 
+  const bookTransactions = useMemo(() => {
+    return transactions.filter((t) => t.bookId === selectedBookId);
+  }, [transactions, selectedBookId]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return transactions.filter((tx) => {
+
+    return bookTransactions.filter((tx) => {
       if (!inRange(tx, range)) return false;
       if (!q) return true;
 
       const hay = [
+        tx.title ?? "",
         tx.category ?? "",
         tx.note ?? "",
         tx.paymentMethod ?? "",
@@ -87,10 +98,9 @@ export default function TransactionsScreen() {
 
       return hay.includes(q);
     });
-  }, [transactions, range, query]);
+  }, [bookTransactions, range, query]);
 
   const rows = useMemo<Row[]>(() => {
-    // Ensure newest first
     const sorted = [...filtered].sort((a, b) => {
       const da = safeDate(a.occurredAt)?.getTime() ?? 0;
       const db = safeDate(b.occurredAt)?.getTime() ?? 0;
@@ -117,10 +127,14 @@ export default function TransactionsScreen() {
 
   return (
     <View className="flex-1 bg-app" style={{ paddingTop: insets.top + 10 }}>
-      {/* Header */}
       <View className="px-6">
         <View className="flex-row items-center justify-between">
-          <Text className="text-text text-2xl font-semibold">Transactions</Text>
+          <View>
+            <Text className="text-text text-2xl font-semibold">Transactions</Text>
+            <View className="mt-3 self-start">
+              <BookPill label={selectedBookName} onPress={() => router.push("/modals/book-switcher")} />
+            </View>
+          </View>
 
           <Pressable
             onPress={() => router.push("/modals/add-transaction")}
@@ -131,13 +145,12 @@ export default function TransactionsScreen() {
           </Pressable>
         </View>
 
-        {/* Search */}
         <View className="mt-5 flex-row items-center rounded-2xl border border-stroke bg-surface px-4 py-3">
           <Ionicons name="search" size={18} color={tokens.colors.muted} />
           <TextInput
             value={query}
             onChangeText={setQuery}
-            placeholder="Search category, note, method…"
+            placeholder="Search title, category, note…"
             placeholderTextColor={tokens.colors.muted}
             className="ml-3 flex-1 text-text"
             autoCorrect={false}
@@ -154,7 +167,6 @@ export default function TransactionsScreen() {
           ) : null}
         </View>
 
-        {/* Range chips */}
         <View className="mt-4 flex-row items-center gap-3">
           <Chip label="Today" active={range === "today"} onPress={() => setRange("today")} />
           <Chip label="Week" active={range === "week"} onPress={() => setRange("week")} />
@@ -165,7 +177,6 @@ export default function TransactionsScreen() {
         <View className="h-px bg-stroke mt-5" />
       </View>
 
-      {/* List */}
       <View className="flex-1 px-6">
         <FlashList
           data={rows}
@@ -177,12 +188,6 @@ export default function TransactionsScreen() {
           ItemSeparatorComponent={() => <View className="h-px bg-stroke" />}
           contentContainerStyle={{ paddingBottom: (insets.bottom || 0) + 22, paddingTop: 14 }}
           showsVerticalScrollIndicator={false}
-          ListEmptyComponent={
-            <View className="py-14 items-center">
-              <Text className="text-muted">No transactions yet.</Text>
-              <Text className="text-muted mt-1 text-xs">Tap + to add your first one.</Text>
-            </View>
-          }
         />
       </View>
     </View>
@@ -197,15 +202,7 @@ function SectionHeader({ title }: { title: string }) {
   );
 }
 
-function Chip({
-  label,
-  active,
-  onPress,
-}: {
-  label: string;
-  active: boolean;
-  onPress: () => void;
-}) {
+function Chip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
   return (
     <Pressable
       onPress={onPress}
@@ -216,10 +213,7 @@ function Chip({
         backgroundColor: active ? "#00C80522" : "transparent",
       }}
     >
-      <Text
-        className="text-sm font-semibold"
-        style={{ color: active ? tokens.colors.accent : tokens.colors.text }}
-      >
+      <Text className="text-sm font-semibold" style={{ color: active ? tokens.colors.accent : tokens.colors.text }}>
         {label}
       </Text>
     </Pressable>

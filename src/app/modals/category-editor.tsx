@@ -24,7 +24,7 @@ const ICONS = [
   "gift-outline",
   "cash-outline",
   "card-outline",
-  "wallet-outline"
+  "wallet-outline",
 ] as const;
 
 const COLORS = ["#00C805", "#60A5FA", "#A78BFA", "#F472B6", "#FFB020", "#34D399", "#F87171", "#94A3B8"];
@@ -32,11 +32,14 @@ const COLORS = ["#00C805", "#60A5FA", "#A78BFA", "#F472B6", "#FFB020", "#34D399"
 export default function CategoryEditorModal() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ id?: string }>();
+
+  const params = useLocalSearchParams<{ id?: string; origin?: string }>();
+  const origin = params.origin === "add-transaction" ? "add-transaction" : "other";
 
   const categories = useCategoriesStore((s) => s.categories);
   const addCategory = useCategoriesStore((s) => s.addCategory);
   const updateCategory = useCategoriesStore((s) => s.updateCategory);
+  const markLastCreatedCategoryName = useCategoriesStore((s) => s.markLastCreatedCategoryName);
 
   const editing = useMemo(() => {
     const id = params.id;
@@ -64,11 +67,22 @@ export default function CategoryEditorModal() {
 
   const onSave = () => {
     Haptics.selectionAsync().catch(() => {});
+
+    const finalName = name.trim() || "Untitled";
+
     if (editing) {
-      updateCategory(editing.id, { name, icon, color });
-    } else {
-      addCategory({ name, icon, color });
+      updateCategory(editing.id, { name: finalName, icon, color });
+      router.back();
+      return;
     }
+
+    addCategory({ name: finalName, icon, color });
+
+    // Only mark when creating from the add-transaction flow
+    if (origin === "add-transaction") {
+      markLastCreatedCategoryName(finalName);
+    }
+
     router.back();
   };
 
@@ -110,7 +124,7 @@ export default function CategoryEditorModal() {
                   className="h-12 w-12 items-center justify-center rounded-2xl border mr-3 mb-3"
                   style={{
                     borderColor: active ? tokens.colors.accent : tokens.colors.stroke,
-                    backgroundColor: active ? "#00C80514" : tokens.colors.surface
+                    backgroundColor: active ? "#00C80514" : tokens.colors.surface,
                   }}
                   android_ripple={{ color: "#FFFFFF10", borderless: true }}
                 >
@@ -136,7 +150,7 @@ export default function CategoryEditorModal() {
                   className="h-11 w-11 items-center justify-center rounded-full border mr-3 mb-3"
                   style={{
                     borderColor: active ? tokens.colors.text : tokens.colors.stroke,
-                    backgroundColor: tokens.colors.surface
+                    backgroundColor: tokens.colors.surface,
                   }}
                   android_ripple={{ color: "#FFFFFF10", borderless: true }}
                 >

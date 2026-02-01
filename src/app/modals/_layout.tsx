@@ -8,6 +8,15 @@ export default function ModalsLayout() {
         headerShown: false,
         contentStyle: { backgroundColor: tokens.colors.ink },
       }}
-    />
+    >
+      <Stack.Screen
+        name="book-switcher"
+        options={{
+          presentation: "transparentModal",
+          animation: "fade",
+          contentStyle: { backgroundColor: "transparent" },
+        }}
+      />
+    </Stack>
   );
 }

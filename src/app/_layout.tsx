@@ -8,7 +8,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
-import { Text, TextInput } from "react-native";
+import { Text, TextInput, View } from "react-native";
 import {
   useFonts,
   Inter_300Light,
@@ -20,6 +20,7 @@ import {
 } from "@expo-google-fonts/inter";
 
 import { tokens } from "@/shared/ui/theme/tokens";
+import { UndoToast } from "@/shared/ui/components/UndoToast";
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -67,22 +68,26 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
           <StatusBar style="light" />
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              contentStyle: { backgroundColor: tokens.colors.app },
-            }}
-          >
-            <Stack.Screen name="(auth)" />
-            <Stack.Screen name="(onboarding)" />
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen
-              name="modals"
-              options={{
-                presentation: "modal",
+          <View style={{ flex: 1 }}>
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                contentStyle: { backgroundColor: tokens.colors.app },
               }}
-            />
-          </Stack>
+            >
+              <Stack.Screen name="(auth)" />
+              <Stack.Screen name="(onboarding)" />
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen
+                name="modals"
+                options={{
+                  presentation: "modal",
+                }}
+              />
+            </Stack>
+
+            <UndoToast />
+          </View>
         </QueryClientProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

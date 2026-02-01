@@ -1,94 +1,105 @@
 import { useMemo } from "react";
-import { Pressable, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
-import * as Haptics from "expo-haptics";
+import { Text, View } from "react-native";
+import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import type { CurrencyCode } from "@/shared/types/models";
-import { useOnboardingStore } from "@/features/onboarding/useOnboardingStore";
+import { tokens } from "@/shared/ui/theme/tokens";
+import { HapticPressable } from "@/shared/ui/components/HapticPressable";
+import { Button } from "@/shared/ui/components/Button";
+import { useSettingsStore, type CurrencyCode } from "@/features/settings/store";
 
-const CURRENCIES: { code: CurrencyCode; name: string; symbol: string }[] = [
-  { code: "USD", name: "US Dollar", symbol: "$" },
-  { code: "EUR", name: "Euro", symbol: "€" },
-  { code: "GBP", name: "British Pound", symbol: "£" },
-  { code: "SAR", name: "Saudi Riyal", symbol: "﷼" },
-  { code: "AED", name: "UAE Dirham", symbol: "د.إ" },
+type Item = { code: CurrencyCode; symbol: string; name: string; sub: string; wide?: boolean };
+
+const ITEMS: Item[] = [
+  { code: "USD", symbol: "$", name: "USD", sub: "US DOLLAR" },
+  { code: "EUR", symbol: "€", name: "EUR", sub: "EURO" },
+  { code: "GBP", symbol: "£", name: "GBP", sub: "POUND" },
+  { code: "JPY", symbol: "¥", name: "JPY", sub: "YEN" },
+  { code: "INR", symbol: "₹", name: "INR", sub: "INDIAN RUPEE", wide: true },
 ];
 
 export default function CurrencyScreen() {
-  const currency = useOnboardingStore((s) => s.currency);
-  const setCurrency = useOnboardingStore((s) => s.setCurrency);
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
 
-  const selectedLabel = useMemo(() => {
-    const c = CURRENCIES.find((x) => x.code === currency);
-    return c ? `${c.symbol} ${c.code}` : "None";
-  }, [currency]);
+  const primaryCurrency = useSettingsStore((s) => s.primaryCurrency);
+  const setPrimaryCurrency = useSettingsStore((s) => s.setPrimaryCurrency);
 
-  const safeBack = () => {
-    Haptics.selectionAsync().catch(() => {});
-    const canGoBack =
-      typeof (router as any).canGoBack === "function" ? (router as any).canGoBack() : false;
-    if (canGoBack) router.back();
-    else router.replace("/(onboarding)/books");
-  };
+  const grid = useMemo(() => ITEMS, []);
 
   return (
-    <View className="flex-1 bg-app px-6 pt-14 pb-10">
-      <View className="flex-row items-center">
-        <Pressable
-          onPress={safeBack}
-          className="h-11 w-11 items-center justify-center rounded-full bg-surface border border-stroke"
-          android_ripple={{ color: "#FFFFFF12", borderless: true }}
-        >
-          <Ionicons name="chevron-back" size={22} color="#E7EEF8" />
-        </Pressable>
-        <View className="ml-4">
-          <Text className="text-text text-xl font-semibold">Currency</Text>
-          <Text className="text-muted mt-1">Selected: {selectedLabel}</Text>
+    <View className="flex-1 bg-ink" style={{ paddingTop: insets.top + 24, paddingBottom: insets.bottom + 20 }}>
+      <View className="px-6">
+        <Text className="text-text text-3xl font-semibold">Select Currency</Text>
+        <Text className="text-muted mt-2">Choose your primary currency for tracking</Text>
+      </View>
+
+      <View className="px-6 mt-10">
+        <View className="flex-row flex-wrap" style={{ gap: 14 }}>
+          {grid.map((it) => {
+            const active = it.code === primaryCurrency;
+            const w = it.wide ? "100%" : "47%";
+
+            return (
+              <HapticPressable
+                key={it.code}
+                onPress={() => setPrimaryCurrency(it.code)}
+                haptic="selection"
+                className="rounded-[28px] border bg-surface"
+                style={{
+                  width: w as any,
+                  borderColor: active ? tokens.colors.accent : tokens.colors.stroke,
+                  padding: 18,
+                  minHeight: it.wide ? 88 : 168,
+                }}
+                android_ripple={{ color: "#FFFFFF10" }}
+              >
+                <View className="flex-row items-center justify-between">
+                  <Text
+                    style={{
+                      color: active ? tokens.colors.accent : tokens.colors.muted,
+                      fontSize: it.wide ? 26 : 42,
+                      fontWeight: "900",
+                    }}
+                  >
+                    {it.symbol}
+                  </Text>
+
+                  {active ? (
+                    <View
+                      style={{
+                        height: 22,
+                        width: 22,
+                        borderRadius: 11,
+                        backgroundColor: tokens.colors.accent,
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Text style={{ color: "#061007", fontWeight: "900" }}>✓</Text>
+                    </View>
+                  ) : null}
+                </View>
+
+                <View style={{ marginTop: it.wide ? 0 : 22 }}>
+                  <Text className="text-text font-semibold">{it.name}</Text>
+                  <Text className="text-muted text-xs mt-2 tracking-widest">{it.sub}</Text>
+                </View>
+              </HapticPressable>
+            );
+          })}
         </View>
       </View>
 
-      <View className="mt-8 gap-3">
-        {CURRENCIES.map((c) => {
-          const active = c.code === currency;
-          return (
-            <Pressable
-              key={c.code}
-              onPress={() => {
-                Haptics.selectionAsync().catch(() => {});
-                setCurrency(c.code);
-                router.push("/(onboarding)/start-tracking");
-              }}
-              className={[
-                "rounded-2xl border bg-surface px-4 py-4",
-                active ? "border-accent" : "border-stroke",
-              ].join(" ")}
-              android_ripple={{ color: "#FFFFFF10" }}
-            >
-              <View className="flex-row items-center justify-between">
-                <View className="flex-row items-center">
-                  <Text className="text-text text-lg font-semibold">{c.symbol}</Text>
-                  <View className="ml-3">
-                    <Text className="text-text font-semibold">{c.code}</Text>
-                    <Text className="text-muted">{c.name}</Text>
-                  </View>
-                </View>
-
-                <Ionicons
-                  name={active ? "checkmark-circle" : "chevron-forward"}
-                  size={18}
-                  color={active ? "#00C805" : "#93A4B7"}
-                />
-              </View>
-            </Pressable>
-          );
-        })}
-      </View>
-
-      <View className="mt-auto">
-        <Text className="text-muted text-xs text-center">
-          Next: confirmation screen.
-        </Text>
+      <View className="px-6 mt-auto">
+        <Button
+          label="Continue"
+          onPress={() => {
+            // route to next onboarding step or tabs
+            // keep safe: go to tabs by default
+            router.replace("/(tabs)/home");
+          }}
+        />
       </View>
     </View>
   );
