@@ -7,6 +7,7 @@ import ConfettiCannon from "react-native-confetti-cannon";
 
 import { Button } from "@/shared/ui/components/Button";
 import { useTransactionsStore, type TransactionKind } from "@/features/transactions/store";
+import { useAddTransactionDraftStore } from "@/features/transactions/addDraftStore";
 
 function parseAmountToCents(raw: string) {
   const cleaned = String(raw || "0").replace(/,/g, "").replace(/[^\d.-]/g, "");
@@ -21,6 +22,7 @@ export default function AddTransactionSuccess() {
   const { width } = useWindowDimensions();
 
   const addTransaction = useTransactionsStore((s) => s.addTransaction);
+  const resetDraft = useAddTransactionDraftStore((s) => s.reset);
 
   const params = useLocalSearchParams<{
     amount?: string;
@@ -44,7 +46,6 @@ export default function AddTransactionSuccess() {
   const bookId = params.bookId ?? "personal";
   const occurredAt = params.occurredAt ?? new Date().toISOString();
 
-  // ✅ crash fix: always include currency
   const currency = params.currency ?? "USD";
   const paymentMethod = (params.paymentMethod as any) ?? "cash";
 
@@ -58,7 +59,6 @@ export default function AddTransactionSuccess() {
     if (didAddRef.current) return;
     didAddRef.current = true;
 
-    // Add transaction
     addTransaction({
       bookId,
       kind,
@@ -71,10 +71,12 @@ export default function AddTransactionSuccess() {
       occurredAt,
     } as any);
 
+    // ✅ reset draft immediately after success write
+    resetDraft();
+
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     setFire(true);
 
-    // ✅ auto finish (premium)
     timeoutRef.current = setTimeout(() => {
       router.replace("/(tabs)/home");
     }, 850);
@@ -82,7 +84,7 @@ export default function AddTransactionSuccess() {
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
-  }, [addTransaction, bookId, cents, category, currency, kind, note, occurredAt, paymentMethod, router, title]);
+  }, [addTransaction, bookId, cents, category, currency, kind, note, occurredAt, paymentMethod, router, title, resetDraft]);
 
   return (
     <View className="flex-1 bg-ink px-6" style={{ paddingTop: insets.top + 24, paddingBottom: insets.bottom + 20 }}>
@@ -94,7 +96,7 @@ export default function AddTransactionSuccess() {
           {title ? title : category}
         </Text>
         <Text className="text-muted mt-1 text-sm">
-          {kind === "income" ? "Income" : "Expense"} • {currency}
+          {currency} • {occurredAt ? "Saved" : ""}
         </Text>
       </View>
 

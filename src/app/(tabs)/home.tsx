@@ -85,13 +85,108 @@ function BudgetCard({
         </View>
       </View>
 
-      <View style={{ marginTop: 16 }}>
+      <View style={{ marginTop: 16, alignItems: "center" }}>
         <Text className="text-text text-base font-semibold" numberOfLines={1}>
           {category}
         </Text>
         <Text className="text-muted text-xs mt-1">
           {formatMoney0(spentCents)} / {formatMoney0(budgetCents)}
         </Text>
+      </View>
+    </View>
+  );
+}
+
+function TotalBalanceCard({
+  netCents,
+  incomeCents,
+  expenseCents,
+}: {
+  netCents: number;
+  incomeCents: number;
+  expenseCents: number;
+}) {
+  const isNegative = netCents < 0;
+
+  return (
+    <View
+      className="rounded-[28px] border border-stroke overflow-hidden"
+      style={{
+        backgroundColor: tokens.colors.surface,
+      }}
+    >
+      {/* subtle green wash like Robinhood premium */}
+      <View
+        style={{
+          position: "absolute",
+          left: -40,
+          top: -60,
+          right: -40,
+          height: 220,
+          backgroundColor: "rgba(0,200,5,0.14)",
+          transform: [{ rotate: "-6deg" }],
+        }}
+      />
+      <View
+        style={{
+          position: "absolute",
+          left: -60,
+          top: -20,
+          width: 220,
+          height: 220,
+          borderRadius: 999,
+          backgroundColor: "rgba(0,200,5,0.10)",
+        }}
+      />
+      <View style={{ padding: 18 }}>
+        <Text className="text-muted text-xs tracking-widest">TOTAL BALANCE</Text>
+
+        <Text className="text-text mt-2" style={{ fontSize: 40, fontWeight: "800" }}>
+          {formatMoney2(netCents)}
+        </Text>
+
+        <View className="flex-row mt-4" style={{ gap: 10 }}>
+          <View
+            className="rounded-full border border-stroke px-4 py-2"
+            style={{ backgroundColor: "rgba(0,0,0,0.16)" }}
+          >
+            <Text className="text-muted text-xs">Income</Text>
+            <Text style={{ color: tokens.colors.accent, fontWeight: "800", marginTop: 2 }}>
+              {formatMoney0(incomeCents)}
+            </Text>
+          </View>
+
+          <View
+            className="rounded-full border border-stroke px-4 py-2"
+            style={{ backgroundColor: "rgba(0,0,0,0.16)" }}
+          >
+            <Text className="text-muted text-xs">Expense</Text>
+            <Text style={{ color: isNegative ? tokens.colors.danger : tokens.colors.text, fontWeight: "800", marginTop: 2 }}>
+              {formatMoney0(expenseCents)}
+            </Text>
+          </View>
+        </View>
+
+        {/* a minimal "graph strip" placeholder to feel premium without clutter */}
+        <View
+          style={{
+            marginTop: 14,
+            height: 10,
+            borderRadius: 999,
+            backgroundColor: "rgba(255,255,255,0.06)",
+            borderWidth: 1,
+            borderColor: tokens.colors.stroke,
+            overflow: "hidden",
+          }}
+        >
+          <View
+            style={{
+              width: "62%",
+              height: "100%",
+              backgroundColor: "rgba(0,200,5,0.35)",
+            }}
+          />
+        </View>
       </View>
     </View>
   );
@@ -110,7 +205,6 @@ export default function Home() {
   const [crunching, setCrunching] = useState(true);
 
   useEffect(() => {
-    // small premium "processing" moment, then settle (no spinner)
     setCrunching(true);
     const t = setTimeout(() => setCrunching(false), 520);
     return () => clearTimeout(t);
@@ -121,7 +215,25 @@ export default function Home() {
     [books, selectedBookId]
   );
 
-  const bookTxs = useMemo(() => txs.filter((t) => t.bookId === selectedBookId), [txs, selectedBookId]);
+  const bookTxs = useMemo(
+    () => txs.filter((t) => t.bookId === selectedBookId),
+    [txs, selectedBookId]
+  );
+
+  const balance = useMemo(() => {
+    let income = 0;
+    let expense = 0;
+
+    for (const t of bookTxs) {
+      if (t.kind === "income") income += t.amountCents;
+      else expense += t.amountCents;
+    }
+
+    // expense is stored as positive cents in your app flow; net is income - expense
+    const net = income - expense;
+
+    return { incomeCents: income, expenseCents: expense, netCents: net };
+  }, [bookTxs]);
 
   const summary = useMemo(() => {
     const bookBudgets = budgets.filter((b) => b.bookId === selectedBookId);
@@ -161,7 +273,6 @@ export default function Home() {
   }, [budgets, bookTxs, selectedBookId]);
 
   const assistantState: CharacterState = crunching ? "thinking" : summary.items.length ? "happy" : "waiting";
-
   const showSkeleton = crunching && summary.items.length === 0 && summary.recent.length === 0;
 
   return (
@@ -204,6 +315,19 @@ export default function Home() {
 
             <Ionicons name="sparkles-outline" size={18} color={tokens.colors.muted} />
           </View>
+        </View>
+
+        {/* ✅ Total Balance (restored) */}
+        <View className="px-6 mt-6">
+          {showSkeleton ? (
+            <Skeleton height={176} borderRadius={28} />
+          ) : (
+            <TotalBalanceCard
+              netCents={balance.netCents}
+              incomeCents={balance.incomeCents}
+              expenseCents={balance.expenseCents}
+            />
+          )}
         </View>
 
         {/* Budget summary */}
@@ -289,7 +413,7 @@ export default function Home() {
               summary.recent.map((t, idx) => {
                 const label = (t.title || "").trim().length ? t.title : t.category || "Uncategorized";
                 const sub = (t.category || "Uncategorized").trim() || "Uncategorized";
-                const amount = (t.kind === "expense" ? -t.amountCents : t.amountCents);
+                const amount = t.kind === "expense" ? -t.amountCents : t.amountCents;
                 const amtColor = amount < 0 ? tokens.colors.text : tokens.colors.accent;
 
                 return (

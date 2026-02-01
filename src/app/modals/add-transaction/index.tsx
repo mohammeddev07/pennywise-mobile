@@ -1,8 +1,9 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { ScrollView, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { parseISO, format } from "date-fns";
 
 import { NumericKeypad, type Key } from "@/shared/ui/NumericKeypad";
 import { tokens } from "@/shared/ui/theme/tokens";
@@ -24,7 +25,16 @@ function formatParts(raw: string) {
   return { intWithSep, dec: d };
 }
 
-function Row({
+function safeWhenLabel(iso: string) {
+  try {
+    const d = parseISO(iso);
+    return format(d, "MMM d, yyyy · h:mm a");
+  } catch {
+    return "Now";
+  }
+}
+
+function FieldRow({
   label,
   value,
   placeholder,
@@ -38,10 +48,9 @@ function Row({
   return (
     <HapticPressable
       onPress={onPress}
-      pressScale={0.995}
-      haptic="selection"
+      pressScale={0.99}
+      className="rounded-3xl border border-stroke bg-ink px-5 py-4"
       android_ripple={{ color: "#FFFFFF10" }}
-      className="px-5 py-4"
     >
       <View className="flex-row items-center justify-between">
         <View style={{ flex: 1, paddingRight: 16 }}>
@@ -63,12 +72,11 @@ export default function AddTransactionEntry() {
   const books = useBooksStore((s) => s.books);
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
 
-  const selectedBook = useMemo(() => {
-    return books.find((b) => b.id === selectedBookId) ?? books[0] ?? { id: "personal", name: "Personal" };
-  }, [books, selectedBookId]);
+  const resetDraft = useAddTransactionDraftStore((s) => s.reset);
 
   const amount = useAddTransactionDraftStore((s) => s.amount);
   const kind = useAddTransactionDraftStore((s) => s.kind);
+  const occurredAt = useAddTransactionDraftStore((s) => s.occurredAt);
 
   const title = useAddTransactionDraftStore((s) => s.title);
   const category = useAddTransactionDraftStore((s) => s.category);
@@ -77,8 +85,21 @@ export default function AddTransactionEntry() {
   const setAmount = useAddTransactionDraftStore((s) => s.setAmount);
   const setKind = useAddTransactionDraftStore((s) => s.setKind);
   const setBookId = useAddTransactionDraftStore((s) => s.setBookId);
-  const reset = useAddTransactionDraftStore((s) => s.reset);
 
+  const didInitRef = useRef(false);
+
+  // ✅ Reset ONLY when we open this screen fresh (pressing +)
+  useFocusEffect(() => {
+    if (didInitRef.current) return;
+    didInitRef.current = true;
+    resetDraft();
+  });
+
+  const selectedBook = useMemo(() => {
+    return books.find((b) => b.id === selectedBookId) ?? books[0] ?? { id: "personal", name: "Personal" };
+  }, [books, selectedBookId]);
+
+  // keep draft bookId aligned
   useEffect(() => {
     setBookId(selectedBook.id);
   }, [selectedBook.id, setBookId]);
@@ -88,7 +109,7 @@ export default function AddTransactionEntry() {
   const { intWithSep, dec } = useMemo(() => formatParts(amount), [amount]);
 
   const close = () => {
-    reset();
+    resetDraft();
     const canGoBack = typeof (router as any).canGoBack === "function" ? (router as any).canGoBack() : false;
     if (canGoBack) router.back();
     else router.replace("/(tabs)/home");
@@ -127,6 +148,7 @@ export default function AddTransactionEntry() {
         category,
         note,
         bookId: selectedBook.id,
+        occurredAt,
       },
     });
   };
@@ -196,42 +218,37 @@ export default function AddTransactionEntry() {
         </View>
       </View>
 
-      {/* Details (grouped, minimal) */}
+      {/* Minimal fields */}
       <ScrollView className="flex-1 px-6" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 14 }}>
-        <View
-          style={{
-            borderRadius: 24,
-            borderWidth: 1,
-            borderColor: tokens.colors.stroke,
-            backgroundColor: "#000000",
-            overflow: "hidden",
-          }}
-        >
-          <Row
+        <View style={{ gap: 14 }}>
+          <FieldRow
+            label="When"
+            value={safeWhenLabel(occurredAt)}
+            placeholder="Now"
+            onPress={() => router.push("/modals/add-transaction/datetime")}
+          />
+
+          <FieldRow
             label="Title"
             value={title}
-            placeholder="Coffee, Uber, Rent…"
+            placeholder="e.g. Coffee, Uber, Rent…"
             onPress={() => router.push("/modals/add-transaction/title")}
           />
-          <View className="h-px bg-stroke" />
 
-          <Row
+          <FieldRow
             label="Category"
             value={category}
             placeholder="Uncategorized"
             onPress={() => router.push("/modals/add-transaction/category")}
           />
-          <View className="h-px bg-stroke" />
 
-          <Row
+          <FieldRow
             label="Note (optional)"
             value={note}
             placeholder="Add details"
             onPress={() => router.push("/modals/add-transaction/note")}
           />
         </View>
-
-        <View style={{ height: 18 }} />
       </ScrollView>
 
       {/* Review + keypad */}
@@ -244,7 +261,7 @@ export default function AddTransactionEntry() {
           className={`h-12 items-center justify-center rounded-full ${
             canReview ? "bg-accent" : "bg-surface border border-stroke"
           }`}
-          android_ripple={{ color: "#00000022", borderless: false }}
+          android_ripple={{ color: "#00000022" }}
           style={{ opacity: canReview ? 1 : 0.65 }}
         >
           <Text className={`${canReview ? "text-black" : "text-muted"} font-semibold`}>Review</Text>

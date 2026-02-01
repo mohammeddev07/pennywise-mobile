@@ -19,7 +19,8 @@
           "origin": false,
           "root": "./src/app"
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ]
   }
 }

@@ -3,6 +3,7 @@ import { Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { parseISO, format } from "date-fns";
 
 import { tokens } from "@/shared/ui/theme/tokens";
 import { SwipeUpToSubmit } from "@/shared/ui/components/SwipeUpToSubmit";
@@ -26,6 +27,15 @@ function formatMoney2(cents: number) {
   return `${sign}$${intWithSep}.${d}`;
 }
 
+function safeWhen(iso: string) {
+  try {
+    const d = parseISO(iso);
+    return format(d, "MMM d, yyyy · h:mm a");
+  } catch {
+    return "Now";
+  }
+}
+
 export default function AddTransactionReview() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -36,6 +46,7 @@ export default function AddTransactionReview() {
   const draftTitle = useAddTransactionDraftStore((s) => s.title);
   const draftCategory = useAddTransactionDraftStore((s) => s.category);
   const draftNote = useAddTransactionDraftStore((s) => s.note);
+  const draftOccurredAt = useAddTransactionDraftStore((s) => s.occurredAt);
 
   const params = useLocalSearchParams<{
     amount?: string;
@@ -44,6 +55,7 @@ export default function AddTransactionReview() {
     category?: string;
     note?: string;
     bookId?: string;
+    occurredAt?: string;
   }>();
 
   const amount = params.amount ?? "0";
@@ -52,6 +64,8 @@ export default function AddTransactionReview() {
   const title = (draftTitle || params.title || "").trim();
   const category = (draftCategory || params.category || "Uncategorized").trim() || "Uncategorized";
   const note = (draftNote ?? params.note ?? "").trim();
+
+  const occurredAt = draftOccurredAt || params.occurredAt || new Date().toISOString();
 
   const bookId = selectedBookId ?? params.bookId ?? "personal";
   const bookName = books.find((b) => b.id === bookId)?.name ?? "Personal";
@@ -116,6 +130,9 @@ export default function AddTransactionReview() {
           />
           <Divider />
 
+          <RowPress left="When" right={safeWhen(occurredAt)} onPress={() => router.push("/modals/add-transaction/datetime")} />
+          <Divider />
+
           <RowPress left="Title" right={title ? title : "—"} muted={!title} onPress={() => router.push("/modals/add-transaction/title")} />
           <Divider />
 
@@ -143,7 +160,7 @@ export default function AddTransactionReview() {
 
       {/* Swipe */}
       <SwipeUpToSubmit
-        label="Swipe up to confirm"
+        label="SWIPE UP TO CONFIRM"
         onSubmit={() =>
           router.replace({
             pathname: "/modals/add-transaction/success",
@@ -154,8 +171,7 @@ export default function AddTransactionReview() {
               category,
               note,
               bookId,
-              // important: make it deterministic for storage + analytics
-              occurredAt: new Date().toISOString(),
+              occurredAt,
               currency: "USD",
               paymentMethod: "cash",
             },
@@ -196,7 +212,11 @@ function RowPress({
           >
             {right}
           </Text>
-          {rightIcon ? <View style={{ marginLeft: 10 }}>{rightIcon}</View> : <Ionicons name="chevron-forward" size={18} color={tokens.colors.muted} style={{ marginLeft: 8 }} />}
+          {rightIcon ? (
+            <View style={{ marginLeft: 10 }}>{rightIcon}</View>
+          ) : (
+            <Ionicons name="chevron-forward" size={18} color={tokens.colors.muted} style={{ marginLeft: 8 }} />
+          )}
         </View>
       </View>
     </Pressable>
