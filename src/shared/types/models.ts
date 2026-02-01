@@ -6,17 +6,39 @@ export type Book = {
   subtitle?: string;
 };
 
-export type CurrencyCode = "USD" | "EUR" | "GBP" | "SAR" | "AED";
+/**
+ * Canonical currency codes used across the app.
+ * Keep this aligned with onboarding currency selection + settings.
+ */
+export type CurrencyCode = "USD" | "EUR" | "GBP" | "JPY" | "INR";
 
-export type TransactionType = "income" | "expense";
-export type PaymentMethod = "Cash" | "Card" | "Bank Transfer" | "Wallet" | "Other";
+export type TransactionKind = "income" | "expense";
+
+/**
+ * Canonical payment methods used for persistence + UI labels.
+ * Stored in lowercase for compactness and easy mapping to UI.
+ */
+export type PaymentMethod = "cash" | "card" | "bank_transfer" | "wallet" | "other";
 
 export type Transaction = {
   id: string;
-  type: TransactionType;
+
+  bookId: BookId;
+
+  kind: TransactionKind;
   amountCents: number;
+  currency: CurrencyCode;
+
+  /** Primary label shown in lists (what the user remembers). */
+  title: string;
   category: string;
-  paymentMethod: PaymentMethod;
-  transactionDateISO: string; // ISO string
   note?: string;
+
+  paymentMethod: PaymentMethod;
+
+  /** User-selected time of transaction (ISO). */
+  occurredAt: string;
+
+  /** System write time (ISO). */
+  createdAt: string;
 };

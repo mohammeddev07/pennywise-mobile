@@ -1,16 +1,19 @@
 import { useMemo, useState } from "react";
-import { Pressable, Text, TextInput, View } from "react-native";
+import { Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { FlashList } from "@shopify/flash-list";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { format, isSameDay, parseISO, startOfDay, subDays } from "date-fns";
+import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
 
 import { tokens } from "@/shared/ui/theme/tokens";
 import { BookPill } from "@/shared/ui/components/BookPill";
 import { useTransactionsStore, type Transaction } from "@/features/transactions/store";
 import { TransactionRow } from "@/shared/ui/components/TransactionRow";
 import { useBooksStore } from "@/features/books/store";
+import { HapticPressable } from "@/shared/ui/components/HapticPressable";
+import { TipCard } from "@/shared/ui/components/TipCard";
 
 type RangeKey = "today" | "week" | "month" | "all";
 
@@ -136,13 +139,14 @@ export default function TransactionsScreen() {
             </View>
           </View>
 
-          <Pressable
+          <HapticPressable
             onPress={() => router.push("/modals/add-transaction")}
+            haptic="impactLight"
             className="h-11 w-11 items-center justify-center rounded-full border border-stroke bg-surface"
             android_ripple={{ color: "#FFFFFF12", borderless: true }}
           >
             <Ionicons name="add" size={22} color={tokens.colors.accent} />
-          </Pressable>
+          </HapticPressable>
         </View>
 
         <View className="mt-5 flex-row items-center rounded-2xl border border-stroke bg-surface px-4 py-3">
@@ -157,13 +161,14 @@ export default function TransactionsScreen() {
             autoCapitalize="none"
           />
           {query.length > 0 ? (
-            <Pressable
+            <HapticPressable
               onPress={() => setQuery("")}
+              haptic="selection"
               className="h-9 w-9 items-center justify-center rounded-full"
               android_ripple={{ color: "#FFFFFF10", borderless: true }}
             >
               <Ionicons name="close" size={18} color={tokens.colors.muted} />
-            </Pressable>
+            </HapticPressable>
           ) : null}
         </View>
 
@@ -178,17 +183,38 @@ export default function TransactionsScreen() {
       </View>
 
       <View className="flex-1 px-6">
-        <FlashList
-          data={rows}
-          keyExtractor={(r) => r.id}
-          renderItem={({ item }) => {
-            if (item.type === "header") return <SectionHeader title={item.title} />;
-            return <TransactionRow item={item.tx} />;
-          }}
-          ItemSeparatorComponent={() => <View className="h-px bg-stroke" />}
-          contentContainerStyle={{ paddingBottom: (insets.bottom || 0) + 22, paddingTop: 14 }}
-          showsVerticalScrollIndicator={false}
-        />
+        {rows.length === 0 ? (
+          <Animated.View entering={FadeInUp.duration(260)} className="flex-1 justify-center">
+            <TipCard
+              title={query.trim() ? "No matches" : "No transactions yet"}
+              body={
+                query.trim()
+                  ? "Try a different search or widen the date range."
+                  : "Log your first expense or income — it’ll show up here instantly."
+              }
+              icon="receipt-long"
+              actionLabel="Add transaction"
+              onAction={() => router.push("/modals/add-transaction")}
+            />
+          </Animated.View>
+        ) : (
+          <FlashList
+            data={rows}
+            keyExtractor={(r) => r.id}
+            renderItem={({ item, index }) => {
+              if (item.type === "header") return <SectionHeader title={item.title} />;
+
+              return (
+                <Animated.View entering={FadeInDown.delay(Math.min(index * 18, 180)).duration(220)}>
+                  <TransactionRow item={item.tx} />
+                </Animated.View>
+              );
+            }}
+            ItemSeparatorComponent={() => <View className="h-px bg-stroke" />}
+            contentContainerStyle={{ paddingBottom: (insets.bottom || 0) + 22, paddingTop: 14 }}
+            showsVerticalScrollIndicator={false}
+          />
+        )}
       </View>
     </View>
   );
@@ -204,8 +230,10 @@ function SectionHeader({ title }: { title: string }) {
 
 function Chip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
   return (
-    <Pressable
+    <HapticPressable
       onPress={onPress}
+      haptic="selection"
+      pressScale={0.985}
       className="rounded-full border px-4 py-2"
       android_ripple={{ color: "#FFFFFF10" }}
       style={{
@@ -216,6 +244,6 @@ function Chip({ label, active, onPress }: { label: string; active: boolean; onPr
       <Text className="text-sm font-semibold" style={{ color: active ? tokens.colors.accent : tokens.colors.text }}>
         {label}
       </Text>
-    </Pressable>
+    </HapticPressable>
   );
 }

@@ -10,19 +10,12 @@ import { tokens } from "@/shared/ui/theme/tokens";
 import { useBooksStore } from "@/features/books/store";
 import { useAddTransactionDraftStore } from "@/features/transactions/addDraftStore";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
+import { OdometerAmount } from "@/shared/ui/components/OdometerAmount";
 
 function clampAmount(next: string) {
   if (!next.includes(".")) return next;
   const [a, b = ""] = next.split(".");
   return `${a}.${b.slice(0, 2)}`;
-}
-
-function formatParts(raw: string) {
-  const n = Number(raw || "0");
-  const fixed = Number.isFinite(n) ? n.toFixed(2) : "0.00";
-  const [i, d] = fixed.split(".");
-  const intWithSep = i.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  return { intWithSep, dec: d };
 }
 
 function safeWhenLabel(iso: string) {
@@ -34,7 +27,26 @@ function safeWhenLabel(iso: string) {
   }
 }
 
-function FieldRow({
+/**
+ * ✅ IMPORTANT: no commas while typing.
+ * This keeps column positions stable so only the newly added digit animates.
+ */
+function formatForTicker(raw: string) {
+  const s = String(raw || "0");
+
+  const hasDot = s.includes(".");
+  const [intRaw, decRaw = ""] = s.split(".");
+
+  // Keep the int as a plain digit string (no separators)
+  const safeInt = (intRaw || "0").replace(/[^\d]/g, "") || "0";
+
+  if (!hasDot) return `$${safeInt}`;
+
+  const d = (decRaw + "00").slice(0, 2);
+  return `$${safeInt}.${d}`;
+}
+
+function FieldRowTight({
   label,
   value,
   placeholder,
@@ -45,18 +57,30 @@ function FieldRow({
   placeholder: string;
   onPress: () => void;
 }) {
+  const hasValue = Boolean(value && value.trim().length);
+
   return (
     <HapticPressable
       onPress={onPress}
-      pressScale={0.99}
-      className="rounded-3xl border border-stroke bg-ink px-5 py-4"
+      pressScale={0.992}
+      className="rounded-3xl border border-stroke bg-ink px-4 py-2"
       android_ripple={{ color: "#FFFFFF10" }}
     >
       <View className="flex-row items-center justify-between">
-        <View style={{ flex: 1, paddingRight: 16 }}>
-          <Text className="text-muted text-xs">{label}</Text>
-          <Text className="text-text text-lg mt-1" numberOfLines={1}>
-            {value && value.trim().length ? value : placeholder}
+        <View style={{ flex: 1, paddingRight: 14 }}>
+          <Text className="text-muted text-[10px]" style={{ letterSpacing: 0.4 }}>
+            {label}
+          </Text>
+          <Text
+            className="mt-[2px]"
+            style={{
+              color: hasValue ? tokens.colors.text : tokens.colors.muted,
+              fontSize: 15,
+              fontWeight: "600",
+            }}
+            numberOfLines={1}
+          >
+            {hasValue ? value : placeholder}
           </Text>
         </View>
         <Ionicons name="chevron-forward" size={18} color={tokens.colors.muted} />
@@ -88,7 +112,6 @@ export default function AddTransactionEntry() {
 
   const didInitRef = useRef(false);
 
-  // ✅ Reset ONLY when we open this screen fresh (pressing +)
   useFocusEffect(() => {
     if (didInitRef.current) return;
     didInitRef.current = true;
@@ -99,14 +122,14 @@ export default function AddTransactionEntry() {
     return books.find((b) => b.id === selectedBookId) ?? books[0] ?? { id: "personal", name: "Personal" };
   }, [books, selectedBookId]);
 
-  // keep draft bookId aligned
   useEffect(() => {
     setBookId(selectedBook.id);
   }, [selectedBook.id, setBookId]);
 
   const valueNum = useMemo(() => Number(amount || "0") || 0, [amount]);
   const canReview = valueNum > 0;
-  const { intWithSep, dec } = useMemo(() => formatParts(amount), [amount]);
+
+  const ticker = useMemo(() => formatForTicker(amount), [amount]);
 
   const close = () => {
     resetDraft();
@@ -120,7 +143,11 @@ export default function AddTransactionEntry() {
     let next = prev;
 
     if (k === "back") {
-      next = prev.length <= 1 ? "0" : prev.slice(0, -1);
+      if (prev.length <= 1) {
+        setAmount("0");
+        return;
+      }
+      next = prev.slice(0, -1);
       if (next === "-" || next === "" || next === "0.") next = "0";
       setAmount(next);
       return;
@@ -154,8 +181,7 @@ export default function AddTransactionEntry() {
   };
 
   return (
-    <View className="flex-1 bg-ink" style={{ paddingTop: insets.top + 10, paddingBottom: insets.bottom + 14 }}>
-      {/* Top */}
+    <View className="flex-1 bg-ink" style={{ paddingTop: insets.top + 10, paddingBottom: insets.bottom + 12 }}>
       <View className="px-6">
         <View className="relative flex-row items-center justify-center">
           <HapticPressable
@@ -169,29 +195,31 @@ export default function AddTransactionEntry() {
           <Text className="text-muted text-sm">New transaction</Text>
         </View>
 
-        {/* Book */}
         <HapticPressable
           onPress={() => router.push("/modals/book-switcher")}
-          className="mt-5 rounded-3xl border border-stroke bg-ink px-5 py-4"
+          className="mt-4 rounded-3xl border border-stroke bg-ink px-4 py-2"
           android_ripple={{ color: "#FFFFFF10" }}
         >
           <View className="flex-row items-center justify-between">
             <View>
-              <Text className="text-muted text-xs">Book</Text>
-              <Text className="text-text text-lg mt-1">{selectedBook.name}</Text>
+              <Text className="text-muted text-[10px]" style={{ letterSpacing: 0.4 }}>
+                Book
+              </Text>
+              <Text className="text-text mt-[2px]" style={{ fontSize: 15, fontWeight: "700" }}>
+                {selectedBook.name}
+              </Text>
             </View>
             <Ionicons name="swap-horizontal" size={18} color={tokens.colors.accent} />
           </View>
         </HapticPressable>
 
-        {/* Expense/Income */}
-        <View className="mt-6 items-center">
+        <View className="mt-4 items-center">
           <View className="flex-row rounded-full border border-stroke bg-surface overflow-hidden">
             <HapticPressable
               onPress={() => setKind("expense")}
               haptic="selection"
               pressScale={0.99}
-              className={`px-6 py-3 ${kind === "expense" ? "bg-card" : ""}`}
+              className={`px-6 py-[10px] ${kind === "expense" ? "bg-card" : ""}`}
             >
               <Text className={`${kind === "expense" ? "text-text" : "text-muted"} font-semibold`}>Expense</Text>
             </HapticPressable>
@@ -200,50 +228,41 @@ export default function AddTransactionEntry() {
               onPress={() => setKind("income")}
               haptic="selection"
               pressScale={0.99}
-              className={`px-6 py-3 ${kind === "income" ? "bg-card" : ""}`}
+              className={`px-6 py-[10px] ${kind === "income" ? "bg-card" : ""}`}
             >
               <Text className={`${kind === "income" ? "text-text" : "text-muted"} font-semibold`}>Income</Text>
             </HapticPressable>
           </View>
         </View>
 
-        {/* Amount */}
-        <View className="items-center mt-8 mb-2">
-          <View className="flex-row items-end">
-            <Text className="text-text text-3xl font-semibold mr-2 mb-2">$</Text>
-            <Text className="text-text text-6xl font-semibold tracking-tight">{intWithSep}</Text>
-            <Text className="text-text text-3xl font-semibold ml-2 mb-2">.{dec}</Text>
-          </View>
+        <View className="items-center mt-6 mb-1">
+          <OdometerAmount value={ticker} majorFontSize={92} minorFontSize={52} color={tokens.colors.text} />
           <Text className="text-muted mt-2">{kind === "expense" ? "Money out" : "Money in"}</Text>
         </View>
       </View>
 
-      {/* Minimal fields */}
-      <ScrollView className="flex-1 px-6" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 14 }}>
-        <View style={{ gap: 14 }}>
-          <FieldRow
+      <ScrollView className="flex-1 px-6" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 10 }}>
+        <View style={{ gap: 8 }}>
+          <FieldRowTight
             label="When"
             value={safeWhenLabel(occurredAt)}
             placeholder="Now"
             onPress={() => router.push("/modals/add-transaction/datetime")}
           />
-
-          <FieldRow
+          <FieldRowTight
             label="Title"
             value={title}
             placeholder="e.g. Coffee, Uber, Rent…"
             onPress={() => router.push("/modals/add-transaction/title")}
           />
-
-          <FieldRow
+          <FieldRowTight
             label="Category"
             value={category}
             placeholder="Uncategorized"
             onPress={() => router.push("/modals/add-transaction/category")}
           />
-
-          <FieldRow
-            label="Note (optional)"
+          <FieldRowTight
+            label="Note"
             value={note}
             placeholder="Add details"
             onPress={() => router.push("/modals/add-transaction/note")}
@@ -251,7 +270,6 @@ export default function AddTransactionEntry() {
         </View>
       </ScrollView>
 
-      {/* Review + keypad */}
       <View className="px-6">
         <HapticPressable
           onPress={goReview}
@@ -267,7 +285,7 @@ export default function AddTransactionEntry() {
           <Text className={`${canReview ? "text-black" : "text-muted"} font-semibold`}>Review</Text>
         </HapticPressable>
 
-        <View className="mt-4">
+        <View className="mt-3">
           <NumericKeypad onKey={onKey} keyHeight={62} containerClassName="px-2" />
         </View>
       </View>

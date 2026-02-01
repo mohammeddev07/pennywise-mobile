@@ -33,7 +33,125 @@ function formatMoney0(cents: number) {
   return `${sign}$${intWithSep}`;
 }
 
-function BudgetCard({
+function TotalBalanceCard({
+  netCents,
+  incomeCents,
+  expenseCents,
+}: {
+  netCents: number;
+  incomeCents: number;
+  expenseCents: number;
+}) {
+  const netColor = netCents < 0 ? tokens.colors.danger : tokens.colors.text;
+
+  return (
+    <View
+      className="rounded-[28px] border border-stroke overflow-hidden"
+      style={{ backgroundColor: tokens.colors.surface }}
+    >
+      <View
+        pointerEvents="none"
+        style={{
+          position: "absolute",
+          left: -120,
+          top: -140,
+          width: 320,
+          height: 320,
+          borderRadius: 999,
+          backgroundColor: "rgba(0,200,5,0.12)",
+        }}
+      />
+      <View
+        pointerEvents="none"
+        style={{
+          position: "absolute",
+          right: -160,
+          bottom: -160,
+          width: 360,
+          height: 360,
+          borderRadius: 999,
+          backgroundColor: "rgba(255,255,255,0.04)",
+        }}
+      />
+
+      <View style={{ padding: 18 }}>
+        <View className="flex-row items-center justify-between">
+          <Text className="text-muted text-xs tracking-widest">TOTAL BALANCE</Text>
+          <View className="flex-row items-center" style={{ gap: 8 }}>
+            <View style={{ width: 8, height: 8, borderRadius: 99, backgroundColor: "rgba(0,200,5,0.9)" }} />
+            <Text className="text-muted text-xs">Live</Text>
+          </View>
+        </View>
+
+        <Text
+          className="mt-2"
+          style={{
+            color: netColor,
+            fontSize: 44,
+            fontWeight: "900",
+            letterSpacing: -0.8,
+            fontVariant: ["tabular-nums"],
+          }}
+        >
+          {formatMoney2(netCents)}
+        </Text>
+
+        <View className="flex-row mt-4" style={{ gap: 10 }}>
+          <View
+            className="rounded-full border border-stroke px-4 py-2"
+            style={{ backgroundColor: "rgba(255,255,255,0.04)" }}
+          >
+            <Text className="text-muted text-[11px]">Income</Text>
+            <Text
+              style={{
+                color: tokens.colors.accent,
+                fontWeight: "900",
+                marginTop: 2,
+                fontVariant: ["tabular-nums"],
+              }}
+            >
+              {formatMoney0(incomeCents)}
+            </Text>
+          </View>
+
+          <View
+            className="rounded-full border border-stroke px-4 py-2"
+            style={{ backgroundColor: "rgba(255,255,255,0.04)" }}
+          >
+            <Text className="text-muted text-[11px]">Expense</Text>
+            <Text
+              style={{
+                color: tokens.colors.text,
+                fontWeight: "900",
+                marginTop: 2,
+                opacity: 0.9,
+                fontVariant: ["tabular-nums"],
+              }}
+            >
+              {formatMoney0(expenseCents)}
+            </Text>
+          </View>
+        </View>
+
+        <View
+          style={{
+            marginTop: 14,
+            height: 10,
+            borderRadius: 999,
+            backgroundColor: "rgba(255,255,255,0.05)",
+            borderWidth: 1,
+            borderColor: tokens.colors.stroke,
+            overflow: "hidden",
+          }}
+        >
+          <View style={{ width: "58%", height: "100%", backgroundColor: "rgba(0,200,5,0.20)" }} />
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function BudgetMiniCard({
   category,
   spentCents,
   budgetCents,
@@ -50,143 +168,42 @@ function BudgetCard({
 
   return (
     <View
-      className="rounded-[28px] border border-stroke bg-surface"
-      style={{ padding: 16, minHeight: 190 }}
+      className="rounded-[26px] border border-stroke bg-surface"
+      style={{
+        width: 168,
+        height: 160,
+        padding: 14,
+      }}
     >
       <View className="flex-row items-center justify-between">
         <View
-          className="h-10 w-10 items-center justify-center rounded-full border border-stroke"
+          className="h-9 w-9 items-center justify-center rounded-full border border-stroke"
           style={{ backgroundColor: over ? "rgba(255,68,68,0.10)" : "rgba(0,200,5,0.10)" }}
         >
-          <Ionicons name="pricetag-outline" size={18} color={ringColor} />
+          <Ionicons name="pricetag-outline" size={16} color={ringColor} />
         </View>
-        <Ionicons name="ellipsis-horizontal" size={18} color={tokens.colors.muted} />
+        <Ionicons name="ellipsis-horizontal" size={16} color={tokens.colors.muted} />
       </View>
 
-      <View style={{ marginTop: 14, alignItems: "center", justifyContent: "center" }}>
-        <View style={{ width: 106, height: 106, alignItems: "center", justifyContent: "center" }}>
-          <RingProgress size={106} stroke={10} progress={progress} color={ringColor} />
-          <View
-            style={{
-              position: "absolute",
-              left: 0,
-              right: 0,
-              top: 0,
-              bottom: 0,
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Text className="text-muted text-xs tracking-widest">{over ? "OVER" : "LEFT"}</Text>
-            <Text style={{ color: ringColor, fontWeight: "800", marginTop: 6 }}>
+      <View style={{ marginTop: 10, alignItems: "center", justifyContent: "center" }}>
+        <View style={{ width: 84, height: 84, alignItems: "center", justifyContent: "center" }}>
+          <RingProgress size={84} stroke={8} progress={progress} color={ringColor} />
+          <View style={{ position: "absolute", alignItems: "center", justifyContent: "center" }}>
+            <Text className="text-muted text-[10px] tracking-widest">{over ? "OVER" : "LEFT"}</Text>
+            <Text style={{ color: ringColor, fontWeight: "900", marginTop: 4, fontVariant: ["tabular-nums"] }}>
               {formatMoney0(Math.abs(remaining))}
             </Text>
           </View>
         </View>
       </View>
 
-      <View style={{ marginTop: 16, alignItems: "center" }}>
-        <Text className="text-text text-base font-semibold" numberOfLines={1}>
+      <View style={{ marginTop: 10 }}>
+        <Text className="text-text text-sm font-semibold" numberOfLines={1}>
           {category}
         </Text>
-        <Text className="text-muted text-xs mt-1">
+        <Text className="text-muted text-[11px] mt-1" numberOfLines={1}>
           {formatMoney0(spentCents)} / {formatMoney0(budgetCents)}
         </Text>
-      </View>
-    </View>
-  );
-}
-
-function TotalBalanceCard({
-  netCents,
-  incomeCents,
-  expenseCents,
-}: {
-  netCents: number;
-  incomeCents: number;
-  expenseCents: number;
-}) {
-  const isNegative = netCents < 0;
-
-  return (
-    <View
-      className="rounded-[28px] border border-stroke overflow-hidden"
-      style={{
-        backgroundColor: tokens.colors.surface,
-      }}
-    >
-      {/* subtle green wash like Robinhood premium */}
-      <View
-        style={{
-          position: "absolute",
-          left: -40,
-          top: -60,
-          right: -40,
-          height: 220,
-          backgroundColor: "rgba(0,200,5,0.14)",
-          transform: [{ rotate: "-6deg" }],
-        }}
-      />
-      <View
-        style={{
-          position: "absolute",
-          left: -60,
-          top: -20,
-          width: 220,
-          height: 220,
-          borderRadius: 999,
-          backgroundColor: "rgba(0,200,5,0.10)",
-        }}
-      />
-      <View style={{ padding: 18 }}>
-        <Text className="text-muted text-xs tracking-widest">TOTAL BALANCE</Text>
-
-        <Text className="text-text mt-2" style={{ fontSize: 40, fontWeight: "800" }}>
-          {formatMoney2(netCents)}
-        </Text>
-
-        <View className="flex-row mt-4" style={{ gap: 10 }}>
-          <View
-            className="rounded-full border border-stroke px-4 py-2"
-            style={{ backgroundColor: "rgba(0,0,0,0.16)" }}
-          >
-            <Text className="text-muted text-xs">Income</Text>
-            <Text style={{ color: tokens.colors.accent, fontWeight: "800", marginTop: 2 }}>
-              {formatMoney0(incomeCents)}
-            </Text>
-          </View>
-
-          <View
-            className="rounded-full border border-stroke px-4 py-2"
-            style={{ backgroundColor: "rgba(0,0,0,0.16)" }}
-          >
-            <Text className="text-muted text-xs">Expense</Text>
-            <Text style={{ color: isNegative ? tokens.colors.danger : tokens.colors.text, fontWeight: "800", marginTop: 2 }}>
-              {formatMoney0(expenseCents)}
-            </Text>
-          </View>
-        </View>
-
-        {/* a minimal "graph strip" placeholder to feel premium without clutter */}
-        <View
-          style={{
-            marginTop: 14,
-            height: 10,
-            borderRadius: 999,
-            backgroundColor: "rgba(255,255,255,0.06)",
-            borderWidth: 1,
-            borderColor: tokens.colors.stroke,
-            overflow: "hidden",
-          }}
-        >
-          <View
-            style={{
-              width: "62%",
-              height: "100%",
-              backgroundColor: "rgba(0,200,5,0.35)",
-            }}
-          />
-        </View>
       </View>
     </View>
   );
@@ -215,24 +232,16 @@ export default function Home() {
     [books, selectedBookId]
   );
 
-  const bookTxs = useMemo(
-    () => txs.filter((t) => t.bookId === selectedBookId),
-    [txs, selectedBookId]
-  );
+  const bookTxs = useMemo(() => txs.filter((t) => t.bookId === selectedBookId), [txs, selectedBookId]);
 
   const balance = useMemo(() => {
     let income = 0;
     let expense = 0;
-
     for (const t of bookTxs) {
       if (t.kind === "income") income += t.amountCents;
       else expense += t.amountCents;
     }
-
-    // expense is stored as positive cents in your app flow; net is income - expense
-    const net = income - expense;
-
-    return { incomeCents: income, expenseCents: expense, netCents: net };
+    return { incomeCents: income, expenseCents: expense, netCents: income - expense };
   }, [bookTxs]);
 
   const summary = useMemo(() => {
@@ -245,42 +254,39 @@ export default function Home() {
       spentByCat.set(c, (spentByCat.get(c) ?? 0) + t.amountCents);
     }
 
-    const items = bookBudgets
-      .map((b) => {
-        const spent = spentByCat.get(b.category) ?? 0;
-        return { category: b.category, spentCents: spent, budgetCents: b.budgetCents };
-      })
+    const budgetItems = bookBudgets
+      .map((b) => ({
+        category: b.category,
+        spentCents: spentByCat.get(b.category) ?? 0,
+        budgetCents: b.budgetCents,
+      }))
       .sort((a, b) => {
         const aRem = a.budgetCents - a.spentCents;
         const bRem = b.budgetCents - b.spentCents;
         const aOver = aRem < 0;
         const bOver = bRem < 0;
         if (aOver !== bOver) return aOver ? -1 : 1;
-        const aProg = a.spentCents / Math.max(1, a.budgetCents);
-        const bProg = b.spentCents / Math.max(1, b.budgetCents);
-        return bProg - aProg;
+        return (b.spentCents / Math.max(1, b.budgetCents)) - (a.spentCents / Math.max(1, a.budgetCents));
       });
-
-    const totalBudget = bookBudgets.reduce((s, b) => s + b.budgetCents, 0);
-    const totalSpent = items.reduce((s, i) => s + i.spentCents, 0);
-    const remaining = totalBudget - totalSpent;
 
     const recent = [...bookTxs]
       .sort((a, b) => (Date.parse(b.occurredAt) || 0) - (Date.parse(a.occurredAt) || 0))
       .slice(0, 4);
 
-    return { items, totalBudget, totalSpent, remaining, recent };
+    return { budgetItems, recent };
   }, [budgets, bookTxs, selectedBookId]);
 
-  const assistantState: CharacterState = crunching ? "thinking" : summary.items.length ? "happy" : "waiting";
-  const showSkeleton = crunching && summary.items.length === 0 && summary.recent.length === 0;
+  const assistantState: CharacterState =
+    crunching ? "thinking" : summary.budgetItems.length ? "happy" : "waiting";
+
+  const showSkeleton = crunching && summary.budgetItems.length === 0 && summary.recent.length === 0;
 
   return (
     <View className="flex-1 bg-app" style={{ paddingTop: insets.top + 10 }}>
       <ScrollView
         className="flex-1"
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: (insets.bottom || 0) + 140 }}
+        contentContainerStyle={{ paddingBottom: (insets.bottom || 0) + 120 }}
       >
         {/* Header */}
         <View className="px-6">
@@ -298,26 +304,23 @@ export default function Home() {
 
           <Text className="text-muted mt-2">Pro Budget Monitor</Text>
 
-          {/* Character slot */}
           <View className="mt-5 rounded-3xl border border-stroke bg-surface px-5 py-4 flex-row items-center">
             <CharacterWidget state={assistantState} size={44} />
-
             <View style={{ marginLeft: 12, flex: 1 }}>
               <Text className="text-text font-semibold">Assistant</Text>
               {crunching ? (
                 <StreamingText className="text-muted mt-1" text="Crunching…" speedMs={18} />
-              ) : summary.items.length ? (
+              ) : summary.budgetItems.length ? (
                 <Text className="text-muted mt-1">Budget status updated.</Text>
               ) : (
                 <Text className="text-muted mt-1">Add budgets to unlock insights.</Text>
               )}
             </View>
-
             <Ionicons name="sparkles-outline" size={18} color={tokens.colors.muted} />
           </View>
         </View>
 
-        {/* ✅ Total Balance (restored) */}
+        {/* Total Balance */}
         <View className="px-6 mt-6">
           {showSkeleton ? (
             <Skeleton height={176} borderRadius={28} />
@@ -330,65 +333,58 @@ export default function Home() {
           )}
         </View>
 
-        {/* Budget summary */}
+        {/* Budgets: single short row (2–3 visible) */}
         <View className="px-6 mt-7">
-          {showSkeleton ? (
-            <Skeleton height={74} borderRadius={24} />
-          ) : (
-            <View className="flex-row items-end justify-between">
-              <View>
-                <Text className="text-muted text-xs tracking-widest">TOTAL BUDGET</Text>
-                <Text className="text-text text-4xl font-semibold mt-2">
-                  {summary.totalBudget > 0 ? formatMoney2(summary.totalBudget) : "$0.00"}
-                </Text>
-              </View>
+          <View className="flex-row items-center justify-between">
+            <Text className="text-text text-xl font-semibold">Budgets</Text>
+            <HapticPressable
+              onPress={() => router.push("/(tabs)/categories")}
+              haptic="selection"
+              pressScale={0.98}
+              className="px-3 py-2 rounded-full"
+              android_ripple={{ color: "#FFFFFF10", borderless: true }}
+            >
+              <Text style={{ color: tokens.colors.accent }} className="font-semibold">
+                Manage
+              </Text>
+            </HapticPressable>
+          </View>
+        </View>
 
-              <View style={{ alignItems: "flex-end" }}>
-                <Text className="text-muted text-xs tracking-widest">REMAINING</Text>
-                <Text
-                  className="text-3xl font-semibold mt-2"
-                  style={{ color: summary.remaining < 0 ? tokens.colors.danger : tokens.colors.accent }}
-                >
-                  {summary.totalBudget > 0 ? formatMoney0(summary.remaining) : "$0"}
-                </Text>
+        <View className="mt-4">
+          {showSkeleton ? (
+            <View className="px-6 flex-row" style={{ gap: 12 }}>
+              <Skeleton height={160} borderRadius={26} width={168 as any} />
+              <Skeleton height={160} borderRadius={26} width={168 as any} />
+              <Skeleton height={160} borderRadius={26} width={168 as any} />
+            </View>
+          ) : summary.budgetItems.length === 0 ? (
+            <View className="px-6">
+              <View className="w-full rounded-3xl border border-stroke bg-surface p-5">
+                <Text className="text-text font-semibold">Add category budgets</Text>
+                <Text className="text-muted mt-2">Go to Categories → set budgets, then return here.</Text>
               </View>
             </View>
+          ) : (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: 24, gap: 12, paddingRight: 30 }}
+            >
+              {summary.budgetItems.slice(0, 8).map((b) => (
+                <BudgetMiniCard
+                  key={b.category}
+                  category={b.category}
+                  spentCents={b.spentCents}
+                  budgetCents={b.budgetCents}
+                />
+              ))}
+            </ScrollView>
           )}
         </View>
 
-        {/* Budget grid */}
-        <View className="px-6 mt-6" style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
-          {showSkeleton ? (
-            <>
-              <View style={{ width: "48%" }}>
-                <Skeleton height={190} borderRadius={28} />
-              </View>
-              <View style={{ width: "48%" }}>
-                <Skeleton height={190} borderRadius={28} />
-              </View>
-              <View style={{ width: "48%" }}>
-                <Skeleton height={190} borderRadius={28} />
-              </View>
-              <View style={{ width: "48%" }}>
-                <Skeleton height={190} borderRadius={28} />
-              </View>
-            </>
-          ) : summary.items.length === 0 ? (
-            <View className="w-full rounded-3xl border border-stroke bg-surface p-5">
-              <Text className="text-text font-semibold">Add category budgets</Text>
-              <Text className="text-muted mt-2">Go to Categories → set budgets, then return here.</Text>
-            </View>
-          ) : (
-            summary.items.slice(0, 6).map((b) => (
-              <View key={b.category} style={{ width: "48%" }}>
-                <BudgetCard category={b.category} spentCents={b.spentCents} budgetCents={b.budgetCents} />
-              </View>
-            ))
-          )}
-        </View>
-
-        {/* Recent transactions */}
-        <View className="px-6 mt-8">
+        {/* Recent transactions visible on same screen */}
+        <View className="px-6 mt-7">
           <View className="flex-row items-center justify-between">
             <Text className="text-text text-xl font-semibold">Recent Transactions</Text>
             <HapticPressable
@@ -427,7 +423,9 @@ export default function Home() {
                           {sub}
                         </Text>
                       </View>
-                      <Text style={{ color: amtColor, fontWeight: "700" }}>{formatMoney2(amount)}</Text>
+                      <Text style={{ color: amtColor, fontWeight: "800", fontVariant: ["tabular-nums"] }}>
+                        {formatMoney2(amount)}
+                      </Text>
                     </View>
                     {idx !== summary.recent.length - 1 ? <View className="h-px bg-stroke" /> : null}
                   </View>

@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -10,6 +10,8 @@ import { SwipeUpToSubmit } from "@/shared/ui/components/SwipeUpToSubmit";
 import { useBooksStore } from "@/features/books/store";
 import { useAddTransactionDraftStore } from "@/features/transactions/addDraftStore";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
+import { useSettingsStore } from "@/features/settings/store";
+import type { CurrencyCode } from "@/shared/types/models";
 
 function parseAmountToCents(raw: string) {
   const cleaned = String(raw || "0").replace(/,/g, "").replace(/[^\d.-]/g, "");
@@ -43,6 +45,8 @@ export default function AddTransactionReview() {
   const books = useBooksStore((s) => s.books);
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
 
+  const primaryCurrency = useSettingsStore((s) => s.primaryCurrency);
+
   const draftTitle = useAddTransactionDraftStore((s) => s.title);
   const draftCategory = useAddTransactionDraftStore((s) => s.category);
   const draftNote = useAddTransactionDraftStore((s) => s.note);
@@ -75,6 +79,7 @@ export default function AddTransactionReview() {
   const totalCents = amountCents + feeCents;
 
   const primaryLabel = title.length ? title : category;
+  const currency: CurrencyCode = primaryCurrency;
 
   return (
     <View className="flex-1 bg-ink" style={{ paddingTop: insets.top + 10 }}>
@@ -140,6 +145,14 @@ export default function AddTransactionReview() {
           <Divider />
 
           <RowPress left="Note" right={note ? note : "—"} muted={!note} onPress={() => router.push("/modals/add-transaction/note")} />
+          <Divider />
+
+          <RowPress
+            left="Currency"
+            right={currency}
+            onPress={() => router.push("/(onboarding)/currency")}
+            rightIcon={<Ionicons name="chevron-forward" size={18} color={tokens.colors.muted} />}
+          />
         </View>
 
         {/* Order summary */}
@@ -172,7 +185,7 @@ export default function AddTransactionReview() {
               note,
               bookId,
               occurredAt,
-              currency: "USD",
+              currency,
               paymentMethod: "cash",
             },
           })
@@ -200,11 +213,17 @@ function RowPress({
   rightIcon?: React.ReactNode;
 }) {
   return (
-    <Pressable onPress={onPress} android_ripple={{ color: "#FFFFFF10" }} className="px-5 py-5">
+    <HapticPressable
+      onPress={onPress}
+      haptic="selection"
+      pressScale={0.985}
+      className="px-5 py-5"
+      android_ripple={{ color: "#FFFFFF10" }}
+    >
       <View className="flex-row items-center justify-between">
         <Text className="text-text text-base font-semibold">{left}</Text>
 
-        <View className="flex-row items-center" style={{ maxWidth: "60%" }}>
+        <View className="flex-row items-center" style={{ maxWidth: "62%" }}>
           <Text
             className="text-text text-base"
             style={{ color: muted ? tokens.colors.muted : tokens.colors.text }}
@@ -219,7 +238,7 @@ function RowPress({
           )}
         </View>
       </View>
-    </Pressable>
+    </HapticPressable>
   );
 }
 

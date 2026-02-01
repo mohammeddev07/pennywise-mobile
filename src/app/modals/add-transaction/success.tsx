@@ -6,8 +6,15 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import ConfettiCannon from "react-native-confetti-cannon";
 
 import { Button } from "@/shared/ui/components/Button";
-import { useTransactionsStore, type TransactionKind } from "@/features/transactions/store";
+import {
+  normalizePaymentMethod,
+  useTransactionsStore,
+  type TransactionKind,
+  type PaymentMethod,
+} from "@/features/transactions/store";
 import { useAddTransactionDraftStore } from "@/features/transactions/addDraftStore";
+import type { CurrencyCode } from "@/shared/types/models";
+import { isCurrencyCode } from "@/features/transactions/store";
 
 function parseAmountToCents(raw: string) {
   const cleaned = String(raw || "0").replace(/,/g, "").replace(/[^\d.-]/g, "");
@@ -37,23 +44,23 @@ export default function AddTransactionSuccess() {
   }>();
 
   const amount = params.amount ?? "0";
-  const kind = (params.kind === "income" ? "income" : "expense") as TransactionKind;
+  const kind: TransactionKind = params.kind === "income" ? "income" : "expense";
 
   const title = (params.title ?? "").trim();
   const category = (params.category ?? "Uncategorized").trim() || "Uncategorized";
-  const note = (params.note ?? "").trim();
+  const note = (params.note ?? "").trim() || undefined;
 
   const bookId = params.bookId ?? "personal";
   const occurredAt = params.occurredAt ?? new Date().toISOString();
 
-  const currency = params.currency ?? "USD";
-  const paymentMethod = (params.paymentMethod as any) ?? "cash";
+  const currency: CurrencyCode = isCurrencyCode(params.currency) ? (params.currency as CurrencyCode) : "USD";
+  const paymentMethod: PaymentMethod = normalizePaymentMethod(params.paymentMethod);
 
   const cents = useMemo(() => parseAmountToCents(amount), [amount]);
 
   const [fire, setFire] = useState(false);
   const didAddRef = useRef(false);
-  const timeoutRef = useRef<any>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (didAddRef.current) return;
@@ -69,7 +76,7 @@ export default function AddTransactionSuccess() {
       note,
       paymentMethod,
       occurredAt,
-    } as any);
+    });
 
     // ✅ reset draft immediately after success write
     resetDraft();
@@ -96,7 +103,7 @@ export default function AddTransactionSuccess() {
           {title ? title : category}
         </Text>
         <Text className="text-muted mt-1 text-sm">
-          {currency} • {occurredAt ? "Saved" : ""}
+          {currency} • Saved
         </Text>
       </View>
 
