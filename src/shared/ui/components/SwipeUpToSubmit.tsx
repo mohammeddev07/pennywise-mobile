@@ -1,95 +1,141 @@
-import { useMemo } from "react";
-import { Text, View, useWindowDimensions } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Text, useWindowDimensions } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
+  Easing,
   Extrapolate,
   interpolate,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
+  withSpring,
   withTiming,
 } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
-import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { tokens } from "@/shared/ui/theme/tokens";
+
+type Props = {
+  onSubmit: () => void;
+  label?: string;
+  disabled?: boolean;
+};
 
 function clamp(v: number, min: number, max: number) {
   "worklet";
   return Math.min(max, Math.max(min, v));
 }
 
-export function SwipeUpToSubmit({ label, onSubmit }: { label: string; onSubmit: () => void }) {
+/**
+ * Robinhood-like swipe:
+ * - Full-height green sheet, initially translated down so only a footer is visible
+ * - Drag up to reveal; commit snaps to full screen then calls onSubmit
+ *
+ * IMPORTANT: Avoid runOnJS(() => ...) inline closures inside worklets (can hard-crash Android).
+ */
+export function SwipeUpToSubmit({ onSubmit, label = "SWIPE UP TO SUBMIT", disabled }: Props) {
   const insets = useSafeAreaInsets();
   const { height: screenH } = useWindowDimensions();
 
-  const sheetH = useMemo(() => screenH + (insets.bottom || 0) + 40, [screenH, insets.bottom]);
-  const collapsedH = useMemo(() => (insets.bottom || 0) + 96, [insets.bottom]);
+  const MIN_VISIBLE = 92; // visible bar when collapsed
+  const FULL_H = screenH + (insets.bottom || 0); // full coverage
+  const MAX_TRANSLATE = Math.max(0, FULL_H - (MIN_VISIBLE + (insets.bottom || 0)));
 
-  // translateY = 0 => fully shown
-  // translateY = collapsed => only top strip visible
-  const collapsed = useMemo(() => sheetH - collapsedH, [sheetH, collapsedH]);
-  const y = useSharedValue(collapsed);
+  const translateY = useSharedValue(MAX_TRANSLATE);
+  const committed = useSharedValue(false);
+  const didThresholdHaptic = useSharedValue(false);
 
-  const confirming = useSharedValue(0); // 0/1 to gate double submit
+  const THRESHOLD_PROGRESS = 0.62;
+  const FAST_VELOCITY = -1200;
 
-  const openPct = useAnimatedStyle(() => {
-    const p = 1 - clamp(y.value / collapsed, 0, 1);
-    return {
-      opacity: interpolate(p, [0, 1], [0.0, 1.0], Extrapolate.CLAMP),
-    };
-  });
-
-  const sheetStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: y.value }],
-  }));
-
-  const handleStyle = useAnimatedStyle(() => {
-    const p = 1 - clamp(y.value / collapsed, 0, 1);
-    return {
-      opacity: interpolate(p, [0, 0.25, 1], [1, 1, 0], Extrapolate.CLAMP),
-      transform: [{ translateY: interpolate(p, [0, 1], [0, -12], Extrapolate.CLAMP) }],
-    };
-  });
-
-  const confirm = () => {
-    if (confirming.value === 1) return;
-    confirming.value = 1;
-
-    y.value = withTiming(0, { duration: 190 }, (finished) => {
-      if (!finished) return;
-      runOnJS(() => {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-        onSubmit();
-      })();
-    });
+  // ✅ Stable JS functions (safe to call via runOnJS)
+  const hapticThreshold = () => {
+    try {
+      // setTimeout makes it even less likely to trip edge-case native crashes
+      setTimeout(() => {
+        Haptics.selectionAsync().catch(() => {});
+      }, 0);
+    } catch {}
   };
 
-  const pan = Gesture.Pan()
+  const hapticSuccess = () => {
+    try {
+      setTimeout(() => {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      }, 0);
+    } catch {}
+  };
+
+  const submitOnJS = () => {
+    hapticSuccess();
+    onSubmit();
+  };
+
+  const gesture = Gesture.Pan()
+    .enabled(!disabled)
     .onUpdate((e) => {
-      if (confirming.value === 1) return;
-      // dragging up reduces y
-      const next = clamp(collapsed + e.translationY, 0, collapsed);
-      y.value = next;
+      if (committed.value) return;
+
+      const next = clamp(MAX_TRANSLATE + e.translationY, 0, MAX_TRANSLATE);
+      translateY.value = next;
+
+      const p = MAX_TRANSLATE === 0 ? 1 : 1 - next / MAX_TRANSLATE;
+
+      if (!didThresholdHaptic.value && p >= THRESHOLD_PROGRESS) {
+        didThresholdHaptic.value = true;
+        runOnJS(hapticThreshold)();
+      }
+      if (didThresholdHaptic.value && p < THRESHOLD_PROGRESS - 0.12) {
+        didThresholdHaptic.value = false;
+      }
     })
     .onEnd((e) => {
-      if (confirming.value === 1) return;
+      if (committed.value) return;
 
-      const movedUpEnough = y.value < collapsed * 0.55;
-      const fastUp = e.velocityY < -900;
+      const p = MAX_TRANSLATE === 0 ? 1 : 1 - translateY.value / MAX_TRANSLATE;
+      const shouldCommit = p >= THRESHOLD_PROGRESS || e.velocityY <= FAST_VELOCITY;
 
-      if (movedUpEnough || fastUp) {
-        runOnJS(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {}))();
-        runOnJS(confirm)();
+      if (shouldCommit) {
+        committed.value = true;
+
+        translateY.value = withTiming(
+          0,
+          { duration: 240, easing: Easing.out(Easing.cubic) },
+          (finished) => {
+            if (!finished) return;
+            runOnJS(submitOnJS)();
+          }
+        );
         return;
       }
 
-      y.value = withTiming(collapsed, { duration: 170 });
+      translateY.value = withSpring(MAX_TRANSLATE, { damping: 18, stiffness: 180 });
+      didThresholdHaptic.value = false;
     });
 
+  const sheetStyle = useAnimatedStyle(() => {
+    const p = MAX_TRANSLATE === 0 ? 1 : 1 - translateY.value / MAX_TRANSLATE;
+    const mx = interpolate(p, [0, 1], [18, 0], Extrapolate.CLAMP);
+    const r = interpolate(p, [0, 1], [34, 0], Extrapolate.CLAMP);
+
+    return {
+      height: FULL_H,
+      transform: [{ translateY: translateY.value }],
+      marginHorizontal: mx,
+      borderRadius: r,
+      backgroundColor: disabled ? "#0E141B" : tokens.colors.accent,
+    };
+  });
+
+  const labelStyle = useAnimatedStyle(() => {
+    const p = MAX_TRANSLATE === 0 ? 1 : 1 - translateY.value / MAX_TRANSLATE;
+    const lift = interpolate(p, [0, 1], [0, -10], Extrapolate.CLAMP);
+    return { transform: [{ translateY: lift }] };
+  });
+
   return (
-    <GestureDetector gesture={pan}>
+    <GestureDetector gesture={gesture}>
       <Animated.View
         style={[
           {
@@ -97,41 +143,42 @@ export function SwipeUpToSubmit({ label, onSubmit }: { label: string; onSubmit: 
             left: 0,
             right: 0,
             bottom: 0,
-            height: sheetH,
-            backgroundColor: tokens.colors.accent,
-            borderTopLeftRadius: 24,
-            borderTopRightRadius: 24,
             overflow: "hidden",
           },
           sheetStyle,
         ]}
       >
-        {/* collapsed handle */}
-        <Animated.View style={[{ paddingTop: 14, paddingBottom: 12 }, handleStyle]}>
-          <View style={{ alignItems: "center" }}>
-            <View style={{ height: 4, width: 44, borderRadius: 2, backgroundColor: "rgba(0,0,0,0.25)" }} />
-          </View>
-
-          <View style={{ marginTop: 12, alignItems: "center", justifyContent: "center", flexDirection: "row" }}>
-            <Ionicons name="chevron-up" size={18} color="#061007" />
-            <Text style={{ color: "#061007", fontWeight: "800", marginLeft: 8 }}>{label}</Text>
-          </View>
-        </Animated.View>
-
-        {/* full takeover content */}
+        {/* Affordance always centered in the visible bar */}
         <Animated.View
+          pointerEvents="none"
           style={[
             {
-              flex: 1,
+              position: "absolute",
+              left: 0,
+              right: 0,
+              bottom: 0,
+              paddingBottom: (insets.bottom || 0) + 18,
+              paddingTop: 14,
               alignItems: "center",
               justifyContent: "center",
-              paddingBottom: (insets.bottom || 0) + 20,
             },
-            openPct,
+            labelStyle,
           ]}
         >
-          <Text style={{ color: "#061007", fontSize: 28, fontWeight: "900" }}>Confirming…</Text>
-          <Text style={{ color: "#061007", opacity: 0.7, marginTop: 10 }}>Releasing to finish</Text>
+          <Ionicons name="chevron-up" size={22} color={tokens.colors.ink} />
+          <Text
+            style={{
+              marginTop: 8,
+              color: tokens.colors.ink,
+              fontSize: 15,
+              letterSpacing: 1.2,
+              fontWeight: "800",
+              opacity: disabled ? 0.55 : 1,
+              textAlign: "center",
+            }}
+          >
+            {label}
+          </Text>
         </Animated.View>
       </Animated.View>
     </GestureDetector>
