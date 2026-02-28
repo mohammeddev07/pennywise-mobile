@@ -1,12 +1,16 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Keyboard, ScrollView, Text, TextInput, View } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import { Keyboard, ScrollView, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import * as Haptics from "expo-haptics";
 
 import { tokens } from "@/shared/ui/theme/tokens";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
+import { Sheet } from "@/shared/ui/components/Sheet";
+import { AppText } from "@/shared/ui/components/AppText";
+import { Input } from "@/shared/ui/components/Input";
+import { Button } from "@/shared/ui/components/Button";
+import { Skeleton } from "@/shared/ui/components/Skeleton";
+
 import { useAddTransactionDraftStore } from "@/features/transactions/addDraftStore";
 import { useTransactionsStore } from "@/features/transactions/store";
 
@@ -18,7 +22,6 @@ function safeTime(iso?: string) {
 
 export default function TitleModal() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
 
   const existing = useAddTransactionDraftStore((s) => s.title);
   const setTitle = useAddTransactionDraftStore((s) => s.setTitle);
@@ -27,15 +30,26 @@ export default function TitleModal() {
 
   const transactions = useTransactionsStore((s) => s.transactions);
 
-  const [value, setValue] = useState(existing ?? "");
-  const inputRef = useRef<TextInput>(null);
+  // Persist hydration (Loading state for "Recent")
+  const persist = (useTransactionsStore as any).persist;
+  const [hydrated, setHydrated] = useState<boolean>(() => {
+    const has = persist?.hasHydrated?.();
+    return typeof has === "boolean" ? has : true;
+  });
 
   useEffect(() => {
-    const t = setTimeout(() => inputRef.current?.focus(), 120);
-    return () => clearTimeout(t);
-  }, []);
+    if (!persist?.onFinishHydration) return;
+    const unsub = persist.onFinishHydration(() => setHydrated(true));
+    // in case hydration hasn't started yet
+    if (persist?.hasHydrated && !persist.hasHydrated()) {
+      persist?.rehydrate?.();
+    }
+    return () => unsub?.();
+  }, [persist]);
 
-  // auto-save while typing
+  const [value, setValue] = useState(existing ?? "");
+
+  // auto-save while typing (keeps draft in sync)
   useEffect(() => {
     setTitle(value);
   }, [setTitle, value]);
@@ -62,7 +76,6 @@ export default function TitleModal() {
   };
 
   const pick = (t: string) => {
-    Haptics.selectionAsync().catch(() => {});
     setValue(t);
     setTitle(t);
     Keyboard.dismiss();
@@ -70,83 +83,99 @@ export default function TitleModal() {
   };
 
   return (
-    <View className="flex-1 bg-ink" style={{ paddingTop: insets.top + 10, paddingBottom: insets.bottom + 18 }}>
-      {/* Header */}
-      <View className="px-6 flex-row items-center justify-between">
-        <HapticPressable
-          onPress={() => router.back()}
-          className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
-          android_ripple={{ color: "#FFFFFF12", borderless: true }}
-        >
-          <Ionicons name="chevron-back" size={20} color={tokens.colors.text} />
-        </HapticPressable>
-
-        <Text className="text-text font-semibold">Title</Text>
-
-        <HapticPressable
-          onPress={saveAndClose}
-          haptic="selection"
-          pressScale={0.97}
-          className="h-12 px-5 items-center justify-center rounded-full bg-surface border border-stroke"
-          android_ripple={{ color: "#FFFFFF12" }}
-        >
-          <Text style={{ color: tokens.colors.accent }} className="font-semibold">
-            Save
-          </Text>
-        </HapticPressable>
-      </View>
-
-      <View className="px-6 mt-10">
-        <Text className="text-muted text-xs">Transaction title</Text>
-
-        <View className="mt-3 rounded-3xl border border-stroke bg-surface px-5 py-4">
-          <TextInput
-            ref={inputRef}
+    <View className="flex-1 bg-ink">
+      <Sheet
+        tone="ink"
+        className="flex-1"
+        title="Title"
+        leftAction={
+          <HapticPressable
+            onPress={() => router.back()}
+            className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
+            android_ripple={{ color: "#FFFFFF12", borderless: true }}
+          >
+            <Ionicons name="chevron-back" size={20} color={tokens.colors.text} />
+          </HapticPressable>
+        }
+        rightAction={
+          <HapticPressable
+            onPress={saveAndClose}
+            haptic="selection"
+            pressScale={0.98}
+            className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
+            android_ripple={{ color: "#FFFFFF12", borderless: true }}
+          >
+            <Ionicons name="checkmark" size={18} color={tokens.colors.accent} />
+          </HapticPressable>
+        }
+        footer={<Button label="Done" onPress={saveAndClose} size="md" />}
+      >
+        {/* Input block */}
+        <View className="mt-2">
+          <Input
+            label="Transaction title"
             value={value}
             onChangeText={setValue}
             placeholder="Coffee, Uber, Rent…"
-            placeholderTextColor={tokens.colors.muted}
-            className="text-text text-xl font-semibold"
+            autoFocus
             returnKeyType="done"
             blurOnSubmit
             onSubmitEditing={saveAndClose}
+            // Make the title feel “headline-like” without breaking contract tokens
+            style={[tokens.typography.xl as any, { fontFamily: "Inter_600SemiBold" }]}
           />
-          <Text className="text-muted text-xs mt-3">Shows in Home and Transactions.</Text>
+
+          <AppText variant="xs" tone="muted" className="mt-3">
+            Shows in Home and Transactions.
+          </AppText>
         </View>
 
         {/* Recent titles */}
-        {recentTitles.length > 0 ? (
-          <View className="mt-7">
-            <Text className="text-muted text-xs uppercase tracking-widest mb-3">Recent</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {recentTitles.map((t) => (
-                <HapticPressable
-                  key={t}
-                  onPress={() => pick(t)}
-                  haptic="selection"
-                  pressScale={0.98}
-                  className="mr-3 rounded-full border border-stroke bg-surface px-4 py-2"
-                  android_ripple={{ color: "#FFFFFF10", borderless: true }}
-                >
-                  <Text className="text-text font-semibold">{t}</Text>
-                </HapticPressable>
-              ))}
-            </ScrollView>
-          </View>
-        ) : null}
-      </View>
+        <View className="mt-6">
+          <AppText variant="xs" tone="muted" className="uppercase mb-3">
+            Recent
+          </AppText>
 
-      <View className="px-6 mt-auto">
-        <HapticPressable
-          onPress={saveAndClose}
-          haptic="impactLight"
-          pressScale={0.99}
-          className="h-12 items-center justify-center rounded-full bg-accent"
-          android_ripple={{ color: "#00000022" }}
-        >
-          <Text className="text-black font-semibold">Done</Text>
-        </HapticPressable>
-      </View>
+          {!hydrated ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View className="flex-row">
+                <View className="mr-3">
+                  <Skeleton height={44} width={110} borderRadius={24} />
+                </View>
+                <View className="mr-3">
+                  <Skeleton height={44} width={140} borderRadius={24} />
+                </View>
+                <View className="mr-3">
+                  <Skeleton height={44} width={90} borderRadius={24} />
+                </View>
+              </View>
+            </ScrollView>
+          ) : recentTitles.length > 0 ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+              <View className="flex-row">
+                {recentTitles.map((t) => (
+                  <HapticPressable
+                    key={t}
+                    onPress={() => pick(t)}
+                    haptic="selection"
+                    pressScale={0.99}
+                    className="mr-3 h-11 px-4 rounded-full border border-stroke bg-surface items-center justify-center"
+                    android_ripple={{ color: "#FFFFFF10", borderless: true }}
+                  >
+                    <AppText variant="sm" style={{ fontFamily: "Inter_600SemiBold" }}>
+                      {t}
+                    </AppText>
+                  </HapticPressable>
+                ))}
+              </View>
+            </ScrollView>
+          ) : (
+            <AppText variant="sm" tone="muted">
+              No recent titles yet.
+            </AppText>
+          )}
+        </View>
+      </Sheet>
     </View>
   );
 }
