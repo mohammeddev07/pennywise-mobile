@@ -1,65 +1,72 @@
 import { useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { View } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
 import { Button, LinkButton } from "@/shared/ui/components/Button";
-import { TextField } from "@/shared/ui/components/TextField";
-import * as Haptics from "expo-haptics";
+import { Input } from "@/shared/ui/components/Input";
+import { AppText } from "@/shared/ui/components/AppText";
+import { HapticPressable } from "@/shared/ui/components/HapticPressable";
+import { tokens } from "@/shared/ui/theme/tokens";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
+  const handleBack = () => {
+    const canGoBack = typeof (router as any).canGoBack === "function" ? (router as any).canGoBack() : false;
+    if (canGoBack) router.back();
+    else router.replace("/(auth)/welcome");
+  };
+
   return (
     <View className="flex-1 bg-app px-6 pt-14 pb-10">
-      {/* Header */}
       <View className="flex-row items-center">
-        <Pressable
-          onPress={() => {
-            Haptics.selectionAsync().catch(() => {});
-            const canGoBack =
-              typeof (router as any).canGoBack === "function"
-                ? (router as any).canGoBack()
-                : false;
-
-            if (canGoBack) router.back();
-            else router.replace("/(auth)/welcome");
-          }}
-          className="h-11 w-11 items-center justify-center rounded-full bg-surface border border-stroke"
+        <HapticPressable
+          onPress={handleBack}
+          haptic="selection"
+          className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
           android_ripple={{ color: "#FFFFFF12", borderless: true }}
         >
-          <Ionicons name="chevron-back" size={22} color="#E7EEF8" />
-        </Pressable>
-        <Text className="text-text text-xl font-semibold ml-4">Log in</Text>
+          <Ionicons name="chevron-back" size={20} color={tokens.colors.text} />
+        </HapticPressable>
+
+        <AppText variant="xl" className="ml-3">
+          Log in
+        </AppText>
       </View>
 
-      <Text className="text-muted mt-3 text-base">
+      <AppText variant="base" tone="muted" className="mt-3">
         Welcome back. Sign in to continue.
-      </Text>
+      </AppText>
 
-      {/* Form */}
       <View className="mt-8 gap-5">
-        <TextField
+        <Input
           label="Email"
           value={email}
           onChangeText={setEmail}
           placeholder="alex@email.com"
           keyboardType="email-address"
+          autoCapitalize="none"
         />
-        <TextField
+
+        <Input
           label="Password"
           value={password}
           onChangeText={setPassword}
           placeholder="••••••••"
           secureTextEntry
+          autoCapitalize="none"
         />
       </View>
 
       <View className="mt-auto gap-4">
         <Button label="Continue" onPress={() => router.push("/(auth)/pin")} />
-        <View className="flex-row justify-center gap-2">
-          <Text className="text-muted">No account?</Text>
+
+        <View className="flex-row justify-center gap-2 items-center">
+          <AppText variant="sm" tone="muted">
+            No account?
+          </AppText>
           <LinkButton label="Create one" onPress={() => router.replace("/(auth)/signup")} />
         </View>
       </View>

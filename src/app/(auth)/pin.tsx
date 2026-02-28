@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { View } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -8,6 +8,8 @@ import { tokens } from "@/shared/ui/theme/tokens";
 import { NumericKeypad, type Key } from "@/shared/ui/NumericKeypad";
 import { Button } from "@/shared/ui/components/Button";
 import { PinDots } from "@/shared/ui/components/PinDots";
+import { HapticPressable } from "@/shared/ui/components/HapticPressable";
+import { AppText } from "@/shared/ui/components/AppText";
 
 const DEMO_PIN = "1234";
 
@@ -17,10 +19,7 @@ export default function PinScreen() {
   const didNavigateRef = useRef(false);
 
   const handleBack = () => {
-    Haptics.selectionAsync().catch(() => {});
-    // Some entry paths have no history, so GO_BACK would be unhandled.
-    const canGoBack =
-      typeof (router as any).canGoBack === "function" ? (router as any).canGoBack() : false;
+    const canGoBack = typeof (router as any).canGoBack === "function" ? (router as any).canGoBack() : false;
 
     if (canGoBack) router.back();
     else router.replace("/(auth)/welcome");
@@ -29,7 +28,7 @@ export default function PinScreen() {
   const onKey = (k: Key) => {
     setPin((prev) => {
       if (k === "back") return prev.slice(0, -1);
-      if (k === ".") return prev; // ignore dot for PIN
+      if (k === ".") return prev;
       if (prev.length >= 4) return prev;
       return prev + k;
     });
@@ -54,23 +53,27 @@ export default function PinScreen() {
   return (
     <View className="flex-1 bg-app px-6 pt-14 pb-10">
       <View className="flex-row items-center">
-        <Pressable
+        <HapticPressable
           onPress={handleBack}
-          className="h-11 w-11 items-center justify-center rounded-full bg-surface border border-stroke"
+          className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
           android_ripple={{ color: "#FFFFFF12", borderless: true }}
         >
-          <Ionicons name="chevron-back" size={22} color={tokens.colors.text} />
-        </Pressable>
+          <Ionicons name="chevron-back" size={20} color={tokens.colors.text} />
+        </HapticPressable>
 
-        <View className="ml-4">
-          <Text className="text-text text-xl font-semibold">Secure your account</Text>
-          <Text className="text-muted mt-1">Enter your 4-digit PIN</Text>
+        <View className="ml-3">
+          <AppText variant="xl">Secure your account</AppText>
+          <AppText variant="sm" tone="muted" className="mt-1">
+            Enter your 4-digit PIN
+          </AppText>
         </View>
       </View>
 
       <View className="mt-14 items-center">
         <PinDots length={4} filled={pin.length} />
-        <Text className="text-muted text-xs mt-4">Demo PIN: 1234</Text>
+        <AppText variant="xs" tone="muted" className="mt-4">
+          Demo PIN: 1234
+        </AppText>
 
         <View className="mt-6 w-full">
           <Button

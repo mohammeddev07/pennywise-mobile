@@ -1,34 +1,42 @@
 import { useEffect, useMemo, useState } from "react";
-import { Platform, Text, View } from "react-native";
+import { Platform, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { useRouter } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { parseISO, format } from "date-fns";
+import { format, parseISO } from "date-fns";
 
 import { tokens } from "@/shared/ui/theme/tokens";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
+import { Sheet } from "@/shared/ui/components/Sheet";
+import { AppText } from "@/shared/ui/components/AppText";
+import { SelectRow } from "@/shared/ui/components/SelectRow";
+import { Button } from "@/shared/ui/components/Button";
+import { Card } from "@/shared/ui/components/Card";
 import { useAddTransactionDraftStore } from "@/features/transactions/addDraftStore";
 
-function safeParse(iso: string) {
+function parseWhen(iso: string) {
   try {
-    return parseISO(iso);
+    const parsed = parseISO(iso);
+    if (Number.isNaN(parsed.getTime())) {
+      return { value: new Date(), isValid: false };
+    }
+    return { value: parsed, isValid: true };
   } catch {
-    return new Date();
+    return { value: new Date(), isValid: false };
   }
 }
 
 export default function DateTimeModal() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
 
   const occurredAt = useAddTransactionDraftStore((s) => s.occurredAt);
   const setOccurredAt = useAddTransactionDraftStore((s) => s.setOccurredAt);
 
-  const [value, setValue] = useState<Date>(() => safeParse(occurredAt));
+  const parsed = useMemo(() => parseWhen(occurredAt), [occurredAt]);
+  const [value, setValue] = useState<Date>(parsed.value);
   const [showMode, setShowMode] = useState<"date" | "time" | null>(null);
+  const [hasParseError, setHasParseError] = useState(!parsed.isValid);
 
-  // ✅ auto-save as user changes
   useEffect(() => {
     setOccurredAt(value.toISOString());
   }, [setOccurredAt, value]);
@@ -36,110 +44,88 @@ export default function DateTimeModal() {
   const dateLabel = useMemo(() => format(value, "MMM d, yyyy"), [value]);
   const timeLabel = useMemo(() => format(value, "h:mm a"), [value]);
 
-  const onChange = (e: DateTimePickerEvent, selected?: Date) => {
+  const onChange = (_event: DateTimePickerEvent, selected?: Date) => {
     if (Platform.OS === "android") setShowMode(null);
     if (!selected) return;
+    setHasParseError(false);
     setValue(selected);
   };
 
-  const setNow = () => setValue(new Date());
-
-  const close = () => router.back();
+  const setNow = () => {
+    setHasParseError(false);
+    setValue(new Date());
+  };
 
   return (
-    <View className="flex-1 bg-ink" style={{ paddingTop: insets.top + 10, paddingBottom: insets.bottom + 18 }}>
-      {/* Header */}
-      <View className="px-6 flex-row items-center justify-between">
-        <HapticPressable
-          onPress={close}
-          className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
-          android_ripple={{ color: "#FFFFFF12", borderless: true }}
-        >
-          <Ionicons name="chevron-back" size={20} color={tokens.colors.text} />
-        </HapticPressable>
+    <View className="flex-1 bg-ink">
+      <Sheet
+        tone="ink"
+        className="flex-1"
+        title="Date & time"
+        leftAction={
+          <HapticPressable
+            onPress={() => router.back()}
+            className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
+            android_ripple={{ color: "#FFFFFF12", borderless: true }}
+          >
+            <Ionicons name="chevron-back" size={20} color={tokens.colors.text} />
+          </HapticPressable>
+        }
+        rightAction={
+          <HapticPressable
+            onPress={setNow}
+            haptic="selection"
+            pressScale={0.98}
+            className="h-12 min-w-12 px-3 items-center justify-center rounded-full bg-surface border border-stroke"
+            android_ripple={{ color: "#FFFFFF12", borderless: true }}
+          >
+            <AppText variant="sm" className="text-accent">
+              Now
+            </AppText>
+          </HapticPressable>
+        }
+        footer={<Button label="Done" onPress={() => router.back()} size="md" />}
+      >
+        {hasParseError ? (
+          <Card variant="surface" className="mt-2">
+            <AppText variant="base" tone="danger">
+              Stored timestamp was invalid.
+            </AppText>
+            <AppText variant="sm" tone="muted" className="mt-2">
+              Reset to the current time and save again.
+            </AppText>
+            <Button label="Use now" variant="ghost" size="md" onPress={setNow} className="mt-4" />
+          </Card>
+        ) : null}
 
-        <Text className="text-text font-semibold">Date & time</Text>
+        <SelectRow label="Date" value={dateLabel} onPress={() => setShowMode("date")} className="mt-2" />
 
-        <HapticPressable
-          onPress={setNow}
-          haptic="selection"
-          pressScale={0.97}
-          className="h-12 px-5 items-center justify-center rounded-full bg-surface border border-stroke"
-          android_ripple={{ color: "#FFFFFF12" }}
-        >
-          <Text style={{ color: tokens.colors.accent }} className="font-semibold">
-            Now
-          </Text>
-        </HapticPressable>
-      </View>
+        <SelectRow label="Time" value={timeLabel} onPress={() => setShowMode("time")} className="mt-2" />
 
-      <View className="px-6 mt-10" style={{ gap: 14 }}>
-        <HapticPressable
-          onPress={() => setShowMode("date")}
-          haptic="selection"
-          pressScale={0.99}
-          className="rounded-3xl border border-stroke bg-surface px-5 py-4"
-          android_ripple={{ color: "#FFFFFF10" }}
-        >
-          <View className="flex-row items-center justify-between">
-            <View>
-              <Text className="text-muted text-xs">Date</Text>
-              <Text className="text-text text-lg mt-1">{dateLabel}</Text>
-            </View>
-            <Ionicons name="calendar-outline" size={18} color={tokens.colors.muted} />
+        <Card variant="surface" className="mt-4">
+          <AppText variant="xs" tone="muted">
+            Preview
+          </AppText>
+          <AppText variant="lg" className="mt-2">
+            {format(value, "MMM d, yyyy · h:mm a")}
+          </AppText>
+        </Card>
+
+        {Platform.OS === "ios" ? (
+          <View className="mt-6 gap-3">
+            <Card variant="surface">
+              <DateTimePicker value={value} mode="date" display="spinner" onChange={onChange} />
+            </Card>
+            <Card variant="surface">
+              <DateTimePicker value={value} mode="time" display="spinner" onChange={onChange} />
+            </Card>
           </View>
-        </HapticPressable>
+        ) : null}
 
-        <HapticPressable
-          onPress={() => setShowMode("time")}
-          haptic="selection"
-          pressScale={0.99}
-          className="rounded-3xl border border-stroke bg-surface px-5 py-4"
-          android_ripple={{ color: "#FFFFFF10" }}
-        >
-          <View className="flex-row items-center justify-between">
-            <View>
-              <Text className="text-muted text-xs">Time</Text>
-              <Text className="text-text text-lg mt-1">{timeLabel}</Text>
-            </View>
-            <Ionicons name="time-outline" size={18} color={tokens.colors.muted} />
-          </View>
-        </HapticPressable>
-
-        <View className="mt-2 rounded-3xl border border-stroke bg-surface px-5 py-4">
-          <Text className="text-muted text-xs">Preview</Text>
-          <Text className="text-text text-lg mt-1">{format(value, "MMM d, yyyy · h:mm a")}</Text>
-        </View>
-      </View>
-
-      {/* iOS inline pickers */}
-      {Platform.OS === "ios" ? (
-        <View className="px-6 mt-8" style={{ gap: 16 }}>
-          <View className="rounded-3xl border border-stroke bg-surface px-3 py-3">
-            <DateTimePicker value={value} mode="date" display="spinner" onChange={onChange} />
-          </View>
-          <View className="rounded-3xl border border-stroke bg-surface px-3 py-3">
-            <DateTimePicker value={value} mode="time" display="spinner" onChange={onChange} />
-          </View>
-        </View>
-      ) : null}
-
-      {/* Android popover picker */}
-      {Platform.OS === "android" && showMode ? (
-        <DateTimePicker value={value} mode={showMode} onChange={onChange} />
-      ) : null}
-
-      <View className="px-6 mt-auto">
-        <HapticPressable
-          onPress={close}
-          haptic="impactLight"
-          pressScale={0.99}
-          className="h-12 items-center justify-center rounded-full bg-accent"
-          android_ripple={{ color: "#00000022" }}
-        >
-          <Text className="text-black font-semibold">Done</Text>
-        </HapticPressable>
-      </View>
+        {Platform.OS === "android" && showMode ? (
+          <DateTimePicker value={value} mode={showMode} onChange={onChange} />
+        ) : null}
+      </Sheet>
     </View>
   );
 }

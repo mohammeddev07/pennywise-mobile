@@ -1,196 +1,170 @@
-import { useEffect, useMemo } from "react";
-import { Pressable, Text, View, useWindowDimensions } from "react-native";
+import { useEffect, useState } from "react";
+import { View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import * as Haptics from "expo-haptics";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import Animated, {
-  Extrapolate,
-  interpolate,
-  runOnJS,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from "react-native-reanimated";
 
 import { tokens } from "@/shared/ui/theme/tokens";
 import { useBooksStore } from "@/features/books/store";
-
-function clamp(v: number, min: number, max: number) {
-  "worklet";
-  return Math.min(max, Math.max(min, v));
-}
+import { Sheet } from "@/shared/ui/components/Sheet";
+import { HapticPressable } from "@/shared/ui/components/HapticPressable";
+import { AppText } from "@/shared/ui/components/AppText";
+import { Card } from "@/shared/ui/components/Card";
+import { Skeleton } from "@/shared/ui/components/Skeleton";
+import { EmptyState } from "@/shared/ui/components/EmptyState";
+import { Button } from "@/shared/ui/components/Button";
 
 export default function BookSwitcherModal() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
-  const { height: screenH } = useWindowDimensions();
 
   const books = useBooksStore((s) => s.books);
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
   const setSelectedBookId = useBooksStore((s) => s.setSelectedBookId);
+  const addBook = useBooksStore((s) => s.addBook);
 
-  const SHEET_H = useMemo(() => {
-    const target = Math.round(screenH * 0.62);
-    return Math.min(560, Math.max(420, target));
-  }, [screenH]);
-
-  const translateY = useSharedValue(26);
-  const opacity = useSharedValue(0);
-  const scale = useSharedValue(0.98);
-
-  const close = () => {
-    opacity.value = withTiming(0, { duration: 140 });
-    scale.value = withTiming(0.985, { duration: 140 });
-    translateY.value = withTiming(26, { duration: 160 }, (finished) => {
-      if (!finished) return;
-      runOnJS(router.back)();
-    });
-  };
+  const persist = (useBooksStore as any).persist;
+  const [hydrated, setHydrated] = useState<boolean>(() => persist?.hasHydrated?.() ?? true);
+  const [hydrationError, setHydrationError] = useState(false);
 
   useEffect(() => {
-    opacity.value = withTiming(1, { duration: 170 });
-    scale.value = withTiming(1, { duration: 170 });
-    translateY.value = withTiming(0, { duration: 170 });
-  }, [opacity, scale, translateY]);
+    if (!persist?.onFinishHydration) return;
 
-  const pan = Gesture.Pan()
-    .onUpdate((e) => {
-      const y = clamp(e.translationY, 0, SHEET_H + 60);
-      translateY.value = y;
-      opacity.value = interpolate(y, [0, SHEET_H + 60], [1, 0.0], Extrapolate.CLAMP);
-      scale.value = interpolate(y, [0, SHEET_H + 60], [1, 0.98], Extrapolate.CLAMP);
-    })
-    .onEnd((e) => {
-      const shouldClose = translateY.value > SHEET_H * 0.28 || e.velocityY > 1000;
-      if (shouldClose) {
-        runOnJS(() => Haptics.selectionAsync().catch(() => {}))();
-        runOnJS(close)();
-        return;
-      }
-      translateY.value = withTiming(0, { duration: 180 });
-      opacity.value = withTiming(1, { duration: 180 });
-      scale.value = withTiming(1, { duration: 180 });
+    const unsub = persist.onFinishHydration(() => {
+      setHydrated(true);
+      setHydrationError(false);
     });
 
-  const backdropStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-  }));
+    if (persist?.hasHydrated && !persist.hasHydrated()) {
+      persist?.rehydrate?.();
+    }
 
-  const sheetStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value }, { scale: scale.value }],
-    opacity: opacity.value,
-  }));
+    const timeoutId = setTimeout(() => {
+      if (persist?.hasHydrated && !persist.hasHydrated()) {
+        setHydrationError(true);
+      }
+    }, 3000);
+
+    return () => {
+      clearTimeout(timeoutId);
+      unsub?.();
+    };
+  }, [persist]);
+
+  const retryHydration = () => {
+    setHydrationError(false);
+    setHydrated(persist?.hasHydrated?.() ?? true);
+    persist?.rehydrate?.();
+  };
+
+  const createBook = () => {
+    const label = `Book ${books.length + 1}`;
+    const id = addBook({ name: label, subtitle: "CashBook Pro" });
+    setSelectedBookId(id);
+  };
 
   return (
-    <View className="flex-1">
-      {/* Backdrop */}
-      <Animated.View
-        style={[
-          {
-            position: "absolute",
-            left: 0,
-            right: 0,
-            top: 0,
-            bottom: 0,
-            backgroundColor: "#000000AA",
-          },
-          backdropStyle,
-        ]}
+    <View className="flex-1 bg-ink">
+      <Sheet
+        tone="ink"
+        className="flex-1"
+        title="Switch books"
+        leftAction={
+          <HapticPressable
+            onPress={() => router.back()}
+            className="h-12 w-12 items-center justify-center rounded-full border border-stroke bg-surface"
+            android_ripple={{ color: "#FFFFFF12", borderless: true }}
+          >
+            <Ionicons name="close" size={18} color={tokens.colors.text} />
+          </HapticPressable>
+        }
+        rightAction={
+          <HapticPressable
+            onPress={createBook}
+            haptic="selection"
+            className="h-12 w-12 items-center justify-center rounded-full border border-stroke bg-surface"
+            android_ripple={{ color: "#FFFFFF12", borderless: true }}
+          >
+            <Ionicons name="add" size={20} color={tokens.colors.accent} />
+          </HapticPressable>
+        }
+        footer={<Button label="Done" onPress={() => router.back()} size="md" />}
       >
-        <Pressable
-          onPress={() => {
-            Haptics.selectionAsync().catch(() => {});
-            close();
-          }}
-          style={{ flex: 1 }}
-        />
-      </Animated.View>
-
-      {/* Sheet */}
-      <GestureDetector gesture={pan}>
-        <Animated.View
-          style={[
-            {
-              position: "absolute",
-              left: 0,
-              right: 0,
-              bottom: 0,
-              height: SHEET_H + (insets.bottom || 0),
-              paddingBottom: (insets.bottom || 0) + 12,
-              backgroundColor: tokens.colors.surface,
-              borderTopLeftRadius: 24,
-              borderTopRightRadius: 24,
-              borderWidth: 1,
-              borderColor: tokens.colors.stroke,
-              overflow: "hidden",
-            },
-            sheetStyle,
-          ]}
-        >
-          {/* Grabber */}
-          <View className="items-center pt-3">
-            <View style={{ height: 4, width: 44, borderRadius: 2, backgroundColor: tokens.colors.stroke }} />
+        {hydrationError ? (
+          <View className="flex-1 justify-center">
+            <EmptyState
+              title="Couldn’t load books"
+              message="Retry to load available books."
+              actionLabel="Retry"
+              onAction={retryHydration}
+              className="px-0"
+            />
           </View>
-
-          {/* Header */}
-          <View className="px-6 pt-4 flex-row items-center justify-between">
-            <Text className="text-text text-lg font-semibold">Switch books</Text>
-
-            <Pressable
-              onPress={() => {
-                Haptics.selectionAsync().catch(() => {});
-                close();
-              }}
-              className="h-11 w-11 items-center justify-center rounded-full border border-stroke bg-card"
-              android_ripple={{ color: "#FFFFFF12", borderless: true }}
-            >
-              <Ionicons name="close" size={18} color={tokens.colors.text} />
-            </Pressable>
+        ) : !hydrated ? (
+          <View className="mt-2 gap-3">
+            <Skeleton height={72} borderRadius={24} />
+            <Skeleton height={72} borderRadius={24} />
+            <Skeleton height={72} borderRadius={24} />
           </View>
-
-          <View className="h-px bg-stroke mt-5" />
-
-          {/* Books */}
-          <View className="px-6 pt-4">
-            {books.map((b) => {
-              const active = b.id === selectedBookId;
+        ) : books.length === 0 ? (
+          <View className="flex-1 justify-center">
+            <EmptyState
+              title="No books yet"
+              message="Create your first book to start tracking."
+              actionLabel="Create book"
+              onAction={createBook}
+              className="px-0"
+            />
+          </View>
+        ) : (
+          <View className="mt-2 gap-3">
+            {books.map((book) => {
+              const active = book.id === selectedBookId;
               return (
-                <Pressable
-                  key={b.id}
+                <HapticPressable
+                  key={book.id}
                   onPress={() => {
-                    Haptics.selectionAsync().catch(() => {});
-                    setSelectedBookId(b.id);
-                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-                    close();
+                    setSelectedBookId(book.id);
+                    router.back();
                   }}
-                  className="rounded-3xl border px-5 py-4 mb-3"
-                  style={{
-                    borderColor: active ? tokens.colors.accent : tokens.colors.stroke,
-                    backgroundColor: active ? "#00C80514" : tokens.colors.card,
-                  }}
-                  android_ripple={{ color: "#FFFFFF10" }}
+                  haptic="selection"
+                  pressScale={0.99}
                 >
-                  <View className="flex-row items-center justify-between">
-                    <View className="flex-1">
-                      <Text className="text-text text-base font-semibold">{b.name}</Text>
-                      <Text className="text-muted mt-1 text-xs">{b.subtitle ? b.subtitle : "CashBook Pro"}</Text>
-                    </View>
+                  <Card
+                    variant="surface"
+                    style={{
+                      borderColor: active ? tokens.colors.accent : tokens.colors.stroke,
+                      backgroundColor: active ? `${tokens.colors.accent}14` : tokens.colors.surface,
+                    }}
+                  >
+                    <View className="flex-row items-center justify-between">
+                      <View className="flex-1 pr-3">
+                        <AppText variant="base" style={{ fontFamily: "Inter_600SemiBold" }} numberOfLines={1}>
+                          {book.name}
+                        </AppText>
+                        <AppText variant="xs" tone="muted" className="mt-1" numberOfLines={1}>
+                          {book.subtitle ? book.subtitle : "CashBook Pro"}
+                        </AppText>
+                      </View>
 
-                    {active ? <Ionicons name="checkmark" size={20} color={tokens.colors.accent} /> : null}
-                  </View>
-                </Pressable>
+                      {active ? (
+                        <View
+                          className="h-8 w-8 items-center justify-center rounded-full"
+                          style={{ backgroundColor: `${tokens.colors.accent}20` }}
+                        >
+                          <Ionicons name="checkmark" size={16} color={tokens.colors.accent} />
+                        </View>
+                      ) : (
+                        <View className="h-8 w-8 items-center justify-center">
+                          <Ionicons name="chevron-forward" size={16} color={tokens.colors.muted} />
+                        </View>
+                      )}
+                    </View>
+                  </Card>
+                </HapticPressable>
               );
             })}
-
-            <View className="mt-2 rounded-3xl border border-stroke bg-card px-5 py-4">
-              <Text className="text-text font-semibold">Add new book</Text>
-              <Text className="text-muted mt-1 text-xs">Coming next: create books + filter transactions</Text>
-            </View>
           </View>
-        </Animated.View>
-      </GestureDetector>
+        )}
+      </Sheet>
     </View>
   );
 }

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ScrollView, TextInput, View } from "react-native";
+import { ScrollView, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { FlashList } from "@shopify/flash-list";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -15,6 +15,7 @@ import { AppText } from "@/shared/ui/components/AppText";
 import { Card } from "@/shared/ui/components/Card";
 import { EmptyState } from "@/shared/ui/components/EmptyState";
 import { Skeleton } from "@/shared/ui/components/Skeleton";
+import { Input } from "@/shared/ui/components/Input";
 
 type CatMeta = {
   id: string;
@@ -317,30 +318,27 @@ export default function AddTransactionCategory() {
 
         {/* Search (contract: h=56, radius=16, paddingX=16) */}
         <View className="mt-5">
-          <View className="flex-row items-center h-14 px-4 rounded-lg border border-stroke bg-surface">
-            <Ionicons name="search" size={18} color={tokens.colors.muted} />
-            <TextInput
-              value={query}
-              onChangeText={setQuery}
-              placeholder="Search categories…"
-              placeholderTextColor={tokens.colors.muted}
-              className="ml-3 flex-1 text-text"
-              autoCorrect={false}
-              autoCapitalize="none"
-              style={[tokens.typography.base as any]}
-            />
-            {query.length > 0 ? (
-              <HapticPressable
-                onPress={() => setQuery("")}
-                haptic="selection"
-                pressScale={0.98}
-                className="h-11 w-11 items-center justify-center rounded-full"
-                android_ripple={{ color: "#FFFFFF10", borderless: true }}
-              >
-                <Ionicons name="close" size={18} color={tokens.colors.muted} />
-              </HapticPressable>
-            ) : null}
-          </View>
+          <Input
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search categories..."
+            autoCorrect={false}
+            autoCapitalize="none"
+          />
+
+          {query.length > 0 ? (
+            <HapticPressable
+              onPress={() => setQuery("")}
+              haptic="selection"
+              pressScale={0.98}
+              className="mt-2 self-end min-h-11 px-4 items-center justify-center rounded-full border border-stroke bg-surface"
+              android_ripple={{ color: "#FFFFFF10", borderless: true }}
+            >
+              <AppText variant="sm" tone="muted">
+                Clear
+              </AppText>
+            </HapticPressable>
+          ) : null}
 
           {/* Recent */}
           {query.trim().length === 0 ? (

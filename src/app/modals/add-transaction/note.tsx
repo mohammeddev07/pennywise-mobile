@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Keyboard, ScrollView, Text, TextInput, View } from "react-native";
+import { Keyboard, ScrollView, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { tokens } from "@/shared/ui/theme/tokens";
 import { Button } from "@/shared/ui/components/Button";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
+import { Sheet } from "@/shared/ui/components/Sheet";
+import { AppText } from "@/shared/ui/components/AppText";
 import { Skeleton } from "@/shared/ui/components/Skeleton";
-import { tokens } from "@/shared/ui/theme/tokens";
+import { EmptyState } from "@/shared/ui/components/EmptyState";
+import { Card } from "@/shared/ui/components/Card";
 import { useAddTransactionDraftStore } from "@/features/transactions/addDraftStore";
 import { useTransactionsStore } from "@/features/transactions/store";
 
@@ -33,7 +36,6 @@ function toRecentNotes(notes: string[]) {
 
 export default function NoteModal() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
 
   const existing = useAddTransactionDraftStore((s) => s.note);
   const setNote = useAddTransactionDraftStore((s) => s.setNote);
@@ -42,9 +44,15 @@ export default function NoteModal() {
   const kind = useAddTransactionDraftStore((s) => s.kind);
   const transactions = useTransactionsStore((s) => s.transactions);
 
+  const persist = (useTransactionsStore as any).persist;
+
   const [value, setValue] = useState(existing ?? "");
-  const [isHydrated, setIsHydrated] = useState(useTransactionsStore.persist.hasHydrated());
+  const [isHydrated, setIsHydrated] = useState<boolean>(() => {
+    const has = persist?.hasHydrated?.();
+    return typeof has === "boolean" ? has : true;
+  });
   const [hasHydrationError, setHasHydrationError] = useState(false);
+
   const inputRef = useRef<TextInput>(null);
 
   useEffect(() => {
@@ -57,29 +65,33 @@ export default function NoteModal() {
   }, [setNote, value]);
 
   useEffect(() => {
-    if (isHydrated) return;
+    if (!persist?.onFinishHydration) return;
+
+    if (persist?.hasHydrated && !persist.hasHydrated()) {
+      persist?.rehydrate?.();
+    }
 
     const timeoutId = setTimeout(() => {
-      if (!useTransactionsStore.persist.hasHydrated()) {
+      if (persist?.hasHydrated && !persist.hasHydrated()) {
         setHasHydrationError(true);
       }
     }, 3000);
 
-    const unsubHydrate = useTransactionsStore.persist.onHydrate(() => {
+    const unsubHydrate = persist?.onHydrate?.(() => {
       setHasHydrationError(false);
     });
 
-    const unsubFinish = useTransactionsStore.persist.onFinishHydration(() => {
+    const unsubFinish = persist.onFinishHydration(() => {
       setIsHydrated(true);
       setHasHydrationError(false);
     });
 
     return () => {
       clearTimeout(timeoutId);
-      unsubHydrate();
-      unsubFinish();
+      unsubHydrate?.();
+      unsubFinish?.();
     };
-  }, [isHydrated]);
+  }, [persist]);
 
   const recentNotes = useMemo(() => {
     const scoped = transactions
@@ -89,10 +101,7 @@ export default function NoteModal() {
     return toRecentNotes(scoped);
   }, [transactions, bookId, kind]);
 
-  const canSave = value.trim().length <= NOTE_MAX;
-
   const saveAndClose = () => {
-    if (!canSave) return;
     setNote(clampNote(value.trim()));
     Keyboard.dismiss();
     router.back();
@@ -108,88 +117,115 @@ export default function NoteModal() {
 
   const retryHydration = () => {
     setHasHydrationError(false);
-    setIsHydrated(useTransactionsStore.persist.hasHydrated());
+    const has = persist?.hasHydrated?.();
+    setIsHydrated(typeof has === "boolean" ? has : true);
+    if (!has) {
+      persist?.rehydrate?.();
+    }
   };
 
   return (
-    <View className="flex-1 bg-ink" style={{ paddingTop: insets.top + 12, paddingBottom: insets.bottom + 24 }}>
-      <View className="px-6 flex-row items-center justify-between">
-        <HapticPressable
-          onPress={() => router.back()}
-          className="h-12 w-12 items-center justify-center rounded-full border border-stroke bg-surface"
-          android_ripple={{ color: "#FFFFFF12", borderless: true }}
-        >
-          <Ionicons name="chevron-back" size={20} color={tokens.colors.text} />
-        </HapticPressable>
+    <View className="flex-1 bg-ink">
+      <Sheet
+        tone="ink"
+        className="flex-1"
+        title="Note"
+        leftAction={
+          <HapticPressable
+            onPress={() => router.back()}
+            className="h-12 w-12 items-center justify-center rounded-full border border-stroke bg-surface"
+            android_ripple={{ color: "#FFFFFF12", borderless: true }}
+          >
+            <Ionicons name="chevron-back" size={20} color={tokens.colors.text} />
+          </HapticPressable>
+        }
+        footer={<Button label="Done" onPress={saveAndClose} size="md" />}
+      >
+        <View className="mt-2">
+          <AppText variant="sm" tone="muted" className="mb-2">
+            Details (optional)
+          </AppText>
 
-        <Text className="text-text text-base font-semibold">Note</Text>
+          <View className="rounded-lg border border-stroke bg-surface px-4 pt-4 pb-3">
+            <TextInput
+              ref={inputRef}
+              value={value}
+              onChangeText={(next) => setValue(clampNote(next))}
+              placeholder="Add context for this transaction"
+              placeholderTextColor={tokens.colors.muted}
+              className="text-text"
+              multiline
+              textAlignVertical="top"
+              style={[tokens.typography.base as any, { minHeight: 160 }]}
+              returnKeyType="done"
+              blurOnSubmit
+              maxLength={NOTE_MAX}
+            />
 
-        <View className="h-12 w-12" />
-      </View>
-
-      <View className="flex-1 px-6 mt-6">
-        <Text className="text-muted text-xs">Details (optional)</Text>
-        <View className="mt-2 rounded-xl border border-stroke bg-surface p-4">
-          <TextInput
-            ref={inputRef}
-            value={value}
-            onChangeText={(next) => setValue(clampNote(next))}
-            placeholder="Add context for this transaction"
-            placeholderTextColor={tokens.colors.muted}
-            className="text-text text-base"
-            multiline
-            textAlignVertical="top"
-            style={{ minHeight: 160 }}
-            returnKeyType="done"
-            blurOnSubmit
-            maxLength={NOTE_MAX}
-          />
-
-          <View className="mt-3 flex-row items-center justify-between">
-            <Text className="text-muted text-xs">Saved automatically</Text>
-            <Text className="text-muted text-xs">{value.length}/{NOTE_MAX}</Text>
+            <View className="mt-3 flex-row items-center justify-between">
+              <AppText variant="xs" tone="muted">
+                Saved automatically
+              </AppText>
+              <AppText variant="xs" tone="muted">
+                {value.length}/{NOTE_MAX}
+              </AppText>
+            </View>
           </View>
         </View>
 
         <View className="mt-6">
-          <Text className="text-muted text-xs uppercase" style={{ letterSpacing: 0.8 }}>
+          <AppText variant="xs" tone="muted" className="uppercase">
             Recent notes
-          </Text>
+          </AppText>
 
           {hasHydrationError ? (
-            <View className="mt-3 rounded-xl border border-stroke bg-surface p-4">
-              <Text className="text-text text-sm">Couldn&apos;t load recent notes.</Text>
-              <Button label="Retry" size="md" variant="ghost" onPress={retryHydration} className="mt-3" />
-            </View>
+            <Card variant="surface" className="mt-3">
+              <AppText variant="base">Couldn&apos;t load recent notes.</AppText>
+              <AppText variant="sm" tone="muted" className="mt-2">
+                Retry to refresh persisted transactions.
+              </AppText>
+              <Button label="Retry" size="md" variant="ghost" onPress={retryHydration} className="mt-4" />
+            </Card>
           ) : !isHydrated ? (
             <View className="mt-3 gap-3">
               <Skeleton height={44} borderRadius={16} />
               <Skeleton height={44} borderRadius={16} />
             </View>
           ) : recentNotes.length === 0 ? (
-            <View className="mt-3 rounded-xl border border-stroke bg-surface p-4">
-              <Text className="text-muted text-sm">No recent notes for this book and type yet.</Text>
+            <View className="mt-3 py-6">
+              <EmptyState
+                title="No recent notes"
+                message="Recent notes from this book and type will appear here."
+                className="px-0"
+              />
             </View>
           ) : (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingTop: 12 }}>
-              {recentNotes.map((item) => (
-                <HapticPressable
-                  key={item}
-                  onPress={() => onAppendRecent(item)}
-                  className="mr-3 min-h-11 justify-center rounded-full border border-stroke bg-surface px-4"
-                  android_ripple={{ color: "#FFFFFF10", borderless: true }}
-                >
-                  <Text className="text-text text-sm font-medium">{item}</Text>
-                </HapticPressable>
-              ))}
-            </ScrollView>
+            <View className="mt-3">
+              <AppText variant="xs" tone="muted">
+                Tap to append to your current note.
+              </AppText>
+
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={{ paddingTop: 12 }}
+              >
+                {recentNotes.map((item) => (
+                  <HapticPressable
+                    key={item}
+                    onPress={() => onAppendRecent(item)}
+                    className="mr-3 min-h-11 justify-center rounded-full border border-stroke bg-surface px-4"
+                    android_ripple={{ color: "#FFFFFF10", borderless: true }}
+                  >
+                    <AppText variant="sm">{item}</AppText>
+                  </HapticPressable>
+                ))}
+              </ScrollView>
+            </View>
           )}
         </View>
-      </View>
-
-      <View className="px-6">
-        <Button label="Done" onPress={saveAndClose} disabled={!canSave} />
-      </View>
+      </Sheet>
     </View>
   );
 }

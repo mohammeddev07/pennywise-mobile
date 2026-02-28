@@ -1,11 +1,13 @@
 import { useEffect } from "react";
-import { Pressable, Text, View } from "react-native";
+import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 
 import { tokens } from "@/shared/ui/theme/tokens";
 import { useUndoToastStore } from "@/shared/ui/state/useUndoToastStore";
+import { HapticPressable } from "@/shared/ui/components/HapticPressable";
+import { AppText } from "@/shared/ui/components/AppText";
 
 export function UndoToast() {
   const insets = useSafeAreaInsets();
@@ -49,7 +51,7 @@ export function UndoToast() {
     >
       <View
         style={{
-          borderRadius: 18,
+          borderRadius: 24,
           overflow: "hidden",
           borderWidth: 1,
           borderColor: tokens.colors.stroke,
@@ -67,7 +69,7 @@ export function UndoToast() {
             borderRadius: 17,
             alignItems: "center",
             justifyContent: "center",
-            backgroundColor: "#00C80522",
+            backgroundColor: `${tokens.colors.accent}22`,
             borderWidth: 1,
             borderColor: tokens.colors.stroke,
           }}
@@ -76,28 +78,34 @@ export function UndoToast() {
         </View>
 
         <View style={{ flex: 1, marginLeft: 12 }}>
-          <Text className="text-text font-semibold">{title}</Text>
-          <Text className="text-muted text-xs mt-0.5">Undo available for a few seconds</Text>
+          <AppText variant="sm" style={{ fontFamily: "Inter_600SemiBold" }}>
+            {title}
+          </AppText>
+          <AppText variant="xs" tone="muted" className="mt-0.5">
+            Undo available for a few seconds
+          </AppText>
         </View>
 
-        <Pressable
+        <HapticPressable
           onPress={undo}
-          className="px-4 py-2 rounded-full border"
-          style={{ borderColor: `${tokens.colors.accent}55`, backgroundColor: "#00C80514" }}
-          android_ripple={{ color: "#00C80522" }}
+          haptic="selection"
+          className="min-h-11 px-4 items-center justify-center rounded-full border"
+          style={{ borderColor: `${tokens.colors.accent}55`, backgroundColor: `${tokens.colors.accent}14` }}
+          android_ripple={{ color: `${tokens.colors.accent}22` }}
         >
-          <Text style={{ color: tokens.colors.accent }} className="font-semibold">
+          <AppText variant="sm" style={{ color: tokens.colors.accent, fontFamily: "Inter_600SemiBold" }}>
             Undo
-          </Text>
-        </Pressable>
+          </AppText>
+        </HapticPressable>
 
-        <Pressable
+        <HapticPressable
           onPress={hide}
+          haptic="selection"
           className="ml-2 h-10 w-10 items-center justify-center rounded-full"
           android_ripple={{ color: "#FFFFFF10", borderless: true }}
         >
           <Ionicons name="close" size={18} color={tokens.colors.muted} />
-        </Pressable>
+        </HapticPressable>
       </View>
     </Animated.View>
   );

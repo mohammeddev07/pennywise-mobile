@@ -1,12 +1,13 @@
 import React from "react";
-import { Pressable, Text, View } from "react-native";
+import { View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
 import clsx from "clsx";
 
-export type Key = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "." | "back";
+import { tokens } from "@/shared/ui/theme/tokens";
+import { AppText } from "@/shared/ui/components/AppText";
+import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 
-const EMERALD = "#00C805";
+export type Key = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "." | "back";
 
 export function NumericKeypad({
   onKey,
@@ -15,10 +16,9 @@ export function NumericKeypad({
 }: {
   onKey: (k: Key) => void;
   containerClassName?: string;
-  keyHeight?: number; // tighter grid control
+  keyHeight?: number;
 }) {
-  const press = async (k: Key) => {
-    await Haptics.selectionAsync();
+  const press = (k: Key) => {
     onKey(k);
   };
 
@@ -45,14 +45,15 @@ export function NumericKeypad({
       <Row className="mt-3">
         <KeyBtn label="." h={keyHeight} onPress={() => press(".")} />
         <KeyBtn label="0" h={keyHeight} onPress={() => press("0")} />
-        <Pressable
+        <HapticPressable
           onPress={() => press("back")}
-          className="flex-1 items-center justify-center rounded-2xl"
+          haptic="selection"
+          className="flex-1 items-center justify-center rounded-lg"
           style={{ height: keyHeight }}
           android_ripple={{ color: "#FFFFFF14", borderless: false }}
         >
-          <Ionicons name="backspace" size={22} color={EMERALD} />
-        </Pressable>
+          <Ionicons name="backspace" size={22} color={tokens.colors.accent} />
+        </HapticPressable>
       </Row>
     </View>
   );
@@ -70,15 +71,16 @@ function Row({
 
 function KeyBtn({ label, onPress, h }: { label: string; onPress: () => void; h: number }) {
   return (
-    <Pressable
+    <HapticPressable
       onPress={onPress}
-      className="flex-1 items-center justify-center rounded-2xl"
+      haptic="selection"
+      className="flex-1 items-center justify-center rounded-lg"
       style={{ height: h }}
       android_ripple={{ color: "#FFFFFF14", borderless: false }}
     >
-      <Text style={{ color: EMERALD }} className="text-4xl font-semibold">
+      <AppText variant="2xl" style={{ color: tokens.colors.accent }}>
         {label}
-      </Text>
-    </Pressable>
+      </AppText>
+    </HapticPressable>
   );
 }
