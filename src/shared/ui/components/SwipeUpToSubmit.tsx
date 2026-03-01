@@ -1,4 +1,4 @@
-import { type ReactNode } from "react";
+import { type ReactNode, useRef } from "react";
 import { View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
@@ -20,7 +20,9 @@ type Props = {
   onSubmit: () => void;
   thresholdPx?: number;
   minVelocityY?: number;
-  children: ReactNode;
+  variant?: "hint" | "panel";
+  panelSafeBottom?: number;
+  children?: ReactNode;
 };
 
 function clamp(v: number, min: number, max: number) {
@@ -34,14 +36,24 @@ export function SwipeUpToSubmit({
   onSubmit,
   thresholdPx = 64,
   minVelocityY = -800,
+  variant = "hint",
+  panelSafeBottom = 0,
   children,
 }: Props) {
   const dragY = useSharedValue(0);
+  const triggerLockRef = useRef(false);
 
   const onTriggered = () => {
     if (disabled) return;
+    if (triggerLockRef.current) return;
+    triggerLockRef.current = true;
+
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     onSubmit();
+
+    setTimeout(() => {
+      triggerLockRef.current = false;
+    }, 260);
   };
 
   const gesture = Gesture.Pan()
@@ -73,8 +85,8 @@ export function SwipeUpToSubmit({
   const handleStyle = useAnimatedStyle(() => {
     const progress = interpolate(Math.abs(dragY.value), [0, thresholdPx], [0, 1]);
     return {
-      transform: [{ translateY: dragY.value * 0.18 }],
-      opacity: disabled ? 0.4 : 1 - progress * 0.08,
+      transform: [{ translateY: dragY.value * 0.15 }],
+      opacity: disabled ? 0.4 : 1 - progress * 0.06,
     };
   });
 
@@ -82,37 +94,82 @@ export function SwipeUpToSubmit({
     const progress = interpolate(Math.abs(dragY.value), [0, thresholdPx], [0, 1]);
     return {
       transform: [{ scale: 1 + progress * 0.006 }],
-      opacity: 1 - progress * 0.04,
+      opacity: disabled ? 0.4 : 1 - progress * 0.04,
     };
   });
 
-  return (
-    <GestureDetector gesture={gesture}>
-      <Animated.View>
-        <Animated.View
-          className="mb-3 min-h-12 flex-row items-center justify-center rounded-lg border px-4"
-          style={[
-            {
-              backgroundColor: disabled ? tokens.colors.surface : tokens.colors.accent,
-              borderColor: disabled ? tokens.colors.stroke : tokens.colors.accentPressed,
-            },
-            handleStyle,
-          ]}
-        >
-          <Ionicons name="chevron-up" size={16} color={disabled ? tokens.colors.muted : tokens.colors.black} />
-          <AppText
-            variant="sm"
-            className="ml-1"
-            style={{
-              color: disabled ? tokens.colors.muted : tokens.colors.black,
-              fontFamily: "Inter_600SemiBold",
-            }}
-          >
-            {label}
-          </AppText>
-        </Animated.View>
+  const tapGesture = Gesture.Tap()
+    .enabled(!disabled)
+    .maxDuration(220)
+    .onEnd((_event, success) => {
+      if (!success) return;
+      runOnJS(onTriggered)();
+    });
 
-        <Animated.View style={contentStyle}>{children}</Animated.View>
+  const composed = Gesture.Simultaneous(gesture, tapGesture);
+
+  return (
+    <GestureDetector gesture={composed}>
+      <Animated.View>
+        {variant === "panel" ? (
+          <Animated.View
+            className="w-full items-center"
+            style={[
+              {
+                backgroundColor: tokens.colors.accent,
+                paddingTop: 8,
+                paddingBottom: panelSafeBottom + 12,
+                paddingHorizontal: 24,
+              },
+              contentStyle,
+            ]}
+          >
+            <Animated.View
+              className="h-1 w-12 rounded-full"
+              style={[{ backgroundColor: "#00000022" }, handleStyle]}
+            />
+
+            <Animated.View className="mt-3 min-h-11 flex-row items-center justify-center" style={handleStyle}>
+              <Ionicons name="chevron-up" size={16} color={tokens.colors.black} />
+              <AppText
+                variant="xl"
+                className="ml-2"
+                style={{ color: tokens.colors.black, fontFamily: "Inter_600SemiBold" }}
+              >
+                {label}
+              </AppText>
+            </Animated.View>
+
+            {children}
+          </Animated.View>
+        ) : (
+          <>
+            <Animated.View
+              className="mb-2 min-h-11 flex-row items-center justify-center rounded-lg border px-4"
+              style={[
+                {
+                  backgroundColor: disabled ? tokens.colors.surface : tokens.colors.accent,
+                  borderColor: disabled ? tokens.colors.stroke : tokens.colors.accentPressed,
+                },
+                handleStyle,
+              ]}
+            >
+              <Ionicons name="chevron-up" size={16} color={disabled ? tokens.colors.muted : tokens.colors.black} />
+              <AppText
+                variant="sm"
+                className="ml-1"
+                style={{
+                  color: disabled ? tokens.colors.muted : tokens.colors.black,
+                  fontFamily: "Inter_600SemiBold",
+                }}
+              >
+                {label}
+              </AppText>
+            </Animated.View>
+
+            <Animated.View style={contentStyle}>{children}</Animated.View>
+          </>
+        )}
       </Animated.View>
     </GestureDetector>
   );

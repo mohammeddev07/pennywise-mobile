@@ -356,7 +356,7 @@ export default function Home() {
               ) : (
                 <View className="mt-3 gap-2">
                   {recentTransactions.map((tx) => (
-                    <TransactionRow key={tx.id} item={tx} />
+                    <TransactionRow key={tx.id} item={tx} enableActions={false} />
                   ))}
                 </View>
               )}

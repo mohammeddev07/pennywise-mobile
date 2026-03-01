@@ -11,6 +11,7 @@ type Props = ViewProps &
     leftAction?: ReactNode;
     rightAction?: ReactNode;
     footer?: ReactNode;
+    footerVariant?: "default" | "fullBleed";
     tone?: "app" | "ink";
     className?: string;
   }>;
@@ -20,6 +21,7 @@ export function Sheet({
   leftAction,
   rightAction,
   footer,
+  footerVariant = "default",
   tone = "app",
   className,
   children,
@@ -60,7 +62,24 @@ export function Sheet({
 
       <View className="flex-1">{children}</View>
 
-      {footer ? <View className="mt-4 pt-4 border-t border-stroke">{footer}</View> : null}
+      {footer
+        ? footerVariant === "fullBleed"
+          ? (
+            <View
+              style={{
+                marginLeft: -24,
+                marginRight: -24,
+                marginBottom: -(insets.bottom + 16),
+                marginTop: 16,
+              }}
+            >
+              {footer}
+            </View>
+            )
+          : (
+            <View className="mt-4 pt-4 border-t border-stroke">{footer}</View>
+            )
+        : null}
     </View>
   );
 }

@@ -43,7 +43,13 @@ function moneySigned(kind: Transaction["kind"], amountCents: number) {
   return `${sign}$${dollars}`;
 }
 
-export function TransactionRow({ item }: { item: Transaction }) {
+export function TransactionRow({
+  item,
+  enableActions = true,
+}: {
+  item: Transaction;
+  enableActions?: boolean;
+}) {
   const router = useRouter();
 
   const duplicateTransaction = useTransactionsStore((s) => s.duplicateTransaction);
@@ -117,37 +123,41 @@ export function TransactionRow({ item }: { item: Transaction }) {
         </View>
       </HapticPressable>
 
-      <View className="h-px bg-stroke" />
+      {enableActions ? (
+        <>
+          <View className="h-px bg-stroke" />
 
-      <View className="flex-row">
-        <HapticPressable
-          onPress={onDuplicate}
-          className="flex-1 min-h-12 px-4 py-3 flex-row items-center justify-center"
-          haptic="selection"
-          pressScale={0.99}
-          android_ripple={{ color: "#FFFFFF10" }}
-        >
-          <Ionicons name="copy-outline" size={16} color={tokens.colors.accent} />
-          <AppText variant="sm" className="ml-2 text-accent">
-            Duplicate
-          </AppText>
-        </HapticPressable>
+          <View className="flex-row">
+            <HapticPressable
+              onPress={onDuplicate}
+              className="flex-1 min-h-12 px-4 py-3 flex-row items-center justify-center"
+              haptic="selection"
+              pressScale={0.99}
+              android_ripple={{ color: "#FFFFFF10" }}
+            >
+              <Ionicons name="copy-outline" size={16} color={tokens.colors.accent} />
+              <AppText variant="sm" className="ml-2 text-accent">
+                Duplicate
+              </AppText>
+            </HapticPressable>
 
-        <View className="w-px bg-stroke" />
+            <View className="w-px bg-stroke" />
 
-        <HapticPressable
-          onPress={onDelete}
-          className="flex-1 min-h-12 px-4 py-3 flex-row items-center justify-center"
-          haptic="selection"
-          pressScale={0.99}
-          android_ripple={{ color: "#FFFFFF10" }}
-        >
-          <Ionicons name="trash-outline" size={16} color={tokens.colors.danger} />
-          <AppText variant="sm" tone="danger" className="ml-2">
-            Delete
-          </AppText>
-        </HapticPressable>
-      </View>
+            <HapticPressable
+              onPress={onDelete}
+              className="flex-1 min-h-12 px-4 py-3 flex-row items-center justify-center"
+              haptic="selection"
+              pressScale={0.99}
+              android_ripple={{ color: "#FFFFFF10" }}
+            >
+              <Ionicons name="trash-outline" size={16} color={tokens.colors.danger} />
+              <AppText variant="sm" tone="danger" className="ml-2">
+                Delete
+              </AppText>
+            </HapticPressable>
+          </View>
+        </>
+      ) : null}
     </Card>
   );
 }

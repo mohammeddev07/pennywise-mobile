@@ -48,6 +48,8 @@ export default function TitleModal() {
   }, [persist]);
 
   const [value, setValue] = useState(existing ?? "");
+  const trimmedTitle = value.trim();
+  const canSave = trimmedTitle.length > 0;
 
   // auto-save while typing (keeps draft in sync)
   useEffect(() => {
@@ -70,7 +72,8 @@ export default function TitleModal() {
   }, [transactions, bookId, kind]);
 
   const saveAndClose = () => {
-    setTitle(value.trim());
+    if (!canSave) return;
+    setTitle(trimmedTitle);
     Keyboard.dismiss();
     router.back();
   };
@@ -100,6 +103,7 @@ export default function TitleModal() {
         rightAction={
           <HapticPressable
             onPress={saveAndClose}
+            disabled={!canSave}
             haptic="selection"
             pressScale={0.98}
             className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
@@ -108,12 +112,12 @@ export default function TitleModal() {
             <Ionicons name="checkmark" size={18} color={tokens.colors.accent} />
           </HapticPressable>
         }
-        footer={<Button label="Done" onPress={saveAndClose} size="md" />}
+        footer={<Button label="Done" onPress={saveAndClose} size="md" disabled={!canSave} />}
       >
         {/* Input block */}
         <View className="mt-2">
           <Input
-            label="Transaction title"
+            label="Title"
             value={value}
             onChangeText={setValue}
             placeholder="Coffee, Uber, Rent…"
@@ -121,6 +125,7 @@ export default function TitleModal() {
             returnKeyType="done"
             blurOnSubmit
             onSubmitEditing={saveAndClose}
+            error={!canSave ? "Title is required." : undefined}
             // Make the title feel “headline-like” without breaking contract tokens
             style={[tokens.typography.xl as any, { fontFamily: "Inter_600SemiBold" }]}
           />

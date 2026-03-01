@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ScrollView, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
@@ -16,7 +16,6 @@ import { SelectRow } from "@/shared/ui/components/SelectRow";
 import { AmountInput, applyAmountKey } from "@/shared/ui/components/AmountInput";
 import { Button } from "@/shared/ui/components/Button";
 import { EmptyState } from "@/shared/ui/components/EmptyState";
-import { SwipeUpToSubmit } from "@/shared/ui/components/SwipeUpToSubmit";
 import { Input } from "@/shared/ui/components/Input";
 
 function safeWhenLabel(iso: string) {
@@ -50,6 +49,7 @@ export default function AddTransactionEntry() {
   const setKind = useAddTransactionDraftStore((s) => s.setKind);
   const setBookId = useAddTransactionDraftStore((s) => s.setBookId);
   const setTitle = useAddTransactionDraftStore((s) => s.setTitle);
+  const [reviewAttempted, setReviewAttempted] = useState(false);
 
   const didInitRef = useRef(false);
 
@@ -72,7 +72,8 @@ export default function AddTransactionEntry() {
   }, [selectedBook?.id, setBookId, selectedBook]);
 
   const valueNum = useMemo(() => Number(amount || "0") || 0, [amount]);
-  const canReview = valueNum > 0;
+  const hasTitle = title.trim().length > 0;
+  const canReview = valueNum > 0 && hasTitle;
 
   const close = () => {
     resetDraft();
@@ -87,7 +88,10 @@ export default function AddTransactionEntry() {
   };
 
   const goReview = () => {
-    if (!canReview || !selectedBook) return;
+    if (!canReview || !selectedBook) {
+      setReviewAttempted(true);
+      return;
+    }
     router.push({
       pathname: "/modals/add-transaction/review",
       params: {
@@ -124,18 +128,12 @@ export default function AddTransactionEntry() {
           </HapticPressable>
         }
         footer={
-          <SwipeUpToSubmit
-            label="Swipe up to review"
-            onSubmit={goReview}
-            disabled={!canReview || !selectedBook}
-          >
-            <View>
-              <Button label="Review" onPress={goReview} disabled={!canReview || !selectedBook} size="md" />
-              <View className="mt-3">
-                <NumericKeypad onKey={onKey} keyHeight={62} containerClassName="px-0" />
-              </View>
+          <View>
+            <Button label="Review" onPress={goReview} disabled={!canReview || !selectedBook} size="md" />
+            <View className="mt-2">
+              <NumericKeypad onKey={onKey} keyHeight={56} containerClassName="px-2" />
             </View>
-          </SwipeUpToSubmit>
+          </View>
         }
       >
         {!hasBooks ? (
@@ -186,8 +184,6 @@ export default function AddTransactionEntry() {
                 value={amount}
                 kind={kind}
                 currencySymbol="$"
-                majorFontSize={72}
-                minorFontSize={36}
                 helperText={kind === "expense" ? "Money out" : "Money in"}
               />
             </View>
@@ -196,9 +192,11 @@ export default function AddTransactionEntry() {
               <Input
                 value={title}
                 onChangeText={setTitle}
-                placeholder="Title (optional)"
+                label="Title"
+                placeholder="Coffee, Uber, Rent"
                 autoCapitalize="words"
                 returnKeyType="done"
+                error={reviewAttempted && !hasTitle ? "Title is required." : undefined}
               />
 
               <View className="mt-4 gap-2">

@@ -3,6 +3,7 @@ import { View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { format, parseISO } from "date-fns";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { tokens } from "@/shared/ui/theme/tokens";
 import { Sheet } from "@/shared/ui/components/Sheet";
@@ -96,6 +97,7 @@ function SummaryRow({ label, value, strong }: { label: string; value: string; st
 
 export default function AddTransactionReview() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const books = useBooksStore((s) => s.books);
@@ -150,8 +152,9 @@ export default function AddTransactionReview() {
   const primaryLabel = title.length ? title : category;
   const currency: CurrencyCode = primaryCurrency;
   const hasAmountError = amountCents <= 0;
+  const hasTitleError = title.length === 0;
 
-  const canSubmit = booksHydrated && !!selectedBook && !hasAmountError;
+  const canSubmit = booksHydrated && !!selectedBook && !hasAmountError && !hasTitleError;
   const submitDisabled = !canSubmit || isSubmitting;
 
   const onSubmit = () => {
@@ -183,6 +186,7 @@ export default function AddTransactionReview() {
         tone="ink"
         className="flex-1"
         title="Review"
+        footerVariant="fullBleed"
         leftAction={
           <HapticPressable
             onPress={() => router.back()}
@@ -197,15 +201,9 @@ export default function AddTransactionReview() {
             label="Swipe up to submit"
             onSubmit={onSubmit}
             disabled={submitDisabled}
-          >
-            <Button
-              label="Confirm"
-              onPress={onSubmit}
-              size="md"
-              disabled={submitDisabled}
-              loading={isSubmitting}
-            />
-          </SwipeUpToSubmit>
+            variant="panel"
+            panelSafeBottom={insets.bottom}
+          />
         }
       >
         {!booksHydrated ? (
@@ -223,6 +221,16 @@ export default function AddTransactionReview() {
               Enter an amount greater than $0.00 before saving.
             </AppText>
             <Button label="Back to amount" variant="ghost" size="md" onPress={() => router.back()} className="mt-4" />
+          </Card>
+        ) : hasTitleError ? (
+          <Card variant="surface" className="mt-2">
+            <AppText variant="base" tone="danger">
+              Title is required.
+            </AppText>
+            <AppText variant="sm" tone="muted" className="mt-2">
+              Add a title before submitting this transaction.
+            </AppText>
+            <Button label="Back to edit title" variant="ghost" size="md" onPress={() => router.back()} className="mt-4" />
           </Card>
         ) : !selectedBook ? (
           <View className="mt-6 py-8">
