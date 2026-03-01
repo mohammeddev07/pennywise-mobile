@@ -17,6 +17,7 @@ import { AmountInput, applyAmountKey } from "@/shared/ui/components/AmountInput"
 import { Button } from "@/shared/ui/components/Button";
 import { EmptyState } from "@/shared/ui/components/EmptyState";
 import { SwipeUpToSubmit } from "@/shared/ui/components/SwipeUpToSubmit";
+import { Input } from "@/shared/ui/components/Input";
 
 function safeWhenLabel(iso: string) {
   try {
@@ -48,6 +49,7 @@ export default function AddTransactionEntry() {
   const setAmount = useAddTransactionDraftStore((s) => s.setAmount);
   const setKind = useAddTransactionDraftStore((s) => s.setKind);
   const setBookId = useAddTransactionDraftStore((s) => s.setBookId);
+  const setTitle = useAddTransactionDraftStore((s) => s.setTitle);
 
   const didInitRef = useRef(false);
 
@@ -153,13 +155,13 @@ export default function AddTransactionEntry() {
               className="mt-2"
             />
 
-            <View className="mt-4 items-center">
+            <View className="mt-6 items-center">
               <View className="flex-row rounded-full border border-stroke bg-surface overflow-hidden">
                 <HapticPressable
                   onPress={() => setKind("expense")}
                   haptic="selection"
                   pressScale={0.99}
-                  className={`px-6 h-11 items-center justify-center ${kind === "expense" ? "bg-card" : ""}`}
+                  className={`px-6 h-12 items-center justify-center ${kind === "expense" ? "bg-card" : ""}`}
                 >
                   <AppText variant="sm" className={kind === "expense" ? "text-text" : "text-muted"}>
                     Expense
@@ -170,7 +172,7 @@ export default function AddTransactionEntry() {
                   onPress={() => setKind("income")}
                   haptic="selection"
                   pressScale={0.99}
-                  className={`px-6 h-11 items-center justify-center ${kind === "income" ? "bg-card" : ""}`}
+                  className={`px-6 h-12 items-center justify-center ${kind === "income" ? "bg-card" : ""}`}
                 >
                   <AppText variant="sm" className={kind === "income" ? "text-text" : "text-muted"}>
                     Income
@@ -179,28 +181,32 @@ export default function AddTransactionEntry() {
               </View>
             </View>
 
-            <View className="items-center mt-6 mb-1">
+            <View className="items-center mt-8">
               <AmountInput
                 value={amount}
                 kind={kind}
                 currencySymbol="$"
+                majorFontSize={72}
+                minorFontSize={36}
                 helperText={kind === "expense" ? "Money out" : "Money in"}
               />
             </View>
 
-            <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 12 }}>
-              <View className="gap-2">
+            <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 24 }}>
+              <Input
+                value={title}
+                onChangeText={setTitle}
+                placeholder="Title (optional)"
+                autoCapitalize="words"
+                returnKeyType="done"
+              />
+
+              <View className="mt-4 gap-2">
                 <SelectRow
                   label="When"
                   value={safeWhenLabel(occurredAt)}
                   placeholder="Now"
                   onPress={() => router.push("/modals/add-transaction/datetime")}
-                />
-                <SelectRow
-                  label="Title"
-                  value={title}
-                  placeholder="e.g. Coffee, Uber, Rent…"
-                  onPress={() => router.push("/modals/add-transaction/title")}
                 />
                 <SelectRow
                   label="Category"

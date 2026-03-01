@@ -73,16 +73,16 @@ export function SwipeUpToSubmit({
   const handleStyle = useAnimatedStyle(() => {
     const progress = interpolate(Math.abs(dragY.value), [0, thresholdPx], [0, 1]);
     return {
-      transform: [{ translateY: dragY.value * 0.12 }],
-      opacity: disabled ? 0.4 : 1 - progress * 0.15,
+      transform: [{ translateY: dragY.value * 0.18 }],
+      opacity: disabled ? 0.4 : 1 - progress * 0.08,
     };
   });
 
   const contentStyle = useAnimatedStyle(() => {
     const progress = interpolate(Math.abs(dragY.value), [0, thresholdPx], [0, 1]);
     return {
-      transform: [{ scale: 1 + progress * 0.01 }],
-      opacity: disabled ? 0.4 : 1 - progress * 0.06,
+      transform: [{ scale: 1 + progress * 0.006 }],
+      opacity: 1 - progress * 0.04,
     };
   });
 
@@ -90,11 +90,24 @@ export function SwipeUpToSubmit({
     <GestureDetector gesture={gesture}>
       <Animated.View>
         <Animated.View
-          className="min-h-11 flex-row items-center justify-center"
-          style={handleStyle}
+          className="mb-3 min-h-12 flex-row items-center justify-center rounded-lg border px-4"
+          style={[
+            {
+              backgroundColor: disabled ? tokens.colors.surface : tokens.colors.accent,
+              borderColor: disabled ? tokens.colors.stroke : tokens.colors.accentPressed,
+            },
+            handleStyle,
+          ]}
         >
-          <Ionicons name="chevron-up" size={16} color={tokens.colors.muted} />
-          <AppText variant="xs" tone="muted" className="ml-1">
+          <Ionicons name="chevron-up" size={16} color={disabled ? tokens.colors.muted : tokens.colors.black} />
+          <AppText
+            variant="sm"
+            className="ml-1"
+            style={{
+              color: disabled ? tokens.colors.muted : tokens.colors.black,
+              fontFamily: "Inter_600SemiBold",
+            }}
+          >
             {label}
           </AppText>
         </Animated.View>

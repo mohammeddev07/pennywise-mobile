@@ -271,7 +271,7 @@ export default function AddTransactionReview() {
                 label="Title"
                 value={title.length ? title : "—"}
                 muted={!title.length}
-                onPress={() => router.push("/modals/add-transaction/title")}
+                onPress={() => router.back()}
               />
               <View className="h-px bg-stroke" />
               <ReviewRow
