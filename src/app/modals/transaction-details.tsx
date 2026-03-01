@@ -1,8 +1,7 @@
-import { useMemo } from "react";
-import { Alert, Pressable, Text, View } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import { Alert, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import { format, parseISO } from "date-fns";
 
@@ -11,6 +10,12 @@ import { Button } from "@/shared/ui/components/Button";
 import { useTransactionsStore } from "@/features/transactions/store";
 import { useCategoriesStore } from "@/features/categories/store";
 import { useUndoToastStore } from "@/shared/ui/state/useUndoToastStore";
+import { Sheet } from "@/shared/ui/components/Sheet";
+import { HapticPressable } from "@/shared/ui/components/HapticPressable";
+import { AppText } from "@/shared/ui/components/AppText";
+import { Card } from "@/shared/ui/components/Card";
+import { EmptyState } from "@/shared/ui/components/EmptyState";
+import { Skeleton } from "@/shared/ui/components/Skeleton";
 
 function safeDate(iso: string) {
   try {
@@ -28,18 +33,78 @@ function formatMoneySigned(kind: "income" | "expense", amountCents: number) {
   return `${sign}$${dollars}`;
 }
 
+function DetailRow({
+  label,
+  value,
+  icon,
+  muted,
+}: {
+  label: string;
+  value: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  muted?: boolean;
+}) {
+  return (
+    <View className="px-4 py-3 flex-row items-center">
+      <View className="h-10 w-10 items-center justify-center rounded-lg border border-stroke bg-card">
+        <Ionicons name={icon} size={18} color={tokens.colors.muted} />
+      </View>
+
+      <View className="ml-3 flex-1">
+        <AppText variant="xs" tone="muted">
+          {label}
+        </AppText>
+        <AppText variant="base" className="mt-1" style={{ color: muted ? tokens.colors.muted : tokens.colors.text }}>
+          {value}
+        </AppText>
+      </View>
+    </View>
+  );
+}
+
 export default function TransactionDetailsModal() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
 
   const params = useLocalSearchParams<{ id?: string }>();
   const id = String(params.id ?? "");
 
   const transactions = useTransactionsStore((s) => s.transactions);
   const removeTransaction = useTransactionsStore((s) => s.removeTransaction);
+  const duplicateTransaction = useTransactionsStore((s) => s.duplicateTransaction);
   const categories = useCategoriesStore((s) => s.categories);
 
   const showDeleted = useUndoToastStore((s) => s.showDeleted);
+
+  const txPersist = (useTransactionsStore as any).persist;
+  const [hydrated, setHydrated] = useState<boolean>(() => {
+    const has = txPersist?.hasHydrated?.();
+    return typeof has === "boolean" ? has : true;
+  });
+  const [hydrationError, setHydrationError] = useState(false);
+
+  useEffect(() => {
+    if (!txPersist?.onFinishHydration) return;
+
+    const unsub = txPersist.onFinishHydration(() => {
+      setHydrated(true);
+      setHydrationError(false);
+    });
+
+    if (txPersist?.hasHydrated && !txPersist.hasHydrated()) {
+      txPersist?.rehydrate?.();
+    }
+
+    const timeoutId = setTimeout(() => {
+      if (txPersist?.hasHydrated && !txPersist.hasHydrated()) {
+        setHydrationError(true);
+      }
+    }, 3000);
+
+    return () => {
+      clearTimeout(timeoutId);
+      unsub?.();
+    };
+  }, [txPersist]);
 
   const tx = useMemo(() => transactions.find((t) => t.id === id) ?? null, [transactions, id]);
 
@@ -60,8 +125,6 @@ export default function TransactionDetailsModal() {
   const onDelete = () => {
     if (!tx) return;
 
-    Haptics.selectionAsync().catch(() => {});
-
     Alert.alert("Delete transaction?", "You can undo for a few seconds after deleting.", [
       { text: "Cancel", style: "cancel" },
       {
@@ -78,138 +141,130 @@ export default function TransactionDetailsModal() {
     ]);
   };
 
+  const onDuplicate = () => {
+    if (!tx) return;
+    const duplicatedId = duplicateTransaction(tx.id);
+    if (duplicatedId) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      router.replace({ pathname: "/modals/transaction-details", params: { id: duplicatedId } });
+    }
+  };
+
+  const retryHydration = () => {
+    setHydrationError(false);
+    setHydrated(txPersist?.hasHydrated?.() ?? true);
+    txPersist?.rehydrate?.();
+  };
+
   return (
-    <View className="flex-1 bg-ink" style={{ paddingTop: insets.top + 10, paddingBottom: insets.bottom + 18 }}>
-      {/* Header */}
-      <View className="px-6 flex-row items-center justify-between">
-        <Pressable
-          onPress={() => {
-            Haptics.selectionAsync().catch(() => {});
-            router.back();
-          }}
-          className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
-          android_ripple={{ color: "#FFFFFF12", borderless: true }}
-        >
-          <Ionicons name="chevron-back" size={20} color={tokens.colors.text} />
-        </Pressable>
-
-        <Text className="text-text text-base font-semibold">Transaction</Text>
-
-        <Pressable
-          onPress={onDelete}
-          className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
-          android_ripple={{ color: "#FFFFFF12", borderless: true }}
-        >
-          <Ionicons name="trash-outline" size={20} color={tokens.colors.danger} />
-        </Pressable>
-      </View>
-
-      {!tx ? (
-        <View className="flex-1 px-6 items-center justify-center">
-          <Text className="text-text text-lg font-semibold">Not found</Text>
-          <Text className="text-muted mt-2 text-center">This transaction may have been deleted.</Text>
-          <View className="mt-6 w-full">
-            <Button label="Done" onPress={() => router.back()} />
-          </View>
-        </View>
-      ) : (
-        <>
-          {/* Hero */}
-          <View className="px-6 mt-10 items-center">
-            <View
-              className="h-14 w-14 items-center justify-center rounded-3xl border border-stroke"
-              style={{ backgroundColor: `${categoryMeta.color}22` }}
+    <View className="flex-1 bg-ink">
+      <Sheet
+        tone="ink"
+        className="flex-1"
+        title="Transaction"
+        leftAction={
+          <HapticPressable
+            onPress={() => router.back()}
+            className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
+            android_ripple={{ color: "#FFFFFF12", borderless: true }}
+          >
+            <Ionicons name="chevron-back" size={20} color={tokens.colors.text} />
+          </HapticPressable>
+        }
+        rightAction={
+          tx ? (
+            <HapticPressable
+              onPress={onDelete}
+              className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
+              android_ripple={{ color: "#FFFFFF12", borderless: true }}
             >
-              <Ionicons name={categoryMeta.icon} size={26} color={categoryMeta.color} />
+              <Ionicons name="trash-outline" size={20} color={tokens.colors.danger} />
+            </HapticPressable>
+          ) : null
+        }
+        footer={
+          tx ? (
+            <View className="gap-3">
+              <Button label="Duplicate" variant="ghost" onPress={onDuplicate} size="md" />
+              <Button label="Delete" variant="danger" onPress={onDelete} size="md" />
+              <Button label="Done" onPress={() => router.back()} size="md" />
+            </View>
+          ) : (
+            <Button label="Done" onPress={() => router.back()} size="md" />
+          )
+        }
+      >
+        {hydrationError ? (
+          <View className="flex-1 justify-center">
+            <EmptyState
+              title="Couldn’t load transaction"
+              message="Retry to refresh transaction details."
+              actionLabel="Retry"
+              onAction={retryHydration}
+              className="px-0"
+            />
+          </View>
+        ) : !hydrated ? (
+          <View className="mt-2 gap-3">
+            <Skeleton height={180} borderRadius={24} />
+            <Skeleton height={240} borderRadius={24} />
+          </View>
+        ) : !tx ? (
+          <View className="flex-1 justify-center">
+            <EmptyState
+              title="Not found"
+              message="This transaction may have been deleted."
+              className="px-0"
+            />
+          </View>
+        ) : (
+          <>
+            <View className="mt-2 items-center">
+              <View
+                className="h-14 w-14 items-center justify-center rounded-xl border border-stroke"
+                style={{ backgroundColor: `${categoryMeta.color}22` }}
+              >
+                <Ionicons name={categoryMeta.icon} size={26} color={categoryMeta.color} />
+              </View>
+
+              <AppText variant="xs" tone="muted" className="mt-4 uppercase">
+                {tx.kind === "income" ? "Income" : "Expense"}
+              </AppText>
+
+              <AppText
+                variant="amount"
+                className="mt-2"
+                style={{ color: tx.kind === "income" ? tokens.colors.accent : tokens.colors.text }}
+              >
+                {formatMoneySigned(tx.kind, tx.amountCents)}
+              </AppText>
+
+              <AppText variant="base" tone="muted" className="mt-2">
+                {categoryMeta.name}
+              </AppText>
             </View>
 
-            <Text className="text-muted mt-4 text-xs uppercase tracking-widest">
-              {tx.kind === "income" ? "Income" : "Expense"}
-            </Text>
-
-            <Text
-              className="mt-2 text-5xl font-semibold"
-              style={{ color: tx.kind === "income" ? tokens.colors.accent : tokens.colors.danger }}
-            >
-              {formatMoneySigned(tx.kind, tx.amountCents)}
-            </Text>
-
-            <Text className="text-muted mt-3">{categoryMeta.name}</Text>
-          </View>
-
-          {/* Details card */}
-          <View className="px-6 mt-8">
-            <View className="rounded-3xl border border-stroke bg-surface overflow-hidden">
+            <Card variant="surface" className="mt-6 p-0 overflow-hidden">
+              <DetailRow label="Title" value={tx.title || "—"} icon="create-outline" muted={!tx.title} />
+              <View className="h-px bg-stroke" />
               <DetailRow label="Payment method" value={(tx.paymentMethod || "cash").toLowerCase()} icon="card-outline" />
-              <Divider />
+              <View className="h-px bg-stroke" />
               <DetailRow label="Date" value={dateLabel} icon="calendar-outline" />
-              <Divider />
+              <View className="h-px bg-stroke" />
               <DetailRow label="Time" value={timeLabel} icon="time-outline" />
-              <Divider />
+              <View className="h-px bg-stroke" />
               <DetailRow label="Currency" value={tx.currency || "USD"} icon="cash-outline" />
-              <Divider />
+              <View className="h-px bg-stroke" />
               <DetailRow
                 label="Note"
                 value={tx.note?.trim() ? tx.note.trim() : "—"}
                 icon="chatbubble-ellipses-outline"
                 muted={!tx.note?.trim()}
               />
-            </View>
-          </View>
-
-          {/* Actions */}
-          <View className="px-6 mt-auto">
-            <Pressable
-              onPress={onDelete}
-              className="h-12 items-center justify-center rounded-full border"
-              style={{ borderColor: "#FF4D4D55" }}
-              android_ripple={{ color: "#FF4D4D22" }}
-            >
-              <Text style={{ color: tokens.colors.danger }} className="font-semibold">
-                Delete transaction
-              </Text>
-            </Pressable>
-
-            <View className="mt-3">
-              <Button label="Done" onPress={() => router.back()} />
-            </View>
-          </View>
-        </>
-      )}
-    </View>
-  );
-}
-
-function Divider() {
-  return <View className="h-px bg-stroke" />;
-}
-
-function DetailRow({
-  label,
-  value,
-  icon,
-  muted,
-}: {
-  label: string;
-  value: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  muted?: boolean;
-}) {
-  return (
-    <View className="px-5 py-4 flex-row items-center">
-      <View className="h-10 w-10 items-center justify-center rounded-2xl border border-stroke bg-card">
-        <Ionicons name={icon} size={18} color={tokens.colors.muted} />
-      </View>
-
-      <View className="ml-4 flex-1">
-        <Text className="text-muted text-xs">{label}</Text>
-        <Text
-          className="text-text text-base font-semibold mt-1"
-          style={{ color: muted ? tokens.colors.muted : tokens.colors.text }}
-        >
-          {value}
-        </Text>
-      </View>
+            </Card>
+          </>
+        )}
+      </Sheet>
     </View>
   );
 }

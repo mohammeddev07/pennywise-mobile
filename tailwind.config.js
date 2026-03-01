@@ -32,6 +32,10 @@ module.exports = {
         backgroundLight: "#f6f6f8",
         textLight: "#111218",
         textMutedLight: "#616889",
+
+        // inside extend.colors
+        warning: "#F59E0B",
+        success: "#00C805",
       },
       borderRadius: {
         DEFAULT: "8px",

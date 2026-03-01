@@ -1,17 +1,21 @@
-import { useMemo, useState } from "react";
-import { Text, TextInput, View } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import { View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { FlashList } from "@shopify/flash-list";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
-import Svg, { Circle } from "react-native-svg";
 
 import { tokens } from "@/shared/ui/theme/tokens";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
-import { useCategoriesStore, type Category } from "@/features/categories/store";
+import { useCategoriesStore } from "@/features/categories/store";
 import { useTransactionsStore } from "@/features/transactions/store";
 import { useBooksStore } from "@/features/books/store";
 import { useBudgetsStore } from "@/features/budgets/store";
+import { AppText } from "@/shared/ui/components/AppText";
+import { Input } from "@/shared/ui/components/Input";
+import { Card } from "@/shared/ui/components/Card";
+import { EmptyState } from "@/shared/ui/components/EmptyState";
+import { Skeleton } from "@/shared/ui/components/Skeleton";
 
 function monthKey(iso?: string) {
   const t = iso ? Date.parse(iso) : NaN;
@@ -32,48 +36,7 @@ function formatMoney0(cents: number) {
   return `$${intWithSep}`;
 }
 
-function Ring({
-  size,
-  stroke,
-  progress,
-  color,
-}: {
-  size: number;
-  stroke: number;
-  progress: number; // 0..1
-  color: string;
-}) {
-  const r = (size - stroke) / 2;
-  const c = 2 * Math.PI * r;
-  const p = Math.max(0, Math.min(1, progress));
-  const dash = c * p;
-
-  return (
-    <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-      <Circle
-        cx={size / 2}
-        cy={size / 2}
-        r={r}
-        stroke={tokens.colors.stroke}
-        strokeWidth={stroke}
-        fill="transparent"
-      />
-      <Circle
-        cx={size / 2}
-        cy={size / 2}
-        r={r}
-        stroke={color}
-        strokeWidth={stroke}
-        strokeLinecap="round"
-        fill="transparent"
-        strokeDasharray={`${dash} ${c - dash}`}
-        transform={`rotate(-90 ${size / 2} ${size / 2})`}
-      />
-    </Svg>
-  );
-}
-
-type BudgetTile = {
+type CategoryTile = {
   id: string;
   categoryId: string;
   name: string;
@@ -83,18 +46,163 @@ type BudgetTile = {
   budgetCents: number;
 };
 
+function Tile({ item }: { item: CategoryTile }) {
+  const remaining = item.budgetCents - item.spentCents;
+  const hasBudget = item.budgetCents > 0;
+  const over = hasBudget && remaining < 0;
+  const progress = hasBudget ? Math.min(1, item.spentCents / Math.max(1, item.budgetCents)) : 0;
+
+  return (
+    <Card variant="surface" className="min-h-[210px] p-0 overflow-hidden">
+      <HapticPressable
+        onPress={() =>
+          router.push({
+            pathname: "/modals/category-editor",
+            params: { id: item.categoryId },
+          })
+        }
+        haptic="selection"
+        pressScale={0.99}
+        pressOpacity={0.92}
+        className="px-4 pt-4 pb-3"
+        android_ripple={{ color: "#FFFFFF10" }}
+      >
+        <View className="flex-row items-center justify-between">
+          <View
+            className="h-10 w-10 items-center justify-center rounded-lg border border-stroke"
+            style={{ backgroundColor: `${item.color}22` }}
+          >
+            <Ionicons name={item.icon as any} size={18} color={item.color} />
+          </View>
+
+          <Ionicons name="create-outline" size={18} color={tokens.colors.muted} />
+        </View>
+
+        <AppText variant="base" className="mt-4" style={{ fontFamily: "Inter_600SemiBold" }} numberOfLines={1}>
+          {item.name}
+        </AppText>
+
+        <AppText variant="sm" tone="muted" className="mt-1">
+          {formatMoney0(item.spentCents)} spent
+        </AppText>
+
+        <View className="mt-4 h-2 rounded-full bg-stroke overflow-hidden">
+          <View
+            className="h-2 rounded-full"
+            style={{
+              width: `${Math.max(4, Math.round(progress * 100))}%`,
+              backgroundColor: over ? tokens.colors.danger : tokens.colors.accent,
+            }}
+          />
+        </View>
+
+        {hasBudget ? (
+          <AppText variant="sm" className="mt-3" style={{ color: over ? tokens.colors.danger : tokens.colors.accent }}>
+            {over ? `${formatMoney0(Math.abs(remaining))} over` : `${formatMoney0(remaining)} left`}
+          </AppText>
+        ) : (
+          <AppText variant="sm" tone="muted" className="mt-3">
+            No budget set
+          </AppText>
+        )}
+      </HapticPressable>
+
+      <View className="h-px bg-stroke" />
+
+      <HapticPressable
+        onPress={() => router.push({ pathname: "/modals/budget-editor", params: { category: item.name } })}
+        haptic="selection"
+        pressScale={0.98}
+        className="min-h-12 px-4 flex-row items-center justify-center"
+        android_ripple={{ color: "#FFFFFF10" }}
+      >
+        <AppText variant="sm" className="text-accent">
+          {hasBudget ? "Edit budget" : "Set budget"}
+        </AppText>
+      </HapticPressable>
+    </Card>
+  );
+}
+
 export default function CategoriesScreen() {
   const insets = useSafeAreaInsets();
 
   const categories = useCategoriesStore((s) => s.categories);
   const transactions = useTransactionsStore((s) => s.transactions);
-
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
   const budgets = useBudgetsStore((s) => s.budgets);
 
+  const catsPersist = (useCategoriesStore as any).persist;
+  const txPersist = (useTransactionsStore as any).persist;
+  const booksPersist = (useBooksStore as any).persist;
+  const budgetsPersist = (useBudgetsStore as any).persist;
+
+  const [catsHydrated, setCatsHydrated] = useState<boolean>(() => catsPersist?.hasHydrated?.() ?? true);
+  const [txHydrated, setTxHydrated] = useState<boolean>(() => txPersist?.hasHydrated?.() ?? true);
+  const [booksHydrated, setBooksHydrated] = useState<boolean>(() => booksPersist?.hasHydrated?.() ?? true);
+  const [budgetsHydrated, setBudgetsHydrated] = useState<boolean>(() => budgetsPersist?.hasHydrated?.() ?? true);
+  const [hydrationError, setHydrationError] = useState(false);
+
   const [query, setQuery] = useState("");
 
-  const tiles = useMemo<BudgetTile[]>(() => {
+  useEffect(() => {
+    const unsubs: Array<() => void> = [];
+
+    if (catsPersist?.onFinishHydration) {
+      const unsub = catsPersist.onFinishHydration(() => setCatsHydrated(true));
+      unsubs.push(unsub);
+      if (catsPersist?.hasHydrated && !catsPersist.hasHydrated()) catsPersist?.rehydrate?.();
+    }
+
+    if (txPersist?.onFinishHydration) {
+      const unsub = txPersist.onFinishHydration(() => setTxHydrated(true));
+      unsubs.push(unsub);
+      if (txPersist?.hasHydrated && !txPersist.hasHydrated()) txPersist?.rehydrate?.();
+    }
+
+    if (booksPersist?.onFinishHydration) {
+      const unsub = booksPersist.onFinishHydration(() => setBooksHydrated(true));
+      unsubs.push(unsub);
+      if (booksPersist?.hasHydrated && !booksPersist.hasHydrated()) booksPersist?.rehydrate?.();
+    }
+
+    if (budgetsPersist?.onFinishHydration) {
+      const unsub = budgetsPersist.onFinishHydration(() => setBudgetsHydrated(true));
+      unsubs.push(unsub);
+      if (budgetsPersist?.hasHydrated && !budgetsPersist.hasHydrated()) budgetsPersist?.rehydrate?.();
+    }
+
+    const timeoutId = setTimeout(() => {
+      const catsReady = catsPersist?.hasHydrated ? catsPersist.hasHydrated() : true;
+      const txReady = txPersist?.hasHydrated ? txPersist.hasHydrated() : true;
+      const booksReady = booksPersist?.hasHydrated ? booksPersist.hasHydrated() : true;
+      const budgetsReady = budgetsPersist?.hasHydrated ? budgetsPersist.hasHydrated() : true;
+      if (!catsReady || !txReady || !booksReady || !budgetsReady) {
+        setHydrationError(true);
+      }
+    }, 3000);
+
+    return () => {
+      clearTimeout(timeoutId);
+      for (const unsub of unsubs) unsub?.();
+    };
+  }, [booksPersist, budgetsPersist, catsPersist, txPersist]);
+
+  const retryHydration = () => {
+    setHydrationError(false);
+    setCatsHydrated(catsPersist?.hasHydrated?.() ?? true);
+    setTxHydrated(txPersist?.hasHydrated?.() ?? true);
+    setBooksHydrated(booksPersist?.hasHydrated?.() ?? true);
+    setBudgetsHydrated(budgetsPersist?.hasHydrated?.() ?? true);
+    catsPersist?.rehydrate?.();
+    txPersist?.rehydrate?.();
+    booksPersist?.rehydrate?.();
+    budgetsPersist?.rehydrate?.();
+  };
+
+  const hydrated = catsHydrated && txHydrated && booksHydrated && budgetsHydrated;
+
+  const tiles = useMemo<CategoryTile[]>(() => {
     const bookId = selectedBookId ?? "personal";
     const month = nowMonthKey();
 
@@ -109,7 +217,6 @@ export default function CategoriesScreen() {
 
     const spentByCat = new Map<string, number>();
     for (const tx of transactions as any[]) {
-      // tolerate old data that lacks bookId
       if (tx.bookId && tx.bookId !== bookId) continue;
       if (tx.kind !== "expense") continue;
       if (monthKey(tx.occurredAt) !== month) continue;
@@ -119,7 +226,7 @@ export default function CategoriesScreen() {
       spentByCat.set(cat, (spentByCat.get(cat) ?? 0) + cents);
     }
 
-    const out: BudgetTile[] = categories.map((c) => ({
+    const out: CategoryTile[] = categories.map((c) => ({
       id: c.id,
       categoryId: c.id,
       name: c.name,
@@ -129,7 +236,6 @@ export default function CategoriesScreen() {
       budgetCents: budgetByCat.get(c.name) ?? 0,
     }));
 
-    // If Uncategorized exists via spending but not in categories list
     if (!out.some((x) => x.name === "Uncategorized") && spentByCat.has("Uncategorized")) {
       out.unshift({
         id: "uncat",
@@ -143,172 +249,114 @@ export default function CategoriesScreen() {
     }
 
     const q = query.trim().toLowerCase();
-    return q ? out.filter((t) => t.name.toLowerCase().includes(q)) : out;
+    const filtered = q ? out.filter((t) => t.name.toLowerCase().includes(q)) : out;
+
+    return filtered.sort((a, b) => a.name.localeCompare(b.name));
   }, [budgets, categories, query, selectedBookId, transactions]);
 
-  const GUTTER = 12;
+  const GUTTER = 8;
   const HALF = GUTTER / 2;
 
   return (
-    <View className="flex-1 bg-app" style={{ paddingTop: insets.top + 10 }}>
+    <View className="flex-1 bg-app" style={{ paddingTop: insets.top + 12 }}>
       <View className="px-6">
         <View className="flex-row items-center justify-between">
-          <Text className="text-text text-2xl font-semibold">Categories</Text>
+          <AppText variant="2xl">Categories</AppText>
 
           <HapticPressable
             onPress={() => router.push("/modals/category-editor")}
             haptic="selection"
             pressScale={0.98}
-            className="h-11 w-11 items-center justify-center rounded-full border border-stroke bg-surface"
+            className="h-12 w-12 items-center justify-center rounded-full border border-stroke bg-surface"
             android_ripple={{ color: "#FFFFFF12", borderless: true }}
           >
-            <Ionicons name="add" size={22} color={tokens.colors.accent} />
+            <Ionicons name="add" size={20} color={tokens.colors.accent} />
           </HapticPressable>
         </View>
 
-        {/* Search */}
-        <View className="mt-5 flex-row items-center rounded-2xl border border-stroke bg-surface px-4 py-3">
-          <Ionicons name="search" size={18} color={tokens.colors.muted} />
-          <TextInput
-            value={query}
-            onChangeText={setQuery}
-            placeholder="Search categories…"
-            placeholderTextColor={tokens.colors.muted}
-            className="ml-3 flex-1 text-text"
-            autoCorrect={false}
-            autoCapitalize="none"
-          />
-          {query.length > 0 ? (
-            <HapticPressable
-              onPress={() => setQuery("")}
-              haptic="selection"
-              pressScale={0.98}
-              className="h-9 w-9 items-center justify-center rounded-full"
-              android_ripple={{ color: "#FFFFFF10", borderless: true }}
-            >
-              <Ionicons name="close" size={18} color={tokens.colors.muted} />
-            </HapticPressable>
-          ) : null}
-        </View>
-
-        <View className="h-px bg-stroke mt-5" />
+        <Input
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Search categories..."
+          autoCorrect={false}
+          autoCapitalize="none"
+          containerClassName="mt-5"
+        />
       </View>
 
-      <View className="flex-1 px-6">
-        <FlashList
-          data={tiles}
-          keyExtractor={(item) => item.id}
-          numColumns={2}
-          renderItem={({ item, index }) => {
-            const isLeft = index % 2 === 0;
-
-            const remaining = item.budgetCents - item.spentCents;
-            const over = item.budgetCents > 0 && remaining < 0;
-
-            const ringColor = over ? tokens.colors.danger : tokens.colors.accent;
-            const progress =
-              item.budgetCents > 0 ? Math.min(1, item.spentCents / Math.max(1, item.budgetCents)) : 0;
-
-            return (
-              <View
-                style={{
-                  flex: 1,
-                  paddingLeft: isLeft ? 0 : HALF,
-                  paddingRight: isLeft ? HALF : 0,
-                  paddingBottom: GUTTER,
-                  paddingTop: 12,
-                }}
-              >
-                <HapticPressable
-                  onPress={() =>
-                    router.push({
-                      pathname: "/modals/category-editor",
-                      params: { id: item.categoryId },
-                    })
-                  }
-                  haptic="selection"
-                  pressScale={0.98}
-                  className="rounded-[28px] border border-stroke bg-surface"
-                  android_ripple={{ color: "#FFFFFF10" }}
-                  style={{ padding: 16, minHeight: 210 }}
-                >
-                  {/* top row */}
-                  <View className="flex-row items-center justify-between">
-                    <View
-                      className="h-10 w-10 items-center justify-center rounded-full border border-stroke"
-                      style={{ backgroundColor: `${item.color}22` }}
-                    >
-                      <Ionicons name={item.icon as any} size={18} color={item.color} />
-                    </View>
-
-                    <Ionicons name="create-outline" size={18} color={tokens.colors.muted} />
-                  </View>
-
-                  {/* ring */}
-                  <View style={{ marginTop: 14, alignItems: "center", justifyContent: "center" }}>
-                    <View style={{ width: 110, height: 110, alignItems: "center", justifyContent: "center" }}>
-                      <Ring size={110} stroke={10} progress={progress} color={ringColor} />
-
-                      {/* INSIDE CIRCLE: OVER/LEFT */}
-                      <View
-                        style={{
-                          position: "absolute",
-                          left: 0,
-                          right: 0,
-                          top: 0,
-                          bottom: 0,
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                      >
-                        {item.budgetCents > 0 ? (
-                          <>
-                            <Text className="text-muted text-xs tracking-widest">{over ? "OVER" : "LEFT"}</Text>
-                            <Text style={{ color: ringColor, fontWeight: "900", marginTop: 6 }}>
-                              {formatMoney0(Math.abs(remaining))}
-                            </Text>
-                          </>
-                        ) : (
-                          <>
-                            <Text className="text-muted text-xs tracking-widest">BUDGET</Text>
-                            <Text style={{ color: tokens.colors.muted, fontWeight: "900", marginTop: 6 }}>
-                              Set
-                            </Text>
-                          </>
-                        )}
-                      </View>
-                    </View>
-                  </View>
-
-                  {/* BIG centered label under ring */}
-                  <View style={{ marginTop: 14, alignItems: "center" }}>
-                    <Text className="text-text text-base font-semibold" numberOfLines={1}>
-                      {item.name}
-                    </Text>
-
-                    <Text className="text-text text-2xl font-semibold mt-2">
-                      {formatMoney0(item.spentCents)}
-                    </Text>
-
-                    <Text className="text-muted text-xs mt-1">
-                      {item.budgetCents > 0 ? `of ${formatMoney0(item.budgetCents)} budget` : "Tap to set budget"}
-                    </Text>
-                  </View>
-                </HapticPressable>
+      <View className="flex-1 px-6 mt-4">
+        {hydrationError ? (
+          <View className="flex-1 justify-center">
+            <EmptyState
+              title="Couldn’t load categories"
+              message="Retry to refresh category and budget data."
+              actionLabel="Retry"
+              onAction={retryHydration}
+              className="px-0"
+            />
+          </View>
+        ) : !hydrated ? (
+          <View className="pt-2">
+            <View className="flex-row" style={{ gap: GUTTER }}>
+              <View style={{ flex: 1 }}>
+                <Skeleton height={220} borderRadius={24} />
               </View>
-            );
-          }}
-          contentContainerStyle={{
-            paddingBottom: (insets.bottom || 0) + 22,
-            paddingTop: 6,
-          }}
-          showsVerticalScrollIndicator={false}
-          ListEmptyComponent={
-            <View className="py-10 items-center">
-              <Text className="text-muted">No categories found.</Text>
+              <View style={{ flex: 1 }}>
+                <Skeleton height={220} borderRadius={24} />
+              </View>
             </View>
-          }
-        />
+            <View className="mt-2 flex-row" style={{ gap: GUTTER }}>
+              <View style={{ flex: 1 }}>
+                <Skeleton height={220} borderRadius={24} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Skeleton height={220} borderRadius={24} />
+              </View>
+            </View>
+          </View>
+        ) : tiles.length === 0 ? (
+          <View className="flex-1 justify-center">
+            <EmptyState
+              title={query.trim().length ? "No categories found" : "No categories yet"}
+              message={
+                query.trim().length
+                  ? "Try a different search term."
+                  : "Create your first category to start organizing spending."
+              }
+              actionLabel="Create category"
+              onAction={() => router.push("/modals/category-editor")}
+              className="px-0"
+            />
+          </View>
+        ) : (
+          <FlashList
+            data={tiles}
+            keyExtractor={(item) => item.id}
+            numColumns={2}
+            renderItem={({ item, index }) => {
+              const isLeft = index % 2 === 0;
+
+              return (
+                <View
+                  style={{
+                    flex: 1,
+                    paddingLeft: isLeft ? 0 : HALF,
+                    paddingRight: isLeft ? HALF : 0,
+                    paddingBottom: GUTTER,
+                    paddingTop: 8,
+                  }}
+                >
+                  <Tile item={item} />
+                </View>
+              );
+            }}
+            contentContainerStyle={{
+              paddingBottom: (insets.bottom || 0) + 24,
+              paddingTop: 4,
+            }}
+            showsVerticalScrollIndicator={false}
+          />
+        )}
       </View>
     </View>
   );

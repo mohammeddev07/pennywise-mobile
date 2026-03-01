@@ -1,30 +1,82 @@
 import React from "react";
-import { View, Text, Pressable } from "react-native";
+import { View, Text } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
-import { useColorScheme } from "nativewind";
 
-export function TipCard({ title, body, onClose }: { title: string; body: string; onClose?: () => void }) {
-  const { colorScheme } = useColorScheme();
-  const isDark = colorScheme === "dark";
+import { tokens } from "@/shared/ui/theme/tokens";
+import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 
+type Props = {
+  title: string;
+  body: string;
+
+  /** MaterialIcons name */
+  icon?: React.ComponentProps<typeof MaterialIcons>["name"];
+
+  /** Optional inline action */
+  actionLabel?: string;
+  onAction?: () => void;
+
+  /** Optional close affordance */
+  onClose?: () => void;
+};
+
+export function TipCard({ title, body, icon = "tips-and-updates", actionLabel, onAction, onClose }: Props) {
   return (
-    <View className={`rounded-2xl p-4 ${isDark ? "bg-cardDark border border-gray-700/50" : "bg-white shadow-sm"}`}>
+    <View
+      style={{
+        borderRadius: 18,
+        padding: 16,
+        backgroundColor: tokens.colors.surface,
+        borderWidth: 1,
+        borderColor: tokens.colors.stroke,
+      }}
+    >
       <View className="flex-row items-start justify-between">
-        <View className="flex-row items-start gap-3">
-          <View className={`h-10 w-10 items-center justify-center rounded-full ${isDark ? "bg-emerald-900/30" : "bg-blue-50"}`}>
-            <MaterialIcons name="tips-and-updates" size={20} color={isDark ? "#34d399" : "#2b4bee"} />
+        <View className="flex-row items-start" style={{ gap: 12, flex: 1 }}>
+          <View
+            style={{
+              height: 40,
+              width: 40,
+              borderRadius: 999,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: "#00C8051A",
+            }}
+          >
+            <MaterialIcons name={icon} size={20} color={tokens.colors.accent} />
           </View>
 
-          <View className="flex-1">
-            <Text className={`text-sm font-bold ${isDark ? "text-white" : "text-textLight"}`}>{title}</Text>
-            <Text className={`mt-1 text-xs ${isDark ? "text-textSecondary" : "text-textMutedLight"}`}>{body}</Text>
+          <View style={{ flex: 1 }}>
+            <Text className="text-text text-sm font-bold">{title}</Text>
+            <Text className="text-muted mt-1 text-xs leading-5">{body}</Text>
+
+            {actionLabel && onAction ? (
+              <HapticPressable
+                onPress={onAction}
+                haptic="selection"
+                pressScale={0.985}
+                className="mt-4 self-start rounded-full px-4 py-2"
+                style={{ backgroundColor: "#00C80522" }}
+                android_ripple={{ color: "#FFFFFF10" }}
+              >
+                <Text style={{ color: tokens.colors.accent }} className="text-xs font-extrabold tracking-widest">
+                  {actionLabel.toUpperCase()}
+                </Text>
+              </HapticPressable>
+            ) : null}
           </View>
         </View>
 
         {onClose ? (
-          <Pressable onPress={onClose} className="h-8 w-8 items-center justify-center rounded-full bg-black/5 dark:bg-white/10">
-            <MaterialIcons name="close" size={18} color={isDark ? "#cbd5e1" : "#64748b"} />
-          </Pressable>
+          <HapticPressable
+            onPress={onClose}
+            haptic="selection"
+            className="h-9 w-9 items-center justify-center rounded-full"
+            android_ripple={{ color: "#FFFFFF10", borderless: true }}
+            style={{ backgroundColor: "#FFFFFF08" }}
+          >
+            <MaterialIcons name="close" size={18} color={tokens.colors.muted} />
+          </HapticPressable>
         ) : null}
       </View>
     </View>

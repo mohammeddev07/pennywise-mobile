@@ -4,27 +4,9 @@ import { createJSONStorage, persist } from "zustand/middleware";
 
 import { useBooksStore } from "@/features/books/store";
 import { useSettingsStore } from "@/features/settings/store";
+import type { CurrencyCode, PaymentMethod, Transaction, TransactionKind } from "@/shared/types/models";
 
-export type TransactionKind = "income" | "expense";
-export type PaymentMethod = "cash" | "card" | "bank_transfer" | "wallet" | "other";
-
-export type Transaction = {
-  id: string;
-
-  bookId: string;
-
-  kind: TransactionKind;
-  amountCents: number;
-  currency: string;
-
-  title: string; // primary label
-  category: string;
-  note?: string;
-
-  paymentMethod: PaymentMethod;
-  occurredAt: string; // ISO
-  createdAt: string; // ISO
-};
+export type { Transaction, TransactionKind, PaymentMethod };
 
 export type NewTransaction = {
   id?: string;
@@ -33,7 +15,7 @@ export type NewTransaction = {
   kind: TransactionKind;
   amountCents: number;
 
-  currency?: string;
+  currency?: CurrencyCode;
 
   title?: string;
   category?: string;
@@ -43,7 +25,6 @@ export type NewTransaction = {
   occurredAt?: string;
   createdAt?: string;
 };
-
 
 type PersistedShapeV3 = {
   transactions: Transaction[];
@@ -73,9 +54,30 @@ function currentBookIdFallback() {
   return fromBooks || "personal";
 }
 
-function defaultCurrencyFallback() {
+function defaultCurrencyFallback(): CurrencyCode {
   const c = useSettingsStore.getState().primaryCurrency;
   return c || "USD";
+}
+
+const CURRENCY_SET: CurrencyCode[] = ["USD", "EUR", "GBP", "JPY", "INR"];
+export function isCurrencyCode(x: any): x is CurrencyCode {
+  return typeof x === "string" && (CURRENCY_SET as string[]).includes(x);
+}
+
+const PAYMENT_SET: PaymentMethod[] = ["cash", "card", "bank_transfer", "wallet", "other"];
+export function isPaymentMethod(x: any): x is PaymentMethod {
+  return typeof x === "string" && (PAYMENT_SET as string[]).includes(x);
+}
+
+export function normalizePaymentMethod(input: any): PaymentMethod {
+  if (isPaymentMethod(input)) return input;
+  // allow common UI labels
+  const s = String(input ?? "").toLowerCase();
+  if (s === "bank transfer" || s === "bank_transfer" || s === "bank") return "bank_transfer";
+  if (s === "wallet") return "wallet";
+  if (s === "card" || s === "credit" || s === "debit") return "card";
+  if (s === "other") return "other";
+  return "cash";
 }
 
 export const useTransactionsStore = create<State>()(
@@ -86,6 +88,12 @@ export const useTransactionsStore = create<State>()(
       addTransaction: (input) => {
         const now = new Date().toISOString();
 
+        const title = (input.title ?? "").trim();
+        const category = (input.category ?? "Uncategorized").trim() || "Uncategorized";
+        const note = input.note?.trim() ? input.note.trim() : undefined;
+
+        const currency = isCurrencyCode(input.currency) ? input.currency : defaultCurrencyFallback();
+
         const tx: Transaction = {
           id: input.id ?? makeId(),
           createdAt: input.createdAt ?? now,
@@ -95,14 +103,13 @@ export const useTransactionsStore = create<State>()(
 
           kind: input.kind,
           amountCents: input.amountCents,
-          currency: input.currency ?? defaultCurrencyFallback(),
+          currency,
 
-          title: (input.title ?? "").trim(),
+          title: title.length ? title : category,
+          category,
+          note,
 
-          category: (input.category ?? "Uncategorized").trim() || "Uncategorized",
-          note: input.note?.trim() ? input.note.trim() : undefined,
-
-          paymentMethod: input.paymentMethod ?? "cash",
+          paymentMethod: normalizePaymentMethod(input.paymentMethod),
         };
 
         set((s) => ({ transactions: [tx, ...s.transactions] }));
@@ -136,6 +143,8 @@ export const useTransactionsStore = create<State>()(
           createdAt: now,
           occurredAt: now,
           bookId: found.bookId ?? currentBookIdFallback(),
+          currency: isCurrencyCode(found.currency) ? found.currency : defaultCurrencyFallback(),
+          paymentMethod: normalizePaymentMethod(found.paymentMethod),
         };
 
         set((s) => ({ transactions: [next, ...s.transactions] }));
@@ -144,7 +153,7 @@ export const useTransactionsStore = create<State>()(
     }),
     {
       name: "pennywise_transactions_v1",
-      version: 3,
+      version: 4,
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (s) => ({ transactions: s.transactions }),
       migrate: async (persisted: any) => {
@@ -154,30 +163,36 @@ export const useTransactionsStore = create<State>()(
         const now = new Date().toISOString();
 
         const migrated: Transaction[] = txs.map((t) => {
-          const paymentMethod =
-            t.paymentMethod === "card" ||
-            t.paymentMethod === "bank_transfer" ||
-            t.paymentMethod === "wallet" ||
-            t.paymentMethod === "other"
-              ? (t.paymentMethod as PaymentMethod)
-              : "cash";
+          const kind: TransactionKind = t.kind === "income" ? "income" : "expense";
+
+          const currency: CurrencyCode = isCurrencyCode(t.currency)
+            ? t.currency
+            : isCurrencyCode(t.currencyCode)
+              ? t.currencyCode
+              : defaultCurrencyFallback();
+
+          const category = String(t.category ?? t.categoryName ?? "Uncategorized").trim() || "Uncategorized";
+          const title = String(t.title ?? t.name ?? "").trim() || category;
 
           return {
             id: String(t.id ?? makeId()),
             bookId: String(t.bookId ?? "personal"),
 
-            kind: t.kind === "income" ? "income" : "expense",
-            amountCents: Number.isFinite(t.amountCents) ? t.amountCents : 0,
-            currency: String(t.currency ?? "USD"),
+            kind,
+            amountCents: Number.isFinite(t.amountCents)
+              ? Number(t.amountCents)
+              : Number.isFinite(t.amountMinor)
+                ? Number(t.amountMinor)
+                : 0,
+            currency,
 
-            title: String(t.title ?? t.name ?? "").trim(),
-
-            category: String(t.category ?? "Uncategorized"),
+            title,
+            category,
             note: typeof t.note === "string" && t.note.trim() ? t.note.trim() : undefined,
 
-            paymentMethod,
+            paymentMethod: normalizePaymentMethod(t.paymentMethod),
 
-            occurredAt: String(t.occurredAt ?? t.createdAt ?? now),
+            occurredAt: String(t.occurredAt ?? t.transactionDateISO ?? t.createdAt ?? now),
             createdAt: String(t.createdAt ?? t.occurredAt ?? now),
           };
         });

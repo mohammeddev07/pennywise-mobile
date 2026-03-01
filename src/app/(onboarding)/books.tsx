@@ -1,61 +1,130 @@
-import { View, Text, Pressable } from "react-native";
+import { useEffect, useState } from "react";
+import { View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import * as Haptics from "expo-haptics";
 
-import { useBooksStore } from "@/features/books/useBooksStore";
+import { AppText } from "@/shared/ui/components/AppText";
+import { Card } from "@/shared/ui/components/Card";
+import { EmptyState } from "@/shared/ui/components/EmptyState";
+import { HapticPressable } from "@/shared/ui/components/HapticPressable";
+import { Skeleton } from "@/shared/ui/components/Skeleton";
+import { Button } from "@/shared/ui/components/Button";
+import { tokens } from "@/shared/ui/theme/tokens";
+import { useBooksStore } from "@/features/books/store";
 
 export default function BooksScreen() {
   const books = useBooksStore((s) => s.books);
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
-  const selectBook = useBooksStore((s) => s.selectBook);
+  const setSelectedBookId = useBooksStore((s) => s.setSelectedBookId);
+
+  const persist = (useBooksStore as any).persist;
+  const [hydrated, setHydrated] = useState<boolean>(() => persist?.hasHydrated?.() ?? true);
+  const [hydrationError, setHydrationError] = useState(false);
+
+  useEffect(() => {
+    if (!persist?.onFinishHydration) return;
+
+    const unsub = persist.onFinishHydration(() => {
+      setHydrated(true);
+      setHydrationError(false);
+    });
+
+    if (persist?.hasHydrated && !persist.hasHydrated()) {
+      persist?.rehydrate?.();
+    }
+
+    const timeoutId = setTimeout(() => {
+      if (persist?.hasHydrated && !persist.hasHydrated()) {
+        setHydrationError(true);
+      }
+    }, 3000);
+
+    return () => {
+      clearTimeout(timeoutId);
+      unsub?.();
+    };
+  }, [persist]);
+
+  const retryHydration = () => {
+    setHydrationError(false);
+    setHydrated(persist?.hasHydrated?.() ?? true);
+    persist?.rehydrate?.();
+  };
 
   return (
-    <View className="flex-1 bg-app px-6 pt-14 pb-10">
-      <View>
-        <Text className="text-text text-2xl font-semibold">Your books</Text>
-        <Text className="text-muted mt-2 text-base">
-          Choose a book to start tracking.
-        </Text>
-      </View>
+    <View className="flex-1 bg-app px-6 pt-16 pb-10">
+      <AppText variant="2xl">Your books</AppText>
+      <AppText variant="base" tone="muted" className="mt-2">
+        Choose a book to start tracking.
+      </AppText>
 
-      <View className="mt-8 gap-3">
-        {books.map((b) => {
-          const active = b.id === selectedBookId;
-          return (
-            <Pressable
-              key={b.id}
-              onPress={() => {
-                Haptics.selectionAsync().catch(() => {});
-                selectBook(b.id);
-                router.push("/(onboarding)/currency");
-              }}
-              className={[
-                "rounded-2xl border px-4 py-4",
-                active ? "border-accent bg-surface" : "border-stroke bg-surface",
-              ].join(" ")}
-              android_ripple={{ color: "#FFFFFF10" }}
-            >
-              <View className="flex-row items-center justify-between">
-                <View>
-                  <Text className="text-text text-lg font-semibold">{b.name}</Text>
-                  {!!b.subtitle && <Text className="text-muted mt-1">{b.subtitle}</Text>}
-                </View>
-                <Ionicons
-                  name={active ? "checkmark-circle" : "chevron-forward"}
-                  size={18}
-                  color={active ? "#00C805" : "#93A4B7"}
-                />
-              </View>
-            </Pressable>
-          );
-        })}
-      </View>
+      {hydrationError ? (
+        <View className="flex-1 justify-center">
+          <EmptyState
+            title="Couldn’t load books"
+            message="Retry to continue onboarding."
+            actionLabel="Retry"
+            onAction={retryHydration}
+            className="px-0"
+          />
+        </View>
+      ) : !hydrated ? (
+        <View className="mt-8 gap-3">
+          <Skeleton height={72} borderRadius={24} />
+          <Skeleton height={72} borderRadius={24} />
+        </View>
+      ) : books.length === 0 ? (
+        <View className="flex-1 justify-center">
+          <EmptyState
+            title="No books yet"
+            message="Create a book in the app and return to onboarding."
+            className="px-0"
+          />
+        </View>
+      ) : (
+        <View className="mt-8 gap-3">
+          {books.map((book) => {
+            const active = book.id === selectedBookId;
+            return (
+              <HapticPressable
+                key={book.id}
+                onPress={() => {
+                  setSelectedBookId(book.id);
+                  router.push("/(onboarding)/currency");
+                }}
+                haptic="selection"
+                pressScale={0.99}
+              >
+                <Card
+                  variant="surface"
+                  style={{
+                    borderColor: active ? tokens.colors.accent : tokens.colors.stroke,
+                    backgroundColor: active ? `${tokens.colors.accent}12` : tokens.colors.surface,
+                  }}
+                >
+                  <View className="flex-row items-center justify-between">
+                    <View className="flex-1 pr-3">
+                      <AppText variant="lg">{book.name}</AppText>
+                      <AppText variant="sm" tone="muted" className="mt-1">
+                        {book.subtitle ? book.subtitle : "CashBook Pro"}
+                      </AppText>
+                    </View>
+
+                    <Ionicons
+                      name={active ? "checkmark-circle" : "chevron-forward"}
+                      size={18}
+                      color={active ? tokens.colors.accent : tokens.colors.muted}
+                    />
+                  </View>
+                </Card>
+              </HapticPressable>
+            );
+          })}
+        </View>
+      )}
 
       <View className="mt-auto">
-        <Text className="text-muted text-xs text-center">
-          Next: choose currency.
-        </Text>
+        <Button label="Next" onPress={() => router.push("/(onboarding)/currency")} size="md" />
       </View>
     </View>
   );

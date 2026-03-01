@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import { ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { format, isSameDay, parseISO, startOfDay, subDays } from "date-fns";
@@ -10,6 +10,11 @@ import { BookPill } from "@/shared/ui/components/BookPill";
 import { useTransactionsStore, type Transaction } from "@/features/transactions/store";
 import { useCategoriesStore } from "@/features/categories/store";
 import { useBooksStore } from "@/features/books/store";
+import { AppText } from "@/shared/ui/components/AppText";
+import { Card } from "@/shared/ui/components/Card";
+import { EmptyState } from "@/shared/ui/components/EmptyState";
+import { Skeleton } from "@/shared/ui/components/Skeleton";
+import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 
 type RangeKey = "week" | "month" | "all";
 
@@ -42,15 +47,91 @@ function formatMoney(cents: number) {
   return `${sign}$${intWithSep}.${d}`;
 }
 
+function RangeChip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+  return (
+    <HapticPressable
+      onPress={onPress}
+      haptic="selection"
+      pressScale={0.985}
+      className="rounded-full border px-4 min-h-11 items-center justify-center"
+      android_ripple={{ color: "#FFFFFF10" }}
+      style={{
+        borderColor: active ? tokens.colors.accent : tokens.colors.stroke,
+        backgroundColor: active ? `${tokens.colors.accent}22` : "transparent",
+      }}
+    >
+      <AppText variant="sm" style={{ color: active ? tokens.colors.accent : tokens.colors.text }}>
+        {label}
+      </AppText>
+    </HapticPressable>
+  );
+}
+
 export default function AnalyticsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
   const transactions = useTransactionsStore((s) => s.transactions);
   const categories = useCategoriesStore((s) => s.categories);
-
   const books = useBooksStore((s) => s.books);
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
+
+  const txPersist = (useTransactionsStore as any).persist;
+  const catsPersist = (useCategoriesStore as any).persist;
+  const booksPersist = (useBooksStore as any).persist;
+
+  const [txHydrated, setTxHydrated] = useState<boolean>(() => txPersist?.hasHydrated?.() ?? true);
+  const [catsHydrated, setCatsHydrated] = useState<boolean>(() => catsPersist?.hasHydrated?.() ?? true);
+  const [booksHydrated, setBooksHydrated] = useState<boolean>(() => booksPersist?.hasHydrated?.() ?? true);
+  const [hydrationError, setHydrationError] = useState(false);
+
+  useEffect(() => {
+    const unsubs: Array<() => void> = [];
+
+    if (txPersist?.onFinishHydration) {
+      const unsub = txPersist.onFinishHydration(() => setTxHydrated(true));
+      unsubs.push(unsub);
+      if (txPersist?.hasHydrated && !txPersist.hasHydrated()) txPersist?.rehydrate?.();
+    }
+
+    if (catsPersist?.onFinishHydration) {
+      const unsub = catsPersist.onFinishHydration(() => setCatsHydrated(true));
+      unsubs.push(unsub);
+      if (catsPersist?.hasHydrated && !catsPersist.hasHydrated()) catsPersist?.rehydrate?.();
+    }
+
+    if (booksPersist?.onFinishHydration) {
+      const unsub = booksPersist.onFinishHydration(() => setBooksHydrated(true));
+      unsubs.push(unsub);
+      if (booksPersist?.hasHydrated && !booksPersist.hasHydrated()) booksPersist?.rehydrate?.();
+    }
+
+    const timeoutId = setTimeout(() => {
+      const txReady = txPersist?.hasHydrated ? txPersist.hasHydrated() : true;
+      const catsReady = catsPersist?.hasHydrated ? catsPersist.hasHydrated() : true;
+      const booksReady = booksPersist?.hasHydrated ? booksPersist.hasHydrated() : true;
+      if (!txReady || !catsReady || !booksReady) {
+        setHydrationError(true);
+      }
+    }, 3000);
+
+    return () => {
+      clearTimeout(timeoutId);
+      for (const unsub of unsubs) unsub?.();
+    };
+  }, [booksPersist, catsPersist, txPersist]);
+
+  const retryHydration = () => {
+    setHydrationError(false);
+    setTxHydrated(txPersist?.hasHydrated?.() ?? true);
+    setCatsHydrated(catsPersist?.hasHydrated?.() ?? true);
+    setBooksHydrated(booksPersist?.hasHydrated?.() ?? true);
+    txPersist?.rehydrate?.();
+    catsPersist?.rehydrate?.();
+    booksPersist?.rehydrate?.();
+  };
+
+  const hydrated = txHydrated && catsHydrated && booksHydrated;
 
   const selectedBookName = useMemo(() => {
     return books.find((b) => b.id === selectedBookId)?.name ?? "Personal";
@@ -58,8 +139,9 @@ export default function AnalyticsScreen() {
 
   const [range, setRange] = useState<RangeKey>("week");
 
-  const bookTxs = useMemo(() => transactions.filter((t) => t.bookId === selectedBookId), [transactions, selectedBookId]);
-  const filtered = useMemo(() => bookTxs.filter((tx) => inRange(tx, range)), [bookTxs, range]);
+  const filtered = useMemo(() => {
+    return transactions.filter((tx) => tx.bookId === selectedBookId && inRange(tx, range));
+  }, [transactions, selectedBookId, range]);
 
   const totals = useMemo(() => {
     let income = 0;
@@ -118,166 +200,178 @@ export default function AnalyticsScreen() {
   const rangeLabel = range === "week" ? "Last 7 days" : range === "month" ? "Last 30 days" : "All time";
 
   return (
-    <View className="flex-1 bg-app" style={{ paddingTop: insets.top + 10 }}>
+    <View className="flex-1 bg-app" style={{ paddingTop: insets.top + 12 }}>
       <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: (insets.bottom || 0) + 24 }}>
         <View className="px-6">
           <View className="flex-row items-start justify-between">
-            <View>
-              <Text className="text-text text-2xl font-semibold">Analytics</Text>
-              <Text className="text-muted mt-1">{rangeLabel}</Text>
-              <View className="mt-4 self-start">
+            <View className="flex-1 pr-3">
+              <AppText variant="2xl">Analytics</AppText>
+              <AppText variant="sm" tone="muted" className="mt-1">
+                {rangeLabel}
+              </AppText>
+              <View className="mt-3 self-start">
                 <BookPill label={selectedBookName} onPress={() => router.push("/modals/book-switcher")} />
               </View>
             </View>
 
-            <Pressable
+            <HapticPressable
               onPress={() => router.push("/modals/book-switcher")}
-              className="h-11 w-11 items-center justify-center rounded-full border border-stroke bg-surface"
+              className="h-12 w-12 items-center justify-center rounded-full border border-stroke bg-surface"
               android_ripple={{ color: "#FFFFFF12", borderless: true }}
             >
               <Ionicons name="swap-horizontal" size={18} color={tokens.colors.accent} />
-            </Pressable>
+            </HapticPressable>
           </View>
 
-          <View className="mt-5 flex-row items-center gap-3">
-            <Chip label="Week" active={range === "week"} onPress={() => setRange("week")} />
-            <Chip label="Month" active={range === "month"} onPress={() => setRange("month")} />
-            <Chip label="All" active={range === "all"} onPress={() => setRange("all")} />
-          </View>
-        </View>
-
-        {/* Summary */}
-        <View className="px-6 mt-8">
-          <View className="rounded-3xl border border-stroke bg-surface p-5">
-            <Text className="text-muted text-xs tracking-widest">NET</Text>
-            <Text className="text-text text-4xl font-semibold mt-2">{formatMoney(totals.netCents)}</Text>
-
-            <View className="flex-row items-center mt-3">
-              <View className="flex-row items-center">
-                <Ionicons name="arrow-down" size={16} color={tokens.colors.accent} />
-                <Text className="ml-2" style={{ color: tokens.colors.accent }}>
-                  +{formatMoney(totals.incomeCents)} income
-                </Text>
-              </View>
-
-              <View className="ml-5 flex-row items-center">
-                <Ionicons name="arrow-up" size={16} color={tokens.colors.danger} />
-                <Text className="ml-2" style={{ color: tokens.colors.danger }}>
-                  -{formatMoney(totals.expenseCents)} spend
-                </Text>
-              </View>
-            </View>
+          <View className="mt-4 flex-row items-center gap-2">
+            <RangeChip label="Week" active={range === "week"} onPress={() => setRange("week")} />
+            <RangeChip label="Month" active={range === "month"} onPress={() => setRange("month")} />
+            <RangeChip label="All" active={range === "all"} onPress={() => setRange("all")} />
           </View>
         </View>
 
-        {/* Trend */}
-        <View className="px-6 mt-8">
-          <View className="flex-row items-center justify-between">
-            <Text className="text-text text-base font-semibold">Spending trend</Text>
-            <Text className="text-muted text-xs">7-day</Text>
+        {hydrationError ? (
+          <View className="px-6 mt-8">
+            <EmptyState
+              title="Couldn’t load analytics"
+              message="Retry to refresh transactions and categories."
+              actionLabel="Retry"
+              onAction={retryHydration}
+              className="px-0"
+            />
           </View>
+        ) : !hydrated ? (
+          <View className="px-6 mt-8 gap-3">
+            <Skeleton height={160} borderRadius={24} />
+            <Skeleton height={180} borderRadius={24} />
+            <Skeleton height={220} borderRadius={24} />
+          </View>
+        ) : filtered.length === 0 ? (
+          <View className="px-6 mt-10">
+            <EmptyState
+              title="No analytics yet"
+              message="Add transactions in this range to see trends and category insights."
+              actionLabel="Add transaction"
+              onAction={() => router.push("/modals/add-transaction")}
+              className="px-0"
+            />
+          </View>
+        ) : (
+          <>
+            <View className="px-6 mt-8">
+              <Card variant="surface">
+                <AppText variant="xs" tone="muted" className="uppercase">
+                  Net
+                </AppText>
+                <AppText variant="amount" className="mt-2">
+                  {formatMoney(totals.netCents)}
+                </AppText>
 
-          <View className="mt-4 rounded-3xl border border-stroke bg-surface p-5">
-            <View className="flex-row items-end justify-between" style={{ height: 88 }}>
-              {last7.perDay.map((d) => {
-                const h = Math.max(6, Math.round((d.cents / last7.max) * 80));
-                return (
-                  <View key={d.day.toISOString()} className="items-center" style={{ width: 30 }}>
-                    <View className="w-3 rounded-full bg-stroke" style={{ height: 82 }}>
-                      <View className="w-3 rounded-full bg-accent" style={{ height: h, marginTop: 82 - h }} />
-                    </View>
-                    <Text className="text-muted text-[10px] mt-2">{format(d.day, "EE")[0]}</Text>
+                <View className="mt-3 flex-row items-center">
+                  <View className="flex-row items-center">
+                    <Ionicons name="arrow-down" size={16} color={tokens.colors.accent} />
+                    <AppText variant="sm" className="ml-2" style={{ color: tokens.colors.accent }}>
+                      +{formatMoney(totals.incomeCents)} income
+                    </AppText>
                   </View>
-                );
-              })}
+
+                  <View className="ml-5 flex-row items-center">
+                    <Ionicons name="arrow-up" size={16} color={tokens.colors.danger} />
+                    <AppText variant="sm" className="ml-2" style={{ color: tokens.colors.danger }}>
+                      -{formatMoney(totals.expenseCents)} spend
+                    </AppText>
+                  </View>
+                </View>
+              </Card>
             </View>
 
-            <View className="h-px bg-stroke mt-5" />
-
-            <View className="flex-row items-center justify-between mt-4">
-              <Text className="text-muted">Total spend</Text>
-              <Text className="text-text font-semibold">{formatMoney(totals.expenseCents)}</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Top categories */}
-        <View className="px-6 mt-8">
-          <Text className="text-text text-base font-semibold">Top categories</Text>
-          <Text className="text-muted mt-1 text-xs">By spending</Text>
-
-          <View className="mt-4 rounded-3xl border border-stroke bg-surface overflow-hidden">
-            {topCategories.rows.length === 0 ? (
-              <View className="p-6 items-center">
-                <Text className="text-muted">No expense data yet.</Text>
+            <View className="px-6 mt-8">
+              <View className="flex-row items-center justify-between">
+                <AppText variant="lg">Spending trend</AppText>
+                <AppText variant="xs" tone="muted">
+                  7-day
+                </AppText>
               </View>
-            ) : (
-              topCategories.rows.map((c, idx) => {
-                const pct = topCategories.totalExpenseCents <= 0 ? 0 : c.cents / topCategories.totalExpenseCents;
 
-                return (
-                  <View key={c.name} className="px-5 py-4">
-                    <View className="flex-row items-center justify-between">
-                      <View className="flex-row items-center flex-1">
-                        <View
-                          className="h-11 w-11 items-center justify-center rounded-2xl border border-stroke"
-                          style={{ backgroundColor: `${c.color}22` }}
-                        >
-                          <Ionicons name={c.icon} size={20} color={c.color} />
+              <Card variant="surface" className="mt-3">
+                <View className="flex-row items-end justify-between" style={{ height: 88 }}>
+                  {last7.perDay.map((d) => {
+                    const h = Math.max(6, Math.round((d.cents / last7.max) * 80));
+                    return (
+                      <View key={d.day.toISOString()} className="items-center" style={{ width: 30 }}>
+                        <View className="w-3 rounded-full bg-stroke" style={{ height: 82 }}>
+                          <View className="w-3 rounded-full bg-accent" style={{ height: h, marginTop: 82 - h }} />
                         </View>
+                        <AppText variant="xs" tone="muted" className="mt-2">
+                          {format(d.day, "EE")[0]}
+                        </AppText>
+                      </View>
+                    );
+                  })}
+                </View>
 
-                        <View className="ml-4 flex-1">
-                          <Text className="text-text font-semibold" numberOfLines={1}>
-                            {c.name}
-                          </Text>
-                          <View className="mt-2 h-2 w-full rounded-full bg-stroke overflow-hidden">
-                            <View
-                              className="h-2 rounded-full"
-                              style={{
-                                width: `${Math.max(4, Math.round(pct * 100))}%`,
-                                backgroundColor: c.color === tokens.colors.muted ? tokens.colors.accent : c.color,
-                              }}
-                            />
+                <View className="h-px bg-stroke mt-5" />
+
+                <View className="flex-row items-center justify-between mt-3">
+                  <AppText variant="sm" tone="muted">
+                    Total spend
+                  </AppText>
+                  <AppText variant="base" style={{ fontFamily: "Inter_600SemiBold" }}>
+                    {formatMoney(totals.expenseCents)}
+                  </AppText>
+                </View>
+              </Card>
+            </View>
+
+            <View className="px-6 mt-8">
+              <AppText variant="lg">Top categories</AppText>
+              <AppText variant="xs" tone="muted" className="mt-1">
+                By spending
+              </AppText>
+
+              <Card variant="surface" className="mt-3 p-0 overflow-hidden">
+                {topCategories.rows.map((c, idx) => {
+                  const pct = topCategories.totalExpenseCents <= 0 ? 0 : c.cents / topCategories.totalExpenseCents;
+                  const barColor = c.color === tokens.colors.muted ? tokens.colors.accent : c.color;
+
+                  return (
+                    <View key={c.name}>
+                      <View className="px-4 py-3 flex-row items-center justify-between">
+                        <View className="flex-row items-center flex-1 pr-3">
+                          <View
+                            className="h-10 w-10 items-center justify-center rounded-lg border border-stroke"
+                            style={{ backgroundColor: `${c.color}22` }}
+                          >
+                            <Ionicons name={c.icon} size={18} color={c.color} />
+                          </View>
+
+                          <View className="ml-3 flex-1">
+                            <AppText variant="base" style={{ fontFamily: "Inter_600SemiBold" }} numberOfLines={1}>
+                              {c.name}
+                            </AppText>
+                            <View className="mt-2 h-2 w-full rounded-full bg-stroke overflow-hidden">
+                              <View
+                                className="h-2 rounded-full"
+                                style={{ width: `${Math.max(4, Math.round(pct * 100))}%`, backgroundColor: barColor }}
+                              />
+                            </View>
                           </View>
                         </View>
+
+                        <AppText variant="base" style={{ fontFamily: "Inter_600SemiBold" }}>
+                          {formatMoney(c.cents)}
+                        </AppText>
                       </View>
 
-                      <Text className="text-text font-semibold ml-4">{formatMoney(c.cents)}</Text>
+                      {idx !== topCategories.rows.length - 1 ? <View className="h-px bg-stroke" /> : null}
                     </View>
-
-                    {idx !== topCategories.rows.length - 1 ? <View className="h-px bg-stroke mt-4" /> : null}
-                  </View>
-                );
-              })
-            )}
-          </View>
-        </View>
+                  );
+                })}
+              </Card>
+            </View>
+          </>
+        )}
       </ScrollView>
     </View>
-  );
-}
-
-function Chip({
-  label,
-  active,
-  onPress,
-}: {
-  label: string;
-  active: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Text
-      onPress={onPress as any}
-      className="rounded-full border px-4 py-2 text-sm font-semibold"
-      style={{
-        borderColor: active ? tokens.colors.accent : tokens.colors.stroke,
-        backgroundColor: active ? "#00C80522" : "transparent",
-        color: active ? tokens.colors.accent : tokens.colors.text,
-        overflow: "hidden",
-      }}
-    >
-      {label}
-    </Text>
   );
 }

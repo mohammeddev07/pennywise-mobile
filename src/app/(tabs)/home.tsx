@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ScrollView, Text, View } from "react-native";
+import { ScrollView, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -7,10 +7,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { tokens } from "@/shared/ui/theme/tokens";
 import { BookPill } from "@/shared/ui/components/BookPill";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
-import { RingProgress } from "@/shared/ui/components/RingProgress";
 import { Skeleton } from "@/shared/ui/components/Skeleton";
 import { StreamingText } from "@/shared/ui/components/StreamingText";
 import { CharacterWidget, type CharacterState } from "@/shared/ui/components/CharacterWidget";
+import { Card } from "@/shared/ui/components/Card";
+import { AppText } from "@/shared/ui/components/AppText";
+import { EmptyState } from "@/shared/ui/components/EmptyState";
+import { TransactionRow } from "@/shared/ui/components/TransactionRow";
 
 import { useBooksStore } from "@/features/books/store";
 import { useTransactionsStore } from "@/features/transactions/store";
@@ -25,170 +28,41 @@ function formatMoney2(cents: number) {
   return `${sign}$${intWithSep}.${d}`;
 }
 
-function formatMoney0(cents: number) {
-  const sign = cents < 0 ? "-" : "";
-  const abs = Math.abs(cents);
-  const dollars = (abs / 100).toFixed(0);
-  const intWithSep = dollars.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  return `${sign}$${intWithSep}`;
-}
-
-function BudgetCard({
-  category,
-  spentCents,
-  budgetCents,
-}: {
+type BudgetItem = {
   category: string;
   spentCents: number;
   budgetCents: number;
-}) {
-  const remaining = budgetCents - spentCents;
+};
+
+function BudgetTile({ item }: { item: BudgetItem }) {
+  const remaining = item.budgetCents - item.spentCents;
   const over = remaining < 0;
-
-  const ringColor = over ? tokens.colors.danger : tokens.colors.accent;
-  const progress = Math.min(1, spentCents / Math.max(1, budgetCents));
+  const progress = Math.min(1, item.spentCents / Math.max(1, item.budgetCents));
 
   return (
-    <View
-      className="rounded-[28px] border border-stroke bg-surface"
-      style={{ padding: 16, minHeight: 190 }}
-    >
-      <View className="flex-row items-center justify-between">
+    <Card variant="surface" className="w-48">
+      <AppText variant="base" style={{ fontFamily: "Inter_600SemiBold" }} numberOfLines={1}>
+        {item.category}
+      </AppText>
+
+      <AppText variant="sm" tone="muted" className="mt-1">
+        {formatMoney2(item.spentCents)} of {formatMoney2(item.budgetCents)}
+      </AppText>
+
+      <View className="mt-4 h-2 overflow-hidden rounded-full bg-stroke">
         <View
-          className="h-10 w-10 items-center justify-center rounded-full border border-stroke"
-          style={{ backgroundColor: over ? "rgba(255,68,68,0.10)" : "rgba(0,200,5,0.10)" }}
-        >
-          <Ionicons name="pricetag-outline" size={18} color={ringColor} />
-        </View>
-        <Ionicons name="ellipsis-horizontal" size={18} color={tokens.colors.muted} />
-      </View>
-
-      <View style={{ marginTop: 14, alignItems: "center", justifyContent: "center" }}>
-        <View style={{ width: 106, height: 106, alignItems: "center", justifyContent: "center" }}>
-          <RingProgress size={106} stroke={10} progress={progress} color={ringColor} />
-          <View
-            style={{
-              position: "absolute",
-              left: 0,
-              right: 0,
-              top: 0,
-              bottom: 0,
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Text className="text-muted text-xs tracking-widest">{over ? "OVER" : "LEFT"}</Text>
-            <Text style={{ color: ringColor, fontWeight: "800", marginTop: 6 }}>
-              {formatMoney0(Math.abs(remaining))}
-            </Text>
-          </View>
-        </View>
-      </View>
-
-      <View style={{ marginTop: 16, alignItems: "center" }}>
-        <Text className="text-text text-base font-semibold" numberOfLines={1}>
-          {category}
-        </Text>
-        <Text className="text-muted text-xs mt-1">
-          {formatMoney0(spentCents)} / {formatMoney0(budgetCents)}
-        </Text>
-      </View>
-    </View>
-  );
-}
-
-function TotalBalanceCard({
-  netCents,
-  incomeCents,
-  expenseCents,
-}: {
-  netCents: number;
-  incomeCents: number;
-  expenseCents: number;
-}) {
-  const isNegative = netCents < 0;
-
-  return (
-    <View
-      className="rounded-[28px] border border-stroke overflow-hidden"
-      style={{
-        backgroundColor: tokens.colors.surface,
-      }}
-    >
-      {/* subtle green wash like Robinhood premium */}
-      <View
-        style={{
-          position: "absolute",
-          left: -40,
-          top: -60,
-          right: -40,
-          height: 220,
-          backgroundColor: "rgba(0,200,5,0.14)",
-          transform: [{ rotate: "-6deg" }],
-        }}
-      />
-      <View
-        style={{
-          position: "absolute",
-          left: -60,
-          top: -20,
-          width: 220,
-          height: 220,
-          borderRadius: 999,
-          backgroundColor: "rgba(0,200,5,0.10)",
-        }}
-      />
-      <View style={{ padding: 18 }}>
-        <Text className="text-muted text-xs tracking-widest">TOTAL BALANCE</Text>
-
-        <Text className="text-text mt-2" style={{ fontSize: 40, fontWeight: "800" }}>
-          {formatMoney2(netCents)}
-        </Text>
-
-        <View className="flex-row mt-4" style={{ gap: 10 }}>
-          <View
-            className="rounded-full border border-stroke px-4 py-2"
-            style={{ backgroundColor: "rgba(0,0,0,0.16)" }}
-          >
-            <Text className="text-muted text-xs">Income</Text>
-            <Text style={{ color: tokens.colors.accent, fontWeight: "800", marginTop: 2 }}>
-              {formatMoney0(incomeCents)}
-            </Text>
-          </View>
-
-          <View
-            className="rounded-full border border-stroke px-4 py-2"
-            style={{ backgroundColor: "rgba(0,0,0,0.16)" }}
-          >
-            <Text className="text-muted text-xs">Expense</Text>
-            <Text style={{ color: isNegative ? tokens.colors.danger : tokens.colors.text, fontWeight: "800", marginTop: 2 }}>
-              {formatMoney0(expenseCents)}
-            </Text>
-          </View>
-        </View>
-
-        {/* a minimal "graph strip" placeholder to feel premium without clutter */}
-        <View
+          className="h-2 rounded-full"
           style={{
-            marginTop: 14,
-            height: 10,
-            borderRadius: 999,
-            backgroundColor: "rgba(255,255,255,0.06)",
-            borderWidth: 1,
-            borderColor: tokens.colors.stroke,
-            overflow: "hidden",
+            width: `${Math.max(4, Math.round(progress * 100))}%`,
+            backgroundColor: over ? tokens.colors.danger : tokens.colors.accent,
           }}
-        >
-          <View
-            style={{
-              width: "62%",
-              height: "100%",
-              backgroundColor: "rgba(0,200,5,0.35)",
-            }}
-          />
-        </View>
+        />
       </View>
-    </View>
+
+      <AppText variant="sm" className="mt-3" style={{ color: over ? tokens.colors.danger : tokens.colors.accent }}>
+        {over ? `${formatMoney2(Math.abs(remaining))} over` : `${formatMoney2(remaining)} left`}
+      </AppText>
+    </Card>
   );
 }
 
@@ -199,243 +73,296 @@ export default function Home() {
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
   const books = useBooksStore((s) => s.books);
 
-  const txs = useTransactionsStore((s) => s.transactions);
+  const transactions = useTransactionsStore((s) => s.transactions);
   const budgets = useBudgetsStore((s) => s.budgets);
 
-  const [crunching, setCrunching] = useState(true);
+  const booksPersist = (useBooksStore as any).persist;
+  const txPersist = (useTransactionsStore as any).persist;
+  const budgetsPersist = (useBudgetsStore as any).persist;
+
+  const [booksHydrated, setBooksHydrated] = useState<boolean>(() => {
+    const has = booksPersist?.hasHydrated?.();
+    return typeof has === "boolean" ? has : true;
+  });
+  const [txHydrated, setTxHydrated] = useState<boolean>(() => {
+    const has = txPersist?.hasHydrated?.();
+    return typeof has === "boolean" ? has : true;
+  });
+  const [budgetsHydrated, setBudgetsHydrated] = useState<boolean>(() => {
+    const has = budgetsPersist?.hasHydrated?.();
+    return typeof has === "boolean" ? has : true;
+  });
+  const [hydrationError, setHydrationError] = useState(false);
 
   useEffect(() => {
-    setCrunching(true);
-    const t = setTimeout(() => setCrunching(false), 520);
-    return () => clearTimeout(t);
-  }, [selectedBookId]);
+    const unsubs: Array<() => void> = [];
+
+    if (booksPersist?.onFinishHydration) {
+      const unsub = booksPersist.onFinishHydration(() => setBooksHydrated(true));
+      unsubs.push(unsub);
+      if (booksPersist?.hasHydrated && !booksPersist.hasHydrated()) booksPersist?.rehydrate?.();
+    }
+
+    if (txPersist?.onFinishHydration) {
+      const unsub = txPersist.onFinishHydration(() => setTxHydrated(true));
+      unsubs.push(unsub);
+      if (txPersist?.hasHydrated && !txPersist.hasHydrated()) txPersist?.rehydrate?.();
+    }
+
+    if (budgetsPersist?.onFinishHydration) {
+      const unsub = budgetsPersist.onFinishHydration(() => setBudgetsHydrated(true));
+      unsubs.push(unsub);
+      if (budgetsPersist?.hasHydrated && !budgetsPersist.hasHydrated()) budgetsPersist?.rehydrate?.();
+    }
+
+    const timeoutId = setTimeout(() => {
+      const booksReady = booksPersist?.hasHydrated ? booksPersist.hasHydrated() : true;
+      const txReady = txPersist?.hasHydrated ? txPersist.hasHydrated() : true;
+      const budgetsReady = budgetsPersist?.hasHydrated ? budgetsPersist.hasHydrated() : true;
+      if (!booksReady || !txReady || !budgetsReady) {
+        setHydrationError(true);
+      }
+    }, 3000);
+
+    return () => {
+      clearTimeout(timeoutId);
+      for (const unsub of unsubs) unsub?.();
+    };
+  }, [booksPersist, budgetsPersist, txPersist]);
+
+  const isHydrated = booksHydrated && txHydrated && budgetsHydrated;
 
   const selectedBookName = useMemo(
     () => books.find((b) => b.id === selectedBookId)?.name ?? "Personal",
     [books, selectedBookId]
   );
 
-  const bookTxs = useMemo(
-    () => txs.filter((t) => t.bookId === selectedBookId),
-    [txs, selectedBookId]
-  );
+  const bookTransactions = useMemo(() => transactions.filter((t) => t.bookId === selectedBookId), [transactions, selectedBookId]);
 
   const balance = useMemo(() => {
     let income = 0;
     let expense = 0;
 
-    for (const t of bookTxs) {
-      if (t.kind === "income") income += t.amountCents;
-      else expense += t.amountCents;
+    for (const tx of bookTransactions) {
+      if (tx.kind === "income") income += tx.amountCents;
+      else expense += tx.amountCents;
     }
 
-    // expense is stored as positive cents in your app flow; net is income - expense
-    const net = income - expense;
+    return { incomeCents: income, expenseCents: expense, netCents: income - expense };
+  }, [bookTransactions]);
 
-    return { incomeCents: income, expenseCents: expense, netCents: net };
-  }, [bookTxs]);
-
-  const summary = useMemo(() => {
+  const budgetItems = useMemo(() => {
     const bookBudgets = budgets.filter((b) => b.bookId === selectedBookId);
 
-    const spentByCat = new Map<string, number>();
-    for (const t of bookTxs) {
-      if (t.kind !== "expense") continue;
-      const c = (t.category || "Uncategorized").trim() || "Uncategorized";
-      spentByCat.set(c, (spentByCat.get(c) ?? 0) + t.amountCents);
+    const spentByCategory = new Map<string, number>();
+    for (const tx of bookTransactions) {
+      if (tx.kind !== "expense") continue;
+      const key = (tx.category || "Uncategorized").trim() || "Uncategorized";
+      spentByCategory.set(key, (spentByCategory.get(key) ?? 0) + tx.amountCents);
     }
 
-    const items = bookBudgets
-      .map((b) => {
-        const spent = spentByCat.get(b.category) ?? 0;
-        return { category: b.category, spentCents: spent, budgetCents: b.budgetCents };
-      })
-      .sort((a, b) => {
-        const aRem = a.budgetCents - a.spentCents;
-        const bRem = b.budgetCents - b.spentCents;
-        const aOver = aRem < 0;
-        const bOver = bRem < 0;
-        if (aOver !== bOver) return aOver ? -1 : 1;
-        const aProg = a.spentCents / Math.max(1, a.budgetCents);
-        const bProg = b.spentCents / Math.max(1, b.budgetCents);
-        return bProg - aProg;
-      });
+    return bookBudgets
+      .map((b) => ({
+        category: b.category,
+        budgetCents: b.budgetCents,
+        spentCents: spentByCategory.get(b.category) ?? 0,
+      }))
+      .sort((a, b) => (b.spentCents / Math.max(1, b.budgetCents)) - a.spentCents / Math.max(1, a.budgetCents));
+  }, [bookTransactions, budgets, selectedBookId]);
 
-    const totalBudget = bookBudgets.reduce((s, b) => s + b.budgetCents, 0);
-    const totalSpent = items.reduce((s, i) => s + i.spentCents, 0);
-    const remaining = totalBudget - totalSpent;
-
-    const recent = [...bookTxs]
+  const recentTransactions = useMemo(() => {
+    return [...bookTransactions]
       .sort((a, b) => (Date.parse(b.occurredAt) || 0) - (Date.parse(a.occurredAt) || 0))
       .slice(0, 4);
+  }, [bookTransactions]);
 
-    return { items, totalBudget, totalSpent, remaining, recent };
-  }, [budgets, bookTxs, selectedBookId]);
+  const assistantState: CharacterState = !isHydrated ? "thinking" : recentTransactions.length > 0 ? "happy" : "waiting";
 
-  const assistantState: CharacterState = crunching ? "thinking" : summary.items.length ? "happy" : "waiting";
-  const showSkeleton = crunching && summary.items.length === 0 && summary.recent.length === 0;
+  const retryHydration = () => {
+    setHydrationError(false);
+    setBooksHydrated(booksPersist?.hasHydrated?.() ?? true);
+    setTxHydrated(txPersist?.hasHydrated?.() ?? true);
+    setBudgetsHydrated(budgetsPersist?.hasHydrated?.() ?? true);
+    booksPersist?.rehydrate?.();
+    txPersist?.rehydrate?.();
+    budgetsPersist?.rehydrate?.();
+  };
 
   return (
-    <View className="flex-1 bg-app" style={{ paddingTop: insets.top + 10 }}>
+    <View className="flex-1 bg-app" style={{ paddingTop: insets.top + 12 }}>
       <ScrollView
         className="flex-1"
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: (insets.bottom || 0) + 140 }}
+        contentContainerStyle={{ paddingBottom: (insets.bottom || 0) + 120 }}
       >
-        {/* Header */}
         <View className="px-6">
           <View className="flex-row items-center justify-between">
             <BookPill label={selectedBookName} onPress={() => router.push("/modals/book-switcher")} />
 
             <HapticPressable
-              onPress={() => {}}
+              onPress={() => router.push("/modals/add-transaction")}
+              haptic="impactLight"
               className="h-12 w-12 items-center justify-center rounded-full border border-stroke bg-surface"
               android_ripple={{ color: "#FFFFFF12", borderless: true }}
             >
-              <Ionicons name="notifications-outline" size={18} color={tokens.colors.text} />
+              <Ionicons name="add" size={20} color={tokens.colors.accent} />
             </HapticPressable>
           </View>
 
-          <Text className="text-muted mt-2">Pro Budget Monitor</Text>
+          <AppText variant="sm" tone="muted" className="mt-3">
+            Dashboard
+          </AppText>
 
-          {/* Character slot */}
-          <View className="mt-5 rounded-3xl border border-stroke bg-surface px-5 py-4 flex-row items-center">
-            <CharacterWidget state={assistantState} size={44} />
+          <Card variant="surface" className="mt-6">
+            <View className="flex-row items-center">
+              <CharacterWidget state={assistantState} size={44} />
+              <View className="ml-3 flex-1">
+                <AppText variant="base" style={{ fontFamily: "Inter_600SemiBold" }}>
+                  Assistant
+                </AppText>
 
-            <View style={{ marginLeft: 12, flex: 1 }}>
-              <Text className="text-text font-semibold">Assistant</Text>
-              {crunching ? (
-                <StreamingText className="text-muted mt-1" text="Crunching…" speedMs={18} />
-              ) : summary.items.length ? (
-                <Text className="text-muted mt-1">Budget status updated.</Text>
+                {!isHydrated ? (
+                  <StreamingText text="Syncing your budget data..." speedMs={18} style={tokens.typography.sm as any} className="text-muted mt-1" />
+                ) : recentTransactions.length > 0 ? (
+                  <AppText variant="sm" tone="muted" className="mt-1">
+                    Latest transactions are reflected in real time.
+                  </AppText>
+                ) : (
+                  <AppText variant="sm" tone="muted" className="mt-1">
+                    Add your first transaction to unlock insights.
+                  </AppText>
+                )}
+              </View>
+            </View>
+          </Card>
+        </View>
+
+        {hydrationError ? (
+          <View className="px-6 mt-6">
+            <EmptyState
+              title="Couldn’t load dashboard"
+              message="Retry to reload books, transactions, and budgets."
+              actionLabel="Retry"
+              onAction={retryHydration}
+              className="px-0"
+            />
+          </View>
+        ) : !isHydrated ? (
+          <View className="px-6 mt-6 gap-3">
+            <Skeleton height={180} borderRadius={24} />
+            <Skeleton height={160} borderRadius={24} />
+            <Skeleton height={220} borderRadius={24} />
+          </View>
+        ) : (
+          <>
+            <View className="px-6 mt-6">
+              <Card variant="surface">
+                <AppText variant="xs" tone="muted" className="uppercase">
+                  Total balance
+                </AppText>
+                <AppText variant="amount" className="mt-2" style={{ color: balance.netCents < 0 ? tokens.colors.danger : tokens.colors.text }}>
+                  {formatMoney2(balance.netCents)}
+                </AppText>
+
+                <View className="mt-4 flex-row">
+                  <View className="flex-1 rounded-lg border border-stroke bg-card p-3 mr-2">
+                    <AppText variant="xs" tone="muted">
+                      Income
+                    </AppText>
+                    <AppText variant="base" className="mt-1" style={{ color: tokens.colors.accent, fontFamily: "Inter_600SemiBold" }}>
+                      {formatMoney2(balance.incomeCents)}
+                    </AppText>
+                  </View>
+
+                  <View className="flex-1 rounded-lg border border-stroke bg-card p-3 ml-2">
+                    <AppText variant="xs" tone="muted">
+                      Expense
+                    </AppText>
+                    <AppText variant="base" className="mt-1" style={{ fontFamily: "Inter_600SemiBold" }}>
+                      {formatMoney2(balance.expenseCents)}
+                    </AppText>
+                  </View>
+                </View>
+              </Card>
+            </View>
+
+            <View className="px-6 mt-6">
+              <View className="flex-row items-center justify-between">
+                <AppText variant="xl">Budgets</AppText>
+                <HapticPressable
+                  onPress={() => router.push("/(tabs)/categories")}
+                  haptic="selection"
+                  pressScale={0.98}
+                  className="min-h-11 px-4 rounded-full items-center justify-center"
+                  android_ripple={{ color: "#FFFFFF10", borderless: true }}
+                >
+                  <AppText variant="sm" className="text-accent">
+                    Manage
+                  </AppText>
+                </HapticPressable>
+              </View>
+
+              {budgetItems.length === 0 ? (
+                <Card variant="surface" className="mt-3">
+                  <EmptyState
+                    title="No budgets yet"
+                    message="Set category budgets to track monthly progress."
+                    actionLabel="Set budget"
+                    onAction={() => router.push("/(tabs)/categories")}
+                    className="px-0"
+                  />
+                </Card>
               ) : (
-                <Text className="text-muted mt-1">Add budgets to unlock insights.</Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ paddingTop: 12, paddingRight: 24 }}
+                >
+                  {budgetItems.slice(0, 6).map((item) => (
+                    <View key={item.category} className="mr-3">
+                      <BudgetTile item={item} />
+                    </View>
+                  ))}
+                </ScrollView>
               )}
             </View>
 
-            <Ionicons name="sparkles-outline" size={18} color={tokens.colors.muted} />
-          </View>
-        </View>
-
-        {/* ✅ Total Balance (restored) */}
-        <View className="px-6 mt-6">
-          {showSkeleton ? (
-            <Skeleton height={176} borderRadius={28} />
-          ) : (
-            <TotalBalanceCard
-              netCents={balance.netCents}
-              incomeCents={balance.incomeCents}
-              expenseCents={balance.expenseCents}
-            />
-          )}
-        </View>
-
-        {/* Budget summary */}
-        <View className="px-6 mt-7">
-          {showSkeleton ? (
-            <Skeleton height={74} borderRadius={24} />
-          ) : (
-            <View className="flex-row items-end justify-between">
-              <View>
-                <Text className="text-muted text-xs tracking-widest">TOTAL BUDGET</Text>
-                <Text className="text-text text-4xl font-semibold mt-2">
-                  {summary.totalBudget > 0 ? formatMoney2(summary.totalBudget) : "$0.00"}
-                </Text>
-              </View>
-
-              <View style={{ alignItems: "flex-end" }}>
-                <Text className="text-muted text-xs tracking-widest">REMAINING</Text>
-                <Text
-                  className="text-3xl font-semibold mt-2"
-                  style={{ color: summary.remaining < 0 ? tokens.colors.danger : tokens.colors.accent }}
+            <View className="px-6 mt-6">
+              <View className="flex-row items-center justify-between">
+                <AppText variant="xl">Recent transactions</AppText>
+                <HapticPressable
+                  onPress={() => router.push("/(tabs)/transactions")}
+                  haptic="selection"
+                  pressScale={0.98}
+                  className="min-h-11 px-4 rounded-full items-center justify-center"
+                  android_ripple={{ color: "#FFFFFF10", borderless: true }}
                 >
-                  {summary.totalBudget > 0 ? formatMoney0(summary.remaining) : "$0"}
-                </Text>
+                  <AppText variant="sm" className="text-accent">
+                    View all
+                  </AppText>
+                </HapticPressable>
               </View>
+
+              {recentTransactions.length === 0 ? (
+                <Card variant="surface" className="mt-3">
+                  <EmptyState
+                    title="No transactions yet"
+                    message="Add a transaction to start building your timeline."
+                    actionLabel="Add transaction"
+                    onAction={() => router.push("/modals/add-transaction")}
+                    className="px-0"
+                  />
+                </Card>
+              ) : (
+                <View className="mt-3 gap-2">
+                  {recentTransactions.map((tx) => (
+                    <TransactionRow key={tx.id} item={tx} enableActions={false} />
+                  ))}
+                </View>
+              )}
             </View>
-          )}
-        </View>
-
-        {/* Budget grid */}
-        <View className="px-6 mt-6" style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
-          {showSkeleton ? (
-            <>
-              <View style={{ width: "48%" }}>
-                <Skeleton height={190} borderRadius={28} />
-              </View>
-              <View style={{ width: "48%" }}>
-                <Skeleton height={190} borderRadius={28} />
-              </View>
-              <View style={{ width: "48%" }}>
-                <Skeleton height={190} borderRadius={28} />
-              </View>
-              <View style={{ width: "48%" }}>
-                <Skeleton height={190} borderRadius={28} />
-              </View>
-            </>
-          ) : summary.items.length === 0 ? (
-            <View className="w-full rounded-3xl border border-stroke bg-surface p-5">
-              <Text className="text-text font-semibold">Add category budgets</Text>
-              <Text className="text-muted mt-2">Go to Categories → set budgets, then return here.</Text>
-            </View>
-          ) : (
-            summary.items.slice(0, 6).map((b) => (
-              <View key={b.category} style={{ width: "48%" }}>
-                <BudgetCard category={b.category} spentCents={b.spentCents} budgetCents={b.budgetCents} />
-              </View>
-            ))
-          )}
-        </View>
-
-        {/* Recent transactions */}
-        <View className="px-6 mt-8">
-          <View className="flex-row items-center justify-between">
-            <Text className="text-text text-xl font-semibold">Recent Transactions</Text>
-            <HapticPressable
-              onPress={() => router.push("/(tabs)/transactions")}
-              haptic="selection"
-              pressScale={0.98}
-              className="px-3 py-2 rounded-full"
-              android_ripple={{ color: "#FFFFFF10", borderless: true }}
-            >
-              <Text style={{ color: tokens.colors.accent }} className="font-semibold">
-                View All
-              </Text>
-            </HapticPressable>
-          </View>
-
-          <View className="mt-4 rounded-3xl border border-stroke bg-surface overflow-hidden">
-            {summary.recent.length === 0 ? (
-              <View className="px-5 py-6">
-                <Text className="text-muted">No transactions yet.</Text>
-              </View>
-            ) : (
-              summary.recent.map((t, idx) => {
-                const label = (t.title || "").trim().length ? t.title : t.category || "Uncategorized";
-                const sub = (t.category || "Uncategorized").trim() || "Uncategorized";
-                const amount = t.kind === "expense" ? -t.amountCents : t.amountCents;
-                const amtColor = amount < 0 ? tokens.colors.text : tokens.colors.accent;
-
-                return (
-                  <View key={t.id}>
-                    <View className="px-5 py-4 flex-row items-center justify-between">
-                      <View style={{ flex: 1, paddingRight: 14 }}>
-                        <Text className="text-text font-semibold" numberOfLines={1}>
-                          {label}
-                        </Text>
-                        <Text className="text-muted text-xs mt-1" numberOfLines={1}>
-                          {sub}
-                        </Text>
-                      </View>
-                      <Text style={{ color: amtColor, fontWeight: "700" }}>{formatMoney2(amount)}</Text>
-                    </View>
-                    {idx !== summary.recent.length - 1 ? <View className="h-px bg-stroke" /> : null}
-                  </View>
-                );
-              })
-            )}
-          </View>
-        </View>
+          </>
+        )}
       </ScrollView>
     </View>
   );

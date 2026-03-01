@@ -1,4 +1,7 @@
-import { Text, TextInput, View } from "react-native";
+import React from "react";
+import type { TextInputProps } from "react-native";
+
+import { Input } from "@/shared/ui/components/Input";
 
 export function TextField({
   label,
@@ -7,29 +10,27 @@ export function TextField({
   placeholder,
   secureTextEntry,
   keyboardType = "default",
-  autoCapitalize = "none"
+  autoCapitalize = "none",
 }: {
   label: string;
   value: string;
   onChangeText: (t: string) => void;
   placeholder?: string;
   secureTextEntry?: boolean;
-  keyboardType?: "default" | "email-address";
-  autoCapitalize?: "none" | "sentences" | "words" | "characters";
+  keyboardType?: TextInputProps["keyboardType"];
+  autoCapitalize?: TextInputProps["autoCapitalize"];
 }) {
   return (
-    <View className="w-full">
-      <Text className="text-muted text-sm mb-2">{label}</Text>
-      <TextInput
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor="#93A4B7"
-        secureTextEntry={secureTextEntry}
-        keyboardType={keyboardType}
-        autoCapitalize={autoCapitalize}
-        className="w-full bg-surface border border-stroke rounded-xl px-4 py-4 text-text text-base"
-      />
-    </View>
+    <Input
+      label={label}
+      value={value}
+      onChangeText={onChangeText}
+      placeholder={placeholder}
+      secureTextEntry={secureTextEntry}
+      keyboardType={keyboardType}
+      autoCapitalize={autoCapitalize}
+    />
   );
 }
+
+export default TextField;

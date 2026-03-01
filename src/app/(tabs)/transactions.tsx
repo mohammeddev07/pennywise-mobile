@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Pressable, Text, TextInput, View } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import { View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { FlashList } from "@shopify/flash-list";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -11,6 +11,11 @@ import { BookPill } from "@/shared/ui/components/BookPill";
 import { useTransactionsStore, type Transaction } from "@/features/transactions/store";
 import { TransactionRow } from "@/shared/ui/components/TransactionRow";
 import { useBooksStore } from "@/features/books/store";
+import { HapticPressable } from "@/shared/ui/components/HapticPressable";
+import { EmptyState } from "@/shared/ui/components/EmptyState";
+import { AppText } from "@/shared/ui/components/AppText";
+import { Input } from "@/shared/ui/components/Input";
+import { Skeleton } from "@/shared/ui/components/Skeleton";
 
 type RangeKey = "today" | "week" | "month" | "all";
 
@@ -59,12 +64,94 @@ function money(amountCents: number) {
   return (abs / 100).toFixed(2);
 }
 
+function RangeChip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+  return (
+    <HapticPressable
+      onPress={onPress}
+      haptic="selection"
+      pressScale={0.985}
+      className="rounded-full border px-4 min-h-11 items-center justify-center"
+      android_ripple={{ color: "#FFFFFF10" }}
+      style={{
+        borderColor: active ? tokens.colors.accent : tokens.colors.stroke,
+        backgroundColor: active ? `${tokens.colors.accent}22` : "transparent",
+      }}
+    >
+      <AppText variant="sm" style={{ color: active ? tokens.colors.accent : tokens.colors.text }}>
+        {label}
+      </AppText>
+    </HapticPressable>
+  );
+}
+
+function SectionHeader({ title }: { title: string }) {
+  return (
+    <View className="pt-4 pb-2">
+      <AppText variant="xs" tone="muted" className="uppercase">
+        {title}
+      </AppText>
+    </View>
+  );
+}
+
 export default function TransactionsScreen() {
   const insets = useSafeAreaInsets();
 
   const transactions = useTransactionsStore((s) => s.transactions);
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
   const books = useBooksStore((s) => s.books);
+
+  const txPersist = (useTransactionsStore as any).persist;
+  const booksPersist = (useBooksStore as any).persist;
+
+  const [txHydrated, setTxHydrated] = useState<boolean>(() => {
+    const has = txPersist?.hasHydrated?.();
+    return typeof has === "boolean" ? has : true;
+  });
+  const [booksHydrated, setBooksHydrated] = useState<boolean>(() => {
+    const has = booksPersist?.hasHydrated?.();
+    return typeof has === "boolean" ? has : true;
+  });
+  const [hydrationError, setHydrationError] = useState(false);
+
+  useEffect(() => {
+    const unsubs: Array<() => void> = [];
+
+    if (txPersist?.onFinishHydration) {
+      const unsub = txPersist.onFinishHydration(() => setTxHydrated(true));
+      unsubs.push(unsub);
+      if (txPersist?.hasHydrated && !txPersist.hasHydrated()) txPersist?.rehydrate?.();
+    }
+
+    if (booksPersist?.onFinishHydration) {
+      const unsub = booksPersist.onFinishHydration(() => setBooksHydrated(true));
+      unsubs.push(unsub);
+      if (booksPersist?.hasHydrated && !booksPersist.hasHydrated()) booksPersist?.rehydrate?.();
+    }
+
+    const timeoutId = setTimeout(() => {
+      const txReady = txPersist?.hasHydrated ? txPersist.hasHydrated() : true;
+      const booksReady = booksPersist?.hasHydrated ? booksPersist.hasHydrated() : true;
+      if (!txReady || !booksReady) {
+        setHydrationError(true);
+      }
+    }, 3000);
+
+    return () => {
+      clearTimeout(timeoutId);
+      for (const unsub of unsubs) unsub?.();
+    };
+  }, [booksPersist, txPersist]);
+
+  const retryHydration = () => {
+    setHydrationError(false);
+    setTxHydrated(txPersist?.hasHydrated?.() ?? true);
+    setBooksHydrated(booksPersist?.hasHydrated?.() ?? true);
+    txPersist?.rehydrate?.();
+    booksPersist?.rehydrate?.();
+  };
+
+  const isHydrated = txHydrated && booksHydrated;
 
   const selectedBookName = useMemo(() => {
     return books.find((b) => b.id === selectedBookId)?.name ?? "Personal";
@@ -126,96 +213,91 @@ export default function TransactionsScreen() {
   }, [filtered]);
 
   return (
-    <View className="flex-1 bg-app" style={{ paddingTop: insets.top + 10 }}>
+    <View className="flex-1 bg-app" style={{ paddingTop: insets.top + 12 }}>
       <View className="px-6">
-        <View className="flex-row items-center justify-between">
-          <View>
-            <Text className="text-text text-2xl font-semibold">Transactions</Text>
+        <View className="flex-row items-start justify-between">
+          <View className="flex-1 pr-3">
+            <AppText variant="2xl">Transactions</AppText>
             <View className="mt-3 self-start">
               <BookPill label={selectedBookName} onPress={() => router.push("/modals/book-switcher")} />
             </View>
           </View>
 
-          <Pressable
+          <HapticPressable
             onPress={() => router.push("/modals/add-transaction")}
-            className="h-11 w-11 items-center justify-center rounded-full border border-stroke bg-surface"
+            haptic="impactLight"
+            className="h-12 w-12 items-center justify-center rounded-full border border-stroke bg-surface"
             android_ripple={{ color: "#FFFFFF12", borderless: true }}
           >
-            <Ionicons name="add" size={22} color={tokens.colors.accent} />
-          </Pressable>
+            <Ionicons name="add" size={20} color={tokens.colors.accent} />
+          </HapticPressable>
         </View>
 
-        <View className="mt-5 flex-row items-center rounded-2xl border border-stroke bg-surface px-4 py-3">
-          <Ionicons name="search" size={18} color={tokens.colors.muted} />
-          <TextInput
-            value={query}
-            onChangeText={setQuery}
-            placeholder="Search title, category, note…"
-            placeholderTextColor={tokens.colors.muted}
-            className="ml-3 flex-1 text-text"
-            autoCorrect={false}
-            autoCapitalize="none"
-          />
-          {query.length > 0 ? (
-            <Pressable
-              onPress={() => setQuery("")}
-              className="h-9 w-9 items-center justify-center rounded-full"
-              android_ripple={{ color: "#FFFFFF10", borderless: true }}
-            >
-              <Ionicons name="close" size={18} color={tokens.colors.muted} />
-            </Pressable>
-          ) : null}
-        </View>
-
-        <View className="mt-4 flex-row items-center gap-3">
-          <Chip label="Today" active={range === "today"} onPress={() => setRange("today")} />
-          <Chip label="Week" active={range === "week"} onPress={() => setRange("week")} />
-          <Chip label="Month" active={range === "month"} onPress={() => setRange("month")} />
-          <Chip label="All" active={range === "all"} onPress={() => setRange("all")} />
-        </View>
-
-        <View className="h-px bg-stroke mt-5" />
-      </View>
-
-      <View className="flex-1 px-6">
-        <FlashList
-          data={rows}
-          keyExtractor={(r) => r.id}
-          renderItem={({ item }) => {
-            if (item.type === "header") return <SectionHeader title={item.title} />;
-            return <TransactionRow item={item.tx} />;
-          }}
-          ItemSeparatorComponent={() => <View className="h-px bg-stroke" />}
-          contentContainerStyle={{ paddingBottom: (insets.bottom || 0) + 22, paddingTop: 14 }}
-          showsVerticalScrollIndicator={false}
+        <Input
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Search title, category, note..."
+          autoCorrect={false}
+          autoCapitalize="none"
+          containerClassName="mt-5"
         />
+
+        <View className="mt-4 flex-row items-center gap-2">
+          <RangeChip label="Today" active={range === "today"} onPress={() => setRange("today")} />
+          <RangeChip label="Week" active={range === "week"} onPress={() => setRange("week")} />
+          <RangeChip label="Month" active={range === "month"} onPress={() => setRange("month")} />
+          <RangeChip label="All" active={range === "all"} onPress={() => setRange("all")} />
+        </View>
+      </View>
+
+      <View className="flex-1 px-6 mt-4">
+        {hydrationError ? (
+          <View className="flex-1 justify-center">
+            <EmptyState
+              title="Couldn’t load transactions"
+              message="Retry to refresh your transaction history."
+              actionLabel="Retry"
+              onAction={retryHydration}
+              className="px-0"
+            />
+          </View>
+        ) : !isHydrated ? (
+          <View className="gap-3 pt-2">
+            <Skeleton height={120} borderRadius={24} />
+            <Skeleton height={120} borderRadius={24} />
+            <Skeleton height={120} borderRadius={24} />
+          </View>
+        ) : rows.length === 0 ? (
+          <View className="flex-1 justify-center">
+            <EmptyState
+              title={query.trim() ? "No matches" : "No transactions yet"}
+              message={
+                query.trim()
+                  ? "Try a different search or widen the date range."
+                  : "Log your first expense or income and it will appear here."
+              }
+              actionLabel="Add transaction"
+              onAction={() => router.push("/modals/add-transaction")}
+              className="px-0"
+            />
+          </View>
+        ) : (
+          <FlashList
+            data={rows}
+            keyExtractor={(r) => r.id}
+            renderItem={({ item }) => {
+              if (item.type === "header") return <SectionHeader title={item.title} />;
+              return <TransactionRow item={item.tx} />;
+            }}
+            ItemSeparatorComponent={() => <View className="h-2" />}
+            contentContainerStyle={{
+              paddingBottom: (insets.bottom || 0) + 24,
+              paddingTop: 4,
+            }}
+            showsVerticalScrollIndicator={false}
+          />
+        )}
       </View>
     </View>
-  );
-}
-
-function SectionHeader({ title }: { title: string }) {
-  return (
-    <View className="pt-5 pb-3">
-      <Text className="text-muted text-xs uppercase tracking-widest">{title}</Text>
-    </View>
-  );
-}
-
-function Chip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
-  return (
-    <Pressable
-      onPress={onPress}
-      className="rounded-full border px-4 py-2"
-      android_ripple={{ color: "#FFFFFF10" }}
-      style={{
-        borderColor: active ? tokens.colors.accent : tokens.colors.stroke,
-        backgroundColor: active ? "#00C80522" : "transparent",
-      }}
-    >
-      <Text className="text-sm font-semibold" style={{ color: active ? tokens.colors.accent : tokens.colors.text }}>
-        {label}
-      </Text>
-    </Pressable>
   );
 }

@@ -1,5 +1,5 @@
 import { PropsWithChildren, useMemo } from "react";
-import { Pressable, PressableProps, StyleProp, ViewStyle } from "react-native";
+import { Pressable, type PressableProps, type StyleProp, type ViewStyle } from "react-native";
 import * as Haptics from "expo-haptics";
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 
@@ -21,6 +21,7 @@ export function HapticPressable({
   haptic = "selection",
   pressScale = 0.98,
   pressOpacity = 0.9,
+  disabled,
   onPressIn,
   onPressOut,
   onPress,
@@ -29,33 +30,41 @@ export function HapticPressable({
   const s = useSharedValue(1);
   const o = useSharedValue(1);
 
+  const isDisabled = !!disabled;
+
   const animated = useAnimatedStyle(() => ({
-    transform: [{ scale: s.value }],
-    opacity: o.value,
+    transform: [{ scale: isDisabled ? 1 : s.value }],
+    opacity: isDisabled ? 0.4 : o.value,
   }));
 
   const doHaptic = useMemo(() => {
     if (haptic === "none") return () => {};
     if (haptic === "selection") return () => Haptics.selectionAsync().catch(() => {});
-    if (haptic === "impactLight") return () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    if (haptic === "impactMedium") return () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    if (haptic === "impactLight")
+      return () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    if (haptic === "impactMedium")
+      return () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     return () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
   }, [haptic]);
 
   return (
     <APressable
       {...rest}
+      disabled={disabled}
       onPressIn={(e) => {
-        s.value = withTiming(pressScale, { duration: 90 });
-        o.value = withTiming(pressOpacity, { duration: 90 });
+        if (isDisabled) return;
+        s.value = withTiming(pressScale, { duration: 80 });
+        o.value = withTiming(pressOpacity, { duration: 80 });
         onPressIn?.(e);
       }}
       onPressOut={(e) => {
-        s.value = withTiming(1, { duration: 110 });
-        o.value = withTiming(1, { duration: 110 });
+        if (isDisabled) return;
+        s.value = withTiming(1, { duration: 120 });
+        o.value = withTiming(1, { duration: 120 });
         onPressOut?.(e);
       }}
       onPress={(e) => {
+        if (isDisabled) return;
         doHaptic();
         onPress?.(e);
       }}

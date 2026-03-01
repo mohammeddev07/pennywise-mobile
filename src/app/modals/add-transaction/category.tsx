@@ -1,15 +1,21 @@
-import { useMemo, useState } from "react";
-import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import { ScrollView, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { FlashList } from "@shopify/flash-list";
-import { useRouter } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import * as Haptics from "expo-haptics";
+import { useFocusEffect, useRouter } from "expo-router";
 
 import { tokens } from "@/shared/ui/theme/tokens";
 import { useCategoriesStore } from "@/features/categories/store";
 import { useTransactionsStore } from "@/features/transactions/store";
 import { useAddTransactionDraftStore } from "@/features/transactions/addDraftStore";
+
+import { HapticPressable } from "@/shared/ui/components/HapticPressable";
+import { Sheet } from "@/shared/ui/components/Sheet";
+import { AppText } from "@/shared/ui/components/AppText";
+import { Card } from "@/shared/ui/components/Card";
+import { EmptyState } from "@/shared/ui/components/EmptyState";
+import { Skeleton } from "@/shared/ui/components/Skeleton";
+import { Input } from "@/shared/ui/components/Input";
 
 type CatMeta = {
   id: string;
@@ -44,15 +50,16 @@ function CatPill({
   onPress: () => void;
 }) {
   return (
-    <Pressable
+    <HapticPressable
       onPress={onPress}
-      className="mr-3 rounded-full border border-stroke bg-surface px-4 py-2 flex-row items-center"
-      android_ripple={{ color: "#FFFFFF10", borderless: true }}
-      style={({ pressed }) => ({
-        opacity: pressed ? 0.78 : 1,
+      haptic="selection"
+      pressScale={0.99}
+      className="mr-3 h-11 px-4 rounded-full border bg-surface flex-row items-center"
+      style={{
         borderColor: active ? tokens.colors.accent : tokens.colors.stroke,
-        backgroundColor: active ? "#00C80514" : tokens.colors.surface,
-      })}
+        backgroundColor: active ? `${tokens.colors.accent}14` : tokens.colors.surface,
+      }}
+      android_ripple={{ color: "#FFFFFF10", borderless: true }}
     >
       <View
         className="h-7 w-7 items-center justify-center rounded-full border border-stroke"
@@ -60,10 +67,16 @@ function CatPill({
       >
         <Ionicons name={item.icon as any} size={14} color={item.color} />
       </View>
-      <Text className="text-text font-semibold ml-2" numberOfLines={1}>
+
+      <AppText
+        variant="sm"
+        className="ml-2"
+        style={{ fontFamily: "Inter_600SemiBold" }}
+        numberOfLines={1}
+      >
         {item.name}
-      </Text>
-    </Pressable>
+      </AppText>
+    </HapticPressable>
   );
 }
 
@@ -79,26 +92,19 @@ function CatCard({
   const activity = item.count > 0 ? `${item.count} tx • ${formatMoney0(item.cents)}` : "No activity yet";
 
   return (
-    <Pressable
-      onPress={onPress}
-      android_ripple={{ color: "#FFFFFF10" }}
-      style={({ pressed }) => ({
-        opacity: pressed ? 0.78 : 1,
-      })}
-    >
-      <View
+    <HapticPressable onPress={onPress} haptic="selection" pressScale={0.99} pressOpacity={0.92}>
+      <Card
+        variant="surface"
+        padding={16}
+        className="min-h-[112px]"
         style={{
-          borderRadius: 24,
-          borderWidth: 1,
           borderColor: active ? tokens.colors.accent : tokens.colors.stroke,
-          backgroundColor: active ? "#00C80514" : tokens.colors.surface,
-          padding: 14,
-          minHeight: 112,
+          backgroundColor: active ? `${tokens.colors.accent}14` : tokens.colors.surface,
         }}
       >
         <View className="flex-row items-center justify-between">
           <View
-            className="h-10 w-10 items-center justify-center rounded-2xl border border-stroke"
+            className="h-10 w-10 items-center justify-center rounded-lg border border-stroke"
             style={{ backgroundColor: `${item.color}22` }}
           >
             <Ionicons name={item.icon as any} size={18} color={item.color} />
@@ -107,30 +113,36 @@ function CatCard({
           {active ? (
             <View
               className="h-8 w-8 items-center justify-center rounded-full border"
-              style={{ borderColor: `${tokens.colors.accent}55`, backgroundColor: "#00C80518" }}
+              style={{ borderColor: `${tokens.colors.accent}55`, backgroundColor: `${tokens.colors.accent}18` }}
             >
               <Ionicons name="checkmark" size={16} color={tokens.colors.accent} />
             </View>
           ) : null}
         </View>
 
-        <Text className="text-text font-semibold mt-3" numberOfLines={1}>
+        <AppText
+          variant="base"
+          className="mt-3"
+          style={{ fontFamily: "Inter_600SemiBold" }}
+          numberOfLines={1}
+        >
           {item.name}
-        </Text>
+        </AppText>
 
-        <Text className="text-muted text-xs mt-1" numberOfLines={1}>
+        <AppText variant="sm" tone="muted" className="mt-1" numberOfLines={1}>
           {activity}
-        </Text>
-      </View>
-    </Pressable>
+        </AppText>
+      </Card>
+    </HapticPressable>
   );
 }
 
 export default function AddTransactionCategory() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
 
   const categories = useCategoriesStore((s) => s.categories);
+  const consumeLastCreatedCategoryName = useCategoriesStore((s) => s.consumeLastCreatedCategoryName);
+
   const transactions = useTransactionsStore((s) => s.transactions);
 
   const selected = useAddTransactionDraftStore((s) => s.category);
@@ -139,6 +151,49 @@ export default function AddTransactionCategory() {
   const kind = useAddTransactionDraftStore((s) => s.kind);
 
   const [query, setQuery] = useState("");
+
+  // Loading (persist hydration) – categories + transactions
+  const catsPersist = (useCategoriesStore as any).persist;
+  const txPersist = (useTransactionsStore as any).persist;
+
+  const [hydratedCats, setHydratedCats] = useState<boolean>(() => {
+    const has = catsPersist?.hasHydrated?.();
+    return typeof has === "boolean" ? has : true;
+  });
+
+  const [hydratedTx, setHydratedTx] = useState<boolean>(() => {
+    const has = txPersist?.hasHydrated?.();
+    return typeof has === "boolean" ? has : true;
+  });
+
+  useEffect(() => {
+    if (catsPersist?.onFinishHydration) {
+      const unsub = catsPersist.onFinishHydration(() => setHydratedCats(true));
+      if (catsPersist?.hasHydrated && !catsPersist.hasHydrated()) catsPersist?.rehydrate?.();
+      return () => unsub?.();
+    }
+  }, [catsPersist]);
+
+  useEffect(() => {
+    if (txPersist?.onFinishHydration) {
+      const unsub = txPersist.onFinishHydration(() => setHydratedTx(true));
+      if (txPersist?.hasHydrated && !txPersist.hasHydrated()) txPersist?.rehydrate?.();
+      return () => unsub?.();
+    }
+  }, [txPersist]);
+
+  const hydrated = hydratedCats && hydratedTx;
+
+  const choose = (name: string) => {
+    setCategory(name);
+    router.back();
+  };
+
+  // ✅ Create → auto-select bridge
+  useFocusEffect(() => {
+    const name = consumeLastCreatedCategoryName();
+    if (name) choose(name);
+  });
 
   const allCats = useMemo(() => {
     const base: CatMeta[] = [
@@ -215,109 +270,198 @@ export default function AddTransactionCategory() {
     return [...used, ...unused];
   }, [allCats, query]);
 
-  const choose = (name: string) => {
-    Haptics.selectionAsync().catch(() => {});
-    setCategory(name);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    router.back();
+  // Contract spacing values only: gutter=8, half=4
+  const GUTTER = 8;
+  const HALF = 4;
+
+  const goCreate = () => {
+    router.push({ pathname: "/modals/category-editor", params: { origin: "add-transaction" } });
   };
 
-  const GUTTER = 12;
-  const HALF = GUTTER / 2;
+  const retryHydrate = () => {
+    catsPersist?.rehydrate?.();
+    txPersist?.rehydrate?.();
+  };
 
   return (
-    <View className="flex-1 bg-ink" style={{ paddingTop: insets.top + 10 }}>
-      {/* Header */}
-      <View className="px-6 flex-row items-center justify-between">
-        <Pressable
-          onPress={() => {
-            Haptics.selectionAsync().catch(() => {});
-            router.back();
-          }}
-          className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
-          android_ripple={{ color: "#FFFFFF12", borderless: true }}
-        >
-          <Ionicons name="chevron-back" size={20} color={tokens.colors.text} />
-        </Pressable>
-
-        <View className="items-center">
-          <Text className="text-text text-base font-semibold">Category</Text>
-          <Text className="text-muted text-xs mt-1">{kind === "expense" ? "Expense" : "Income"} • Book-aware</Text>
+    <View className="flex-1 bg-ink">
+      <Sheet
+        tone="ink"
+        className="flex-1"
+        title="Category"
+        leftAction={
+          <HapticPressable
+            onPress={() => router.back()}
+            className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
+            android_ripple={{ color: "#FFFFFF12", borderless: true }}
+          >
+            <Ionicons name="chevron-back" size={20} color={tokens.colors.text} />
+          </HapticPressable>
+        }
+        rightAction={
+          <HapticPressable
+            onPress={goCreate}
+            haptic="selection"
+            pressScale={0.98}
+            className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
+            android_ripple={{ color: "#FFFFFF12", borderless: true }}
+          >
+            <Ionicons name="add" size={20} color={tokens.colors.accent} />
+          </HapticPressable>
+        }
+      >
+        <View className="mt-2">
+          <AppText variant="xs" tone="muted" className="text-center">
+            {kind === "expense" ? "Expense" : "Income"} • Book-aware
+          </AppText>
         </View>
 
-        <View className="h-12 w-12" />
-      </View>
-
-      {/* Search + Recent */}
-      <View className="px-6 mt-5">
-        <View className="flex-row items-center rounded-2xl border border-stroke bg-surface px-4 py-3">
-          <Ionicons name="search" size={18} color={tokens.colors.muted} />
-          <TextInput
+        {/* Search (contract: h=56, radius=16, paddingX=16) */}
+        <View className="mt-5">
+          <Input
             value={query}
             onChangeText={setQuery}
-            placeholder="Search categories…"
-            placeholderTextColor={tokens.colors.muted}
-            className="ml-3 flex-1 text-text"
+            placeholder="Search categories..."
             autoCorrect={false}
             autoCapitalize="none"
           />
+
           {query.length > 0 ? (
-            <Pressable
+            <HapticPressable
               onPress={() => setQuery("")}
-              className="h-9 w-9 items-center justify-center rounded-full"
+              haptic="selection"
+              pressScale={0.98}
+              className="mt-2 self-end min-h-11 px-4 items-center justify-center rounded-full border border-stroke bg-surface"
               android_ripple={{ color: "#FFFFFF10", borderless: true }}
             >
-              <Ionicons name="close" size={18} color={tokens.colors.muted} />
-            </Pressable>
+              <AppText variant="sm" tone="muted">
+                Clear
+              </AppText>
+            </HapticPressable>
           ) : null}
+
+          {/* Recent */}
+          {query.trim().length === 0 ? (
+            <View className="mt-5">
+              <AppText variant="xs" tone="muted" className="uppercase mb-3">
+                Recent
+              </AppText>
+
+              {!hydrated ? (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View className="flex-row">
+                    <View className="mr-3">
+                      <Skeleton height={44} width={120} borderRadius={24} />
+                    </View>
+                    <View className="mr-3">
+                      <Skeleton height={44} width={150} borderRadius={24} />
+                    </View>
+                    <View className="mr-3">
+                      <Skeleton height={44} width={110} borderRadius={24} />
+                    </View>
+                  </View>
+                </ScrollView>
+              ) : recent.length > 0 ? (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                  <View className="flex-row">
+                    {recent.map((c) => (
+                      <CatPill
+                        key={`recent_${c.id}_${c.name}`}
+                        item={c}
+                        active={c.name === selected}
+                        onPress={() => choose(c.name)}
+                      />
+                    ))}
+                  </View>
+                </ScrollView>
+              ) : (
+                <AppText variant="sm" tone="muted">
+                  No recent category usage yet.
+                </AppText>
+              )}
+            </View>
+          ) : null}
+
+          <View className="h-px bg-stroke mt-5" />
         </View>
 
-        {query.trim().length === 0 && recent.length > 0 ? (
-          <View className="mt-5">
-            <Text className="text-muted text-xs uppercase tracking-widest mb-3">Recent</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {recent.map((c) => (
-                <CatPill key={`recent_${c.id}_${c.name}`} item={c} active={c.name === selected} onPress={() => choose(c.name)} />
-              ))}
-            </ScrollView>
-          </View>
-        ) : null}
-
-        <View className="h-px bg-stroke mt-5" />
-      </View>
-
-      {/* Grid */}
-      <View className="flex-1 px-6">
-        <FlashList
-          data={gridData}
-          keyExtractor={(c) => `${c.id}_${c.name}`}
-          numColumns={2}
-          renderItem={({ item, index }) => {
-            const isLeft = index % 2 === 0;
-
-            return (
-              <View
-                style={{
-                  flex: 1,
-                  paddingLeft: isLeft ? 0 : HALF,
-                  paddingRight: isLeft ? HALF : 0,
-                  paddingBottom: GUTTER,
-                  paddingTop: 12,
-                }}
-              >
-                <CatCard item={item} active={item.name === selected} onPress={() => choose(item.name)} />
+        {/* Grid */}
+        <View className="flex-1 mt-4">
+          {!hydrated ? (
+            // Loading state: skeleton grid
+            <View>
+              <View className="flex-row" style={{ gap: GUTTER }}>
+                <View style={{ flex: 1 }}>
+                  <Skeleton height={112} borderRadius={24} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Skeleton height={112} borderRadius={24} />
+                </View>
               </View>
-            );
-          }}
-          contentContainerStyle={{ paddingBottom: (insets.bottom || 0) + 24, paddingTop: 6 }}
-          showsVerticalScrollIndicator={false}
-          ListEmptyComponent={
-            <View className="py-14 items-center">
-              <Text className="text-muted">No categories found.</Text>
+              <View className="mt-2 flex-row" style={{ gap: GUTTER }}>
+                <View style={{ flex: 1 }}>
+                  <Skeleton height={112} borderRadius={24} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Skeleton height={112} borderRadius={24} />
+                </View>
+              </View>
+              <View className="mt-2 flex-row" style={{ gap: GUTTER }}>
+                <View style={{ flex: 1 }}>
+                  <Skeleton height={112} borderRadius={24} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Skeleton height={112} borderRadius={24} />
+                </View>
+              </View>
+
+              <View className="mt-4">
+                <HapticPressable onPress={retryHydrate} haptic="selection" className="py-2">
+                  <AppText variant="sm" className="text-accent" style={{ fontFamily: "Inter_600SemiBold" }}>
+                    Retry loading
+                  </AppText>
+                </HapticPressable>
+              </View>
             </View>
-          }
-        />
-      </View>
+          ) : (
+            <FlashList
+              data={gridData}
+              keyExtractor={(c) => `${c.id}_${c.name}`}
+              numColumns={2}
+              renderItem={({ item, index }) => {
+                const isLeft = index % 2 === 0;
+
+                return (
+                  <View
+                    style={{
+                      flex: 1,
+                      paddingLeft: isLeft ? 0 : HALF,
+                      paddingRight: isLeft ? HALF : 0,
+                      paddingBottom: GUTTER,
+                      paddingTop: 8,
+                    }}
+                  >
+                    <CatCard item={item} active={item.name === selected} onPress={() => choose(item.name)} />
+                  </View>
+                );
+              }}
+              contentContainerStyle={{ paddingBottom: 24, paddingTop: 4 }}
+              showsVerticalScrollIndicator={false}
+              ListEmptyComponent={
+                <View className="py-14">
+                  <EmptyState
+                    title="No categories found"
+                    message="Try a different search, or create a new category."
+                    actionLabel="Create category"
+                    onAction={goCreate}
+                    className="px-0"
+                  />
+                </View>
+              }
+            />
+          )}
+        </View>
+      </Sheet>
     </View>
   );
 }

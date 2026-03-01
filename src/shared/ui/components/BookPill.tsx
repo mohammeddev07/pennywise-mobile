@@ -1,8 +1,9 @@
-import { Text, View, type ViewStyle } from "react-native";
+import { View, type ViewStyle } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { tokens } from "@/shared/ui/theme/tokens";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
+import { AppText } from "@/shared/ui/components/AppText";
 
 export function BookPill({
   label,
@@ -17,28 +18,22 @@ export function BookPill({
     <HapticPressable
       onPress={onPress}
       haptic="selection"
-      pressScale={0.96}
+      pressScale={0.98}
       className="rounded-full border border-stroke bg-surface"
       android_ripple={{ color: "#FFFFFF10", borderless: true }}
       style={[
         {
           height: 44,
-          paddingHorizontal: 14,
+          paddingHorizontal: 16,
           flexDirection: "row",
           alignItems: "center",
         },
         style,
       ]}
     >
-      <Text
-        className="text-text font-semibold"
-        style={{
-          includeFontPadding: false as any,
-        }}
-        numberOfLines={1}
-      >
+      <AppText variant="sm" style={{ fontFamily: "Inter_600SemiBold" }} numberOfLines={1}>
         {label}
-      </Text>
+      </AppText>
 
       <View style={{ width: 8 }} />
 
