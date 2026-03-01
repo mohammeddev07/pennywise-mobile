@@ -12,6 +12,7 @@ import { Card } from "@/shared/ui/components/Card";
 import { Button } from "@/shared/ui/components/Button";
 import { EmptyState } from "@/shared/ui/components/EmptyState";
 import { Skeleton } from "@/shared/ui/components/Skeleton";
+import { SwipeUpToSubmit } from "@/shared/ui/components/SwipeUpToSubmit";
 import { useBooksStore } from "@/features/books/store";
 import { useAddTransactionDraftStore } from "@/features/transactions/addDraftStore";
 import { useSettingsStore } from "@/features/settings/store";
@@ -95,6 +96,7 @@ function SummaryRow({ label, value, strong }: { label: string; value: string; st
 
 export default function AddTransactionReview() {
   const router = useRouter();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const books = useBooksStore((s) => s.books);
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
@@ -150,23 +152,29 @@ export default function AddTransactionReview() {
   const hasAmountError = amountCents <= 0;
 
   const canSubmit = booksHydrated && !!selectedBook && !hasAmountError;
+  const submitDisabled = !canSubmit || isSubmitting;
 
   const onSubmit = () => {
-    if (!canSubmit) return;
-    router.replace({
-      pathname: "/modals/add-transaction/success",
-      params: {
-        amount,
-        kind,
-        title,
-        category,
-        note,
-        bookId,
-        occurredAt,
-        currency,
-        paymentMethod: "cash",
-      },
-    });
+    if (submitDisabled) return;
+    setIsSubmitting(true);
+    try {
+      router.replace({
+        pathname: "/modals/add-transaction/success",
+        params: {
+          amount,
+          kind,
+          title,
+          category,
+          note,
+          bookId,
+          occurredAt,
+          currency,
+          paymentMethod: "cash",
+        },
+      });
+    } catch {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -184,7 +192,21 @@ export default function AddTransactionReview() {
             <Ionicons name="chevron-back" size={20} color={tokens.colors.text} />
           </HapticPressable>
         }
-        footer={<Button label="Confirm" onPress={onSubmit} size="md" disabled={!canSubmit} />}
+        footer={
+          <SwipeUpToSubmit
+            label="Swipe up to submit"
+            onSubmit={onSubmit}
+            disabled={submitDisabled}
+          >
+            <Button
+              label="Confirm"
+              onPress={onSubmit}
+              size="md"
+              disabled={submitDisabled}
+              loading={isSubmitting}
+            />
+          </SwipeUpToSubmit>
+        }
       >
         {!booksHydrated ? (
           <View className="mt-2 gap-3">

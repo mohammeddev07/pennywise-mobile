@@ -16,6 +16,7 @@ import { SelectRow } from "@/shared/ui/components/SelectRow";
 import { AmountInput, applyAmountKey } from "@/shared/ui/components/AmountInput";
 import { Button } from "@/shared/ui/components/Button";
 import { EmptyState } from "@/shared/ui/components/EmptyState";
+import { SwipeUpToSubmit } from "@/shared/ui/components/SwipeUpToSubmit";
 
 function safeWhenLabel(iso: string) {
   try {
@@ -121,12 +122,18 @@ export default function AddTransactionEntry() {
           </HapticPressable>
         }
         footer={
-          <View>
-            <Button label="Review" onPress={goReview} disabled={!canReview || !selectedBook} size="md" />
-            <View className="mt-3">
-              <NumericKeypad onKey={onKey} keyHeight={62} containerClassName="px-0" />
+          <SwipeUpToSubmit
+            label="Swipe up to review"
+            onSubmit={goReview}
+            disabled={!canReview || !selectedBook}
+          >
+            <View>
+              <Button label="Review" onPress={goReview} disabled={!canReview || !selectedBook} size="md" />
+              <View className="mt-3">
+                <NumericKeypad onKey={onKey} keyHeight={62} containerClassName="px-0" />
+              </View>
             </View>
-          </View>
+          </SwipeUpToSubmit>
         }
       >
         {!hasBooks ? (
