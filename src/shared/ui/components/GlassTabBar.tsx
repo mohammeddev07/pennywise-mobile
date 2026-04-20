@@ -107,22 +107,22 @@ export function GlassTabBar({ state, navigation }: BottomTabBarProps) {
           position: "absolute",
           left: 0,
           right: 0,
-          top: -24,
+          top: -72,
           alignItems: "center",
         }}
       >
-        {/* Clean halo ring (no big green blob) */}
+        {/* Small pulse reinforces the FAB without covering the tab icons. */}
         <Animated.View
           pointerEvents="none"
           style={[
             {
               position: "absolute",
-              width: 92,
-              height: 92,
-              borderRadius: 46,
+              width: 80,
+              height: 80,
+              borderRadius: 40,
               borderWidth: 2,
-              borderColor: "rgba(0,200,5,0.25)",
-              backgroundColor: "rgba(0,200,5,0.06)",
+              borderColor: "rgba(34,197,94,0.22)",
+              backgroundColor: "rgba(34,197,94,0.06)",
             },
             haloStyle,
           ]}
@@ -141,14 +141,14 @@ export function GlassTabBar({ state, navigation }: BottomTabBarProps) {
             router.push("/modals/add-transaction");
           }}
           style={{
-            width: 74,
-            height: 74,
-            borderRadius: 37,
+            width: 64,
+            height: 64,
+            borderRadius: 32,
             backgroundColor: tokens.colors.accent,
             alignItems: "center",
             justifyContent: "center",
             borderWidth: 2,
-            borderColor: "rgba(0,0,0,0.22)",
+            borderColor: tokens.colors.surface,
 
             // keep shadow neutral/black to avoid green "mud"
             ...(Platform.OS === "android"
@@ -165,9 +165,9 @@ export function GlassTabBar({ state, navigation }: BottomTabBarProps) {
           <View
             style={{
               position: "absolute",
-              width: 62,
-              height: 62,
-              borderRadius: 31,
+              width: 54,
+              height: 54,
+              borderRadius: 27,
               borderWidth: 1,
               borderColor: "rgba(0,0,0,0.18)",
               backgroundColor: "rgba(255,255,255,0.06)",

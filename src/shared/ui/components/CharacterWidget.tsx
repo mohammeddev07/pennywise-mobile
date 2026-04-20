@@ -7,7 +7,7 @@ export type CharacterState = "happy" | "thinking" | "waiting";
 
 export function CharacterWidget({ state = "waiting", size = 44 }: { state?: CharacterState; size?: number }) {
   const stroke = tokens.colors.stroke;
-  const face = "rgba(0,200,5,0.12)";
+  const face = `${tokens.colors.accent}1F`;
   const accent = tokens.colors.accent;
   const muted = tokens.colors.muted;
 

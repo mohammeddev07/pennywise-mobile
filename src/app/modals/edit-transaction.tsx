@@ -162,9 +162,9 @@ export default function EditTransactionModal() {
   };
 
   return (
-    <View className="flex-1 bg-ink">
+    <View className="flex-1 bg-app">
       <Sheet
-        tone="ink"
+        tone="app"
         className="flex-1"
         title="Edit transaction"
         leftAction={
@@ -181,7 +181,7 @@ export default function EditTransactionModal() {
             <View>
               <Button label="Save changes" onPress={onSave} disabled={!canSave} size="md" />
               <View className="mt-2">
-                <NumericKeypad onKey={onKey} keyHeight={52} containerClassName="px-2" />
+                <NumericKeypad onPress={(key) => onKey(key as Key)} onDelete={() => onKey("back")} decimalAllowed />
               </View>
             </View>
           ) : (

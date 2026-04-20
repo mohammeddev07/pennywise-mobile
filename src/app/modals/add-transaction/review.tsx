@@ -1,9 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
-import { View } from "react-native";
+import { Dimensions, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { format, parseISO } from "date-fns";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Animated, {
+  Easing,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 
 import { tokens } from "@/shared/ui/theme/tokens";
 import { Sheet } from "@/shared/ui/components/Sheet";
@@ -19,6 +26,37 @@ import { useAddTransactionDraftStore } from "@/features/transactions/addDraftSto
 import { useSettingsStore } from "@/features/settings/store";
 import type { CurrencyCode } from "@/shared/types/models";
 import { formatCurrency } from "@/shared/utils/formatCurrency";
+
+const COLORS = {
+  bg: tokens.colors.app,
+  surface: tokens.colors.surface,
+  card: tokens.colors.card,
+  stroke: tokens.colors.stroke,
+  text: tokens.colors.text,
+  muted: tokens.colors.muted,
+  accent: tokens.colors.accent,
+  danger: tokens.colors.danger,
+  black: tokens.colors.black,
+} as const;
+
+const SPACING = {
+  0: tokens.space[0],
+  4: tokens.space[1],
+  8: tokens.space[2],
+  12: tokens.space[3],
+  16: tokens.space[4],
+  20: tokens.space[5],
+  24: tokens.space[6],
+  32: tokens.space[7],
+  40: tokens.space[8],
+} as const;
+
+const RADIUS = {
+  pill: tokens.radii.pill,
+} as const;
+
+const TYPOGRAPHY = tokens.typography;
+const SCREEN_HEIGHT = Dimensions.get("window").height;
 
 function parseAmountToCents(raw: string) {
   const cleaned = String(raw || "0")
@@ -91,6 +129,8 @@ export default function AddTransactionReview() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showCompletion, setShowCompletion] = useState(false);
+  const completion = useSharedValue(0);
 
   const books = useBooksStore((s) => s.books);
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
@@ -146,9 +186,7 @@ export default function AddTransactionReview() {
   const canSubmit = booksHydrated && !!selectedBook && !hasAmountError;
   const submitDisabled = !canSubmit || isSubmitting;
 
-  const onSubmit = () => {
-    if (submitDisabled) return;
-    setIsSubmitting(true);
+  const navigateToSuccess = () => {
     try {
       router.replace({
         pathname: "/modals/add-transaction/success",
@@ -166,13 +204,31 @@ export default function AddTransactionReview() {
       });
     } catch {
       setIsSubmitting(false);
+      setShowCompletion(false);
+      completion.value = 0;
     }
   };
 
+  const onSubmit = () => {
+    if (submitDisabled) return;
+    setIsSubmitting(true);
+    setShowCompletion(true);
+    completion.value = 0;
+    // This restores the requested full-page swipe completion moment before saving on the success route.
+    completion.value = withTiming(1, { duration: 520, easing: Easing.out(Easing.cubic) }, () => {
+      runOnJS(navigateToSuccess)();
+    });
+  };
+
+  const completionStyle = useAnimatedStyle(() => ({
+    opacity: completion.value,
+    transform: [{ translateY: SCREEN_HEIGHT * (1 - completion.value) }],
+  }));
+
   return (
-    <View className="flex-1 bg-ink">
+    <View className="flex-1 bg-app">
       <Sheet
-        tone="ink"
+        tone="app"
         className="flex-1"
         title="Review"
         footerVariant="fullBleed"
@@ -296,6 +352,66 @@ export default function AddTransactionReview() {
           </>
         )}
       </Sheet>
+
+      {showCompletion ? (
+        <Animated.View pointerEvents="none" style={[styles.completionOverlay, completionStyle]}>
+          <View style={styles.completionHandle} />
+          <View style={styles.completionContent}>
+            <View style={styles.completionBadge}>
+              <Ionicons name="checkmark" size={28} color={COLORS.black} />
+            </View>
+            <AppText variant="2xl" style={styles.completionTitle}>
+              Transaction complete
+            </AppText>
+            <AppText variant="sm" style={styles.completionSubtitle}>
+              Updating your books now
+            </AppText>
+          </View>
+        </Animated.View>
+      ) : null}
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  completionOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 20,
+    backgroundColor: COLORS.accent,
+    paddingTop: SPACING[40],
+    paddingHorizontal: SPACING[24],
+  },
+  completionHandle: {
+    width: 48,
+    height: 4,
+    borderRadius: RADIUS.pill,
+    alignSelf: "center",
+    backgroundColor: "#00000022",
+  },
+  completionContent: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingBottom: SPACING[40],
+  },
+  completionBadge: {
+    width: 72,
+    height: 72,
+    borderRadius: RADIUS.pill,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFFFFF55",
+  },
+  completionTitle: {
+    ...TYPOGRAPHY["2xl"],
+    marginTop: SPACING[24],
+    color: COLORS.black,
+    textAlign: "center",
+  },
+  completionSubtitle: {
+    marginTop: SPACING[8],
+    color: COLORS.black,
+    opacity: 0.72,
+    textAlign: "center",
+  },
+});

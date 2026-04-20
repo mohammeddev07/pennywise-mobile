@@ -57,9 +57,9 @@ export default function DateTimeModal() {
   };
 
   return (
-    <View className="flex-1 bg-ink">
+    <View className="flex-1 bg-app">
       <Sheet
-        tone="ink"
+        tone="app"
         className="flex-1"
         title="Date & time"
         leftAction={

@@ -49,11 +49,11 @@ export function Button({
         ? "bg-accentPressed"
         : "bg-accent"
       : variant === "danger"
-      ? "bg-danger"
+      ? "bg-transparent border border-danger"
       : "bg-transparent border border-stroke";
 
   const textClass =
-    variant === "primary" ? "text-black" : "text-text";
+    variant === "primary" ? "text-black" : variant === "danger" ? "text-danger" : "text-text";
 
   const spinnerColor =
     variant === "primary" ? tokens.colors.black : tokens.colors.text;

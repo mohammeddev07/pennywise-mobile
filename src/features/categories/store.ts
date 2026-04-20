@@ -34,7 +34,7 @@ const DEFAULT_CATEGORIES: Category[] = [
   { id: "transport", name: "Transport", icon: "car-outline", color: "#60A5FA", createdAt: new Date().toISOString() },
   { id: "rent", name: "Rent", icon: "home-outline", color: "#A78BFA", createdAt: new Date().toISOString() },
   { id: "shopping", name: "Shopping", icon: "cart-outline", color: "#F472B6", createdAt: new Date().toISOString() },
-  { id: "salary", name: "Salary", icon: "cash-outline", color: "#00C805", createdAt: new Date().toISOString() },
+  { id: "salary", name: "Salary", icon: "cash-outline", color: "#22C55E", createdAt: new Date().toISOString() },
 ];
 
 function makeId() {
@@ -63,7 +63,7 @@ export const useCategoriesStore = create<CategoriesState>()(
           createdAt,
           name: input.name.trim() || "Untitled",
           icon: input.icon || "pricetag-outline",
-          color: input.color || "#00C805",
+          color: input.color || "#22C55E",
         };
 
         set((s) => ({ categories: [next, ...s.categories] }));

@@ -50,7 +50,7 @@ function Tile({ item, currency }: { item: CategoryTile; currency: CurrencyCode }
   const progress = hasBudget ? Math.min(1, item.spentCents / Math.max(1, item.budgetCents)) : 0;
 
   return (
-    <Card variant="surface" className="min-h-[210px] p-0 overflow-hidden">
+    <Card variant="card" className="min-h-[178px] overflow-hidden">
       <HapticPressable
         onPress={() =>
           item.isGhost
@@ -63,13 +63,13 @@ function Tile({ item, currency }: { item: CategoryTile; currency: CurrencyCode }
         haptic="selection"
         pressScale={0.99}
         pressOpacity={0.92}
-        className="px-4 pt-4 pb-3"
+        className="pb-1"
         android_ripple={{ color: "#FFFFFF10" }}
       >
         <View className="flex-row items-center justify-between">
           <View
-            className="h-10 w-10 items-center justify-center rounded-lg border border-stroke"
-            style={{ backgroundColor: `${item.color}22` }}
+            className="h-10 w-10 items-center justify-center rounded-full border border-stroke"
+            style={{ backgroundColor: `${item.color}26` }}
           >
             <Ionicons name={item.icon as any} size={18} color={item.color} />
           </View>
@@ -85,11 +85,11 @@ function Tile({ item, currency }: { item: CategoryTile; currency: CurrencyCode }
           {formatCurrency(item.spentCents, currency, 0)} spent
         </AppText>
 
-        <View className="mt-4 h-2 rounded-full bg-stroke overflow-hidden">
+        <View className="mt-4 h-1 rounded-full bg-stroke overflow-hidden">
           <View
-            className="h-2 rounded-full"
+            className="h-1 rounded-full"
             style={{
-              width: `${Math.max(4, Math.round(progress * 100))}%`,
+              width: `${Math.round(progress * 100)}%`,
               backgroundColor: over ? tokens.colors.danger : tokens.colors.accent,
             }}
           />
@@ -106,16 +106,14 @@ function Tile({ item, currency }: { item: CategoryTile; currency: CurrencyCode }
         )}
       </HapticPressable>
 
-      <View className="h-px bg-stroke" />
-
       <HapticPressable
         onPress={() => router.push({ pathname: "/modals/budget-editor", params: { category: item.name } })}
         haptic="selection"
         pressScale={0.98}
-        className="min-h-12 px-4 flex-row items-center justify-center"
+        className="mt-2 -ml-3 min-h-11 px-3 rounded-full flex-row items-center self-start"
         android_ripple={{ color: "#FFFFFF10" }}
       >
-        <AppText variant="sm" className="text-accent">
+        <AppText variant="sm" className="text-accent" style={{ fontFamily: "Inter_600SemiBold" }}>
           {hasBudget ? "Edit budget" : "Set budget"}
         </AppText>
       </HapticPressable>

@@ -69,14 +69,14 @@ function RangeChip({ label, active, onPress }: { label: string; active: boolean;
       onPress={onPress}
       haptic="selection"
       pressScale={0.985}
-      className="rounded-lg border px-4 min-h-11 items-center justify-center"
+      className="rounded-full border px-4 min-h-11 items-center justify-center"
       android_ripple={{ color: "#FFFFFF10" }}
       style={{
         borderColor: active ? tokens.colors.accent : tokens.colors.stroke,
-        backgroundColor: active ? tokens.colors.card : "transparent",
+        backgroundColor: active ? tokens.colors.accent : tokens.colors.card,
       }}
     >
-      <AppText variant="sm" style={{ color: active ? tokens.colors.accent : tokens.colors.text }}>
+      <AppText variant="sm" style={{ color: active ? tokens.colors.black : tokens.colors.text, fontFamily: "Inter_600SemiBold" }}>
         {label}
       </AppText>
     </HapticPressable>
@@ -102,11 +102,11 @@ function SummaryStat({ label, value, tone }: { label: string; value: string; ton
   const color = tone === "income" ? tokens.colors.accent : tone === "expense" ? tokens.colors.danger : tokens.colors.text;
 
   return (
-    <View className="flex-1 rounded-lg border border-stroke bg-card p-3">
+    <View className="flex-1 min-h-11 rounded-full border border-stroke bg-card px-4 flex-row items-center justify-between">
       <AppText variant="xs" tone="muted">
         {label}
       </AppText>
-      <AppText variant="base" className="mt-1" style={{ color, fontFamily: "Inter_600SemiBold" }} numberOfLines={1}>
+      <AppText variant="sm" style={{ color, fontFamily: "Inter_600SemiBold" }} numberOfLines={1}>
         {value}
       </AppText>
     </View>
@@ -326,13 +326,13 @@ export default function TransactionsScreen() {
               <Ionicons name="add" size={24} color={tokens.colors.black} />
             </HapticPressable>
           </View>
-
-          <View className="mt-4 flex-row" style={{ gap: 8 }}>
-            <SummaryStat label="Income" value={formatCurrency(totals.incomeCents, primaryCurrency)} tone="income" />
-            <SummaryStat label="Expense" value={formatCurrency(totals.expenseCents, primaryCurrency)} tone="expense" />
-            <SummaryStat label="Items" value={String(totals.count)} />
-          </View>
         </Card>
+
+        <View className="mt-3 flex-row" style={{ gap: 8 }}>
+          <SummaryStat label="Income" value={formatCurrency(totals.incomeCents, primaryCurrency)} tone="income" />
+          <SummaryStat label="Expense" value={formatCurrency(totals.expenseCents, primaryCurrency)} tone="expense" />
+          <SummaryStat label="Items" value={String(totals.count)} />
+        </View>
 
         <View className="mt-4 flex-row items-center" style={{ gap: 8 }}>
           <RangeChip label="Today" active={range === "today"} onPress={() => setRange("today")} />

@@ -34,7 +34,7 @@ const ICONS = [
   "wallet-outline",
 ] as const;
 
-const COLORS = ["#00C805", "#60A5FA", "#A78BFA", "#F472B6", "#FFB020", "#34D399", "#F87171", "#94A3B8"];
+const COLORS = ["#22C55E", "#60A5FA", "#A78BFA", "#F472B6", "#FFB020", "#34D399", "#F87171", "#94A3B8"];
 
 export default function CategoryEditorModal() {
   const router = useRouter();
@@ -153,9 +153,9 @@ export default function CategoryEditorModal() {
   };
 
   return (
-    <View className="flex-1 bg-ink">
+    <View className="flex-1 bg-app">
       <Sheet
-        tone="ink"
+        tone="app"
         className="flex-1"
         title={title}
         leftAction={

@@ -12,7 +12,7 @@ module.exports = {
       colors: {
         // Core app backgrounds
         app: "#0B0F14",     // global app background (near-black)
-        ink: "#000000",     // pure black (Add Transaction flow ONLY)
+        ink: "#0B0F14",     // kept as an alias for legacy class names; never pure black
         surface: "#10151D", // elevated surfaces
         card: "#141A23",
 
@@ -22,8 +22,8 @@ module.exports = {
         muted: "#93A4B7",
 
         // Accent
-        accent: "#00C805",
-        accentPressed: "#009624",
+        accent: "#22C55E",
+        accentPressed: "#16A34A",
 
         // Optional utility
         danger: "#FF4D4D",
@@ -35,7 +35,7 @@ module.exports = {
 
         // inside extend.colors
         warning: "#F59E0B",
-        success: "#00C805",
+        success: "#22C55E",
       },
       borderRadius: {
         DEFAULT: "8px",

@@ -67,9 +67,10 @@ export function AmountInput({
   error,
 }: Props) {
   const formatted = formatForTicker(value, currencySymbol);
+  const valueNum = Number.parseFloat(String(value || "0"));
 
   const color =
-    kind === "income" ? tokens.colors.success : tokens.colors.danger;
+    error ? tokens.colors.danger : kind === "income" && valueNum > 0 ? tokens.colors.success : tokens.colors.text;
 
   return (
     <View className="w-full items-center">

@@ -247,7 +247,7 @@ export default function ProfileScreen() {
             </Card>
 
             <View className="mt-6">
-              <Button label="Add transaction" onPress={() => router.push("/modals/add-transaction")} size="md" />
+              <Button label="Add transaction" onPress={() => router.push("/modals/add-transaction")} size="lg" />
             </View>
 
             <View className="mt-3 gap-3">

@@ -40,7 +40,7 @@ export function TipCard({ title, body, icon = "tips-and-updates", actionLabel, o
               borderRadius: 999,
               alignItems: "center",
               justifyContent: "center",
-              backgroundColor: "#00C8051A",
+              backgroundColor: "#22C55E1A",
             }}
           >
             <MaterialIcons name={icon} size={20} color={tokens.colors.accent} />
@@ -56,7 +56,7 @@ export function TipCard({ title, body, icon = "tips-and-updates", actionLabel, o
                 haptic="selection"
                 pressScale={0.985}
                 className="mt-4 self-start rounded-full px-4 py-2"
-                style={{ backgroundColor: "#00C80522" }}
+                style={{ backgroundColor: "#22C55E22" }}
                 android_ripple={{ color: "#FFFFFF10" }}
               >
                 <Text style={{ color: tokens.colors.accent }} className="text-xs font-extrabold tracking-widest">

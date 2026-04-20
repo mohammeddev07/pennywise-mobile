@@ -2,17 +2,17 @@ export const tokens = {
   // Keep existing keys for backwards compatibility
   colors: {
     app: "#0B0F14",
-    ink: "#000000",
+    ink: "#0B0F14",
     surface: "#10151D",
     card: "#141A23",
     stroke: "#1C2430",
-    accent: "#00C805",
-    accentPressed: "#009624",
+    accent: "#22C55E",
+    accentPressed: "#16A34A",
     text: "#E7EEF8",
     muted: "#93A4B7",
     danger: "#FF4D4D",
     warning: "#F59E0B",
-    success: "#00C805",
+    success: "#22C55E",
     black: "#000000",
   },
 
@@ -23,12 +23,12 @@ export const tokens = {
     text: "#E7EEF8",
     textMuted: "#93A4B7",
     border: "#1C2430",
-    primary: "#00C805",
-    primaryPressed: "#009624",
+    primary: "#22C55E",
+    primaryPressed: "#16A34A",
     danger: "#FF4D4D",
     warning: "#F59E0B",
-    success: "#00C805",
-    ink: "#000000",
+    success: "#22C55E",
+    ink: "#0B0F14",
   },
 
   // Allowed spacing only

@@ -78,10 +78,20 @@ export function TransactionRow({
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
   };
 
+  const openActions = () => {
+    if (!enableActions) return;
+    Alert.alert("Transaction actions", primary, [
+      { text: "Duplicate", onPress: onDuplicate },
+      { text: "Delete", style: "destructive", onPress: onDelete },
+      { text: "Cancel", style: "cancel" },
+    ]);
+  };
+
   return (
     <Card variant="surface" className="p-0 overflow-hidden">
       <HapticPressable
         onPress={() => router.push({ pathname: "/modals/transaction-details", params: { id: item.id } })}
+        onLongPress={openActions}
         className="px-4 py-3"
         haptic="selection"
         pressScale={0.99}
@@ -118,41 +128,6 @@ export function TransactionRow({
         </View>
       </HapticPressable>
 
-      {enableActions ? (
-        <>
-          <View className="h-px bg-stroke" />
-
-          <View className="flex-row">
-            <HapticPressable
-              onPress={onDuplicate}
-              className="flex-1 min-h-12 px-4 py-3 flex-row items-center justify-center"
-              haptic="selection"
-              pressScale={0.99}
-              android_ripple={{ color: "#FFFFFF10" }}
-            >
-              <Ionicons name="copy-outline" size={16} color={tokens.colors.accent} />
-              <AppText variant="sm" className="ml-2 text-accent">
-                Duplicate
-              </AppText>
-            </HapticPressable>
-
-            <View className="w-px bg-stroke" />
-
-            <HapticPressable
-              onPress={onDelete}
-              className="flex-1 min-h-12 px-4 py-3 flex-row items-center justify-center"
-              haptic="selection"
-              pressScale={0.99}
-              android_ripple={{ color: "#FFFFFF10" }}
-            >
-              <Ionicons name="trash-outline" size={16} color={tokens.colors.danger} />
-              <AppText variant="sm" tone="danger" className="ml-2">
-                Delete
-              </AppText>
-            </HapticPressable>
-          </View>
-        </>
-      ) : null}
     </Card>
   );
 }

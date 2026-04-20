@@ -54,18 +54,18 @@ Money-only:
 ### 4) Color palette + semantic tokens (dark-first)
 
 Palette:
-- `black`: `#000000`
+- `black`: `#000000` (text/icon utility only; never a screen background)
 - `app`: `#0B0F14`
 - `surface`: `#10151D`
 - `card`: `#141A23`
 - `stroke`: `#1C2430`
 - `text`: `#E7EEF8`
 - `muted`: `#93A4B7`
-- `accent`: `#00C805`
-- `accentPressed`: `#009624`
+- `accent`: `#22C55E`
+- `accentPressed`: `#16A34A`
 - `danger`: `#FF4D4D`
 - `warning`: `#F59E0B`
-- `success`: `#00C805` (alias of accent)
+- `success`: `#22C55E` (alias of accent)
 
 Semantic:
 - `bg` = app
@@ -79,7 +79,7 @@ Semantic:
 - `danger` = danger
 - `warning` = warning
 - `success` = success
-- `ink` = #000000 (only for full-ink modal flows if needed)
+- `ink` = app (legacy alias; never use pure black as a screen background)
 
 Contrast guidance (WCAG-aware):
 - Normal text must be **≥ 4.5:1**
@@ -121,6 +121,7 @@ Touch targets:
 - `Sheet` — safe-area padding + header/footer slots + top radius
 - `Input` — label/help/error + fixed height/radius
 - `AmountInput` — money display + keypad helper utilities
+- `NumericKeypad` — shared numeric keypad for PIN and amount entry
 - `SelectRow` — tappable label/value row + chevron
 - `EmptyState` — empty visuals + optional CTA
 - `Skeleton` — loading blocks (radius restricted)
@@ -135,7 +136,7 @@ Every data-backed UI unit must implement:
 - Streaming: stable layout (`StreamingText` w/ reserved height)
 - Error: message + retry when actionable
 - Empty: `EmptyState` with optional CTA
-- Success: inline confirmation / success screen (no complex animations yet)
+- Success: confirmation screen and short completion transitions are allowed when they preserve layout stability
 
 ---
 
@@ -165,6 +166,18 @@ Every data-backed UI unit must implement:
 - Height: **56**
 - Chevron target: **48x48**
 - Disabled opacity = **0.40**
+
+### NumericKeypad — Done when
+- Props: `onPress(key: string)`, `onDelete()`, `disabled?: boolean`, `decimalAllowed?: boolean`
+- Layout: **3 columns**, **16** vertical gap, **24** horizontal gap
+- Key touch area: **72x72**
+- Visual circle: **64x64**, radius **9999**
+- Key bg: `surface`; key border: **1px** `stroke`
+- Key text: `text-2xl` for digits, `text-lg` for symbols, color `text`
+- Pressed: visual bg switches to `card`, scale to **0.96** within **80ms**
+- Disabled: opacity **0.40**, no haptic, no scale
+- Backspace: subtle `backspace` icon, muted color
+- Decimal: same sizing; muted/disabled when the context does not allow decimals
 
 ### Card — Done when
 - Radius: **24**
