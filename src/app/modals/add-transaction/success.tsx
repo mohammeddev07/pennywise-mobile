@@ -18,6 +18,7 @@ import {
 import { useAddTransactionDraftStore } from "@/features/transactions/addDraftStore";
 import type { CurrencyCode } from "@/shared/types/models";
 import { isCurrencyCode } from "@/features/transactions/store";
+import { formatSignedCurrency } from "@/shared/utils/formatCurrency";
 
 function parseAmountToCents(raw: string) {
   const cleaned = String(raw || "0")
@@ -26,15 +27,6 @@ function parseAmountToCents(raw: string) {
   const n = Number.parseFloat(cleaned);
   if (!Number.isFinite(n)) return 0;
   return Math.round(n * 100);
-}
-
-function formatMoney2(cents: number) {
-  const sign = cents < 0 ? "-" : "";
-  const abs = Math.abs(cents);
-  const dollars = (abs / 100).toFixed(2);
-  const [i, d] = dollars.split(".");
-  const intWithSep = i.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  return `${sign}$${intWithSep}.${d}`;
 }
 
 export default function AddTransactionSuccess() {
@@ -161,7 +153,7 @@ export default function AddTransactionSuccess() {
                 className="mt-4"
                 style={{ color: kind === "income" ? tokens.colors.accent : tokens.colors.text }}
               >
-                {formatMoney2(kind === "expense" ? -cents : cents)}
+                {formatSignedCurrency(kind === "expense" ? -cents : cents, currency)}
               </AppText>
               <AppText variant="base" className="mt-3 text-center" numberOfLines={1}>
                 {title ? title : category}

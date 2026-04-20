@@ -1,1 +1,1 @@
-export type { Transaction, TransactionKind, PaymentMethod, NewTransaction } from "./store";
+export type { Transaction, TransactionKind, PaymentMethod, NewTransaction, TransactionPatch } from "./store";

@@ -10,11 +10,13 @@ import { BookPill } from "@/shared/ui/components/BookPill";
 import { useTransactionsStore, type Transaction } from "@/features/transactions/store";
 import { useCategoriesStore } from "@/features/categories/store";
 import { useBooksStore } from "@/features/books/store";
+import { useSettingsStore } from "@/features/settings/store";
 import { AppText } from "@/shared/ui/components/AppText";
 import { Card } from "@/shared/ui/components/Card";
 import { EmptyState } from "@/shared/ui/components/EmptyState";
 import { Skeleton } from "@/shared/ui/components/Skeleton";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
+import { formatCurrency } from "@/shared/utils/formatCurrency";
 
 type RangeKey = "week" | "month" | "all";
 
@@ -36,15 +38,6 @@ function inRange(tx: Transaction, range: RangeKey) {
   const now = new Date();
   const since = range === "week" ? startOfDay(subDays(now, 6)) : startOfDay(subDays(now, 29));
   return d >= since;
-}
-
-function formatMoney(cents: number) {
-  const sign = cents < 0 ? "-" : "";
-  const abs = Math.abs(cents);
-  const dollars = (abs / 100).toFixed(2);
-  const [i, d] = dollars.split(".");
-  const intWithSep = i.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  return `${sign}$${intWithSep}.${d}`;
 }
 
 function RangeChip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
@@ -75,6 +68,7 @@ export default function AnalyticsScreen() {
   const categories = useCategoriesStore((s) => s.categories);
   const books = useBooksStore((s) => s.books);
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
+  const primaryCurrency = useSettingsStore((s) => s.primaryCurrency);
 
   const txPersist = (useTransactionsStore as any).persist;
   const catsPersist = (useCategoriesStore as any).persist;
@@ -264,21 +258,21 @@ export default function AnalyticsScreen() {
                   Net
                 </AppText>
                 <AppText variant="amount" className="mt-2">
-                  {formatMoney(totals.netCents)}
+                  {formatCurrency(totals.netCents, primaryCurrency)}
                 </AppText>
 
                 <View className="mt-3 flex-row items-center">
                   <View className="flex-row items-center">
                     <Ionicons name="arrow-down" size={16} color={tokens.colors.accent} />
                     <AppText variant="sm" className="ml-2" style={{ color: tokens.colors.accent }}>
-                      +{formatMoney(totals.incomeCents)} income
+                      +{formatCurrency(totals.incomeCents, primaryCurrency)} income
                     </AppText>
                   </View>
 
                   <View className="ml-5 flex-row items-center">
                     <Ionicons name="arrow-up" size={16} color={tokens.colors.danger} />
                     <AppText variant="sm" className="ml-2" style={{ color: tokens.colors.danger }}>
-                      -{formatMoney(totals.expenseCents)} spend
+                      -{formatCurrency(totals.expenseCents, primaryCurrency)} spend
                     </AppText>
                   </View>
                 </View>
@@ -317,7 +311,7 @@ export default function AnalyticsScreen() {
                     Total spend
                   </AppText>
                   <AppText variant="base" style={{ fontFamily: "Inter_600SemiBold" }}>
-                    {formatMoney(totals.expenseCents)}
+                    {formatCurrency(totals.expenseCents, primaryCurrency)}
                   </AppText>
                 </View>
               </Card>
@@ -359,7 +353,7 @@ export default function AnalyticsScreen() {
                         </View>
 
                         <AppText variant="base" style={{ fontFamily: "Inter_600SemiBold" }}>
-                          {formatMoney(c.cents)}
+                          {formatCurrency(c.cents, primaryCurrency)}
                         </AppText>
                       </View>
 

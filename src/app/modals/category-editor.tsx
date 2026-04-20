@@ -6,6 +6,9 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { tokens } from "@/shared/ui/theme/tokens";
 import { Button } from "@/shared/ui/components/Button";
 import { useCategoriesStore } from "@/features/categories/store";
+import { useTransactionsStore } from "@/features/transactions/store";
+import { useBudgetsStore } from "@/features/budgets/store";
+import { useBooksStore } from "@/features/books/store";
 import { Sheet } from "@/shared/ui/components/Sheet";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { AppText } from "@/shared/ui/components/AppText";
@@ -44,6 +47,10 @@ export default function CategoryEditorModal() {
   const updateCategory = useCategoriesStore((s) => s.updateCategory);
   const removeCategory = useCategoriesStore((s) => s.removeCategory);
   const markLastCreatedCategoryName = useCategoriesStore((s) => s.markLastCreatedCategoryName);
+  const renameTransactionCategory = useTransactionsStore((s) => s.renameTransactionCategory);
+  const books = useBooksStore((s) => s.books);
+  const renameBudgetCategory = useBudgetsStore((s) => s.renameBudgetCategory);
+  const removeBudgetForCategory = useBudgetsStore((s) => s.removeBudgetForCategory);
 
   const persist = (useCategoriesStore as any).persist;
   const [hydrated, setHydrated] = useState<boolean>(() => persist?.hasHydrated?.() ?? true);
@@ -107,7 +114,12 @@ export default function CategoryEditorModal() {
     const finalName = name.trim() || "Untitled";
 
     if (editing) {
+      const previousName = editing.name;
       updateCategory(editing.id, { name: finalName, icon, color });
+      renameTransactionCategory(previousName, finalName);
+      for (const book of books) {
+        renameBudgetCategory(book.id, previousName, finalName);
+      }
       router.back();
       return;
     }
@@ -130,6 +142,9 @@ export default function CategoryEditorModal() {
         text: "Delete",
         style: "destructive",
         onPress: () => {
+          for (const book of books) {
+            removeBudgetForCategory(book.id, editing.name);
+          }
           removeCategory(editing.id);
           router.back();
         },

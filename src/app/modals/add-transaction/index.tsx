@@ -8,6 +8,8 @@ import { NumericKeypad, type Key } from "@/shared/ui/NumericKeypad";
 import { tokens } from "@/shared/ui/theme/tokens";
 import { useBooksStore } from "@/features/books/store";
 import { useAddTransactionDraftStore } from "@/features/transactions/addDraftStore";
+import { useSettingsStore } from "@/features/settings/store";
+import { currencySymbol } from "@/shared/utils/formatCurrency";
 
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { Sheet } from "@/shared/ui/components/Sheet";
@@ -34,6 +36,7 @@ export default function AddTransactionEntry() {
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
   const addBook = useBooksStore((s) => s.addBook);
   const setSelectedBookId = useBooksStore((s) => s.setSelectedBookId);
+  const primaryCurrency = useSettingsStore((s) => s.primaryCurrency);
 
   const resetDraft = useAddTransactionDraftStore((s) => s.reset);
 
@@ -72,8 +75,7 @@ export default function AddTransactionEntry() {
   }, [selectedBook?.id, setBookId, selectedBook]);
 
   const valueNum = useMemo(() => Number(amount || "0") || 0, [amount]);
-  const hasTitle = title.trim().length > 0;
-  const canReview = valueNum > 0 && hasTitle;
+  const canReview = valueNum > 0;
 
   const close = () => {
     resetDraft();
@@ -183,8 +185,9 @@ export default function AddTransactionEntry() {
               <AmountInput
                 value={amount}
                 kind={kind}
-                currencySymbol="$"
+                currencySymbol={currencySymbol(primaryCurrency)}
                 helperText={kind === "expense" ? "Money out" : "Money in"}
+                error={reviewAttempted && valueNum <= 0 ? "Amount is required." : undefined}
               />
             </View>
 
@@ -196,7 +199,6 @@ export default function AddTransactionEntry() {
                 placeholder="Coffee, Uber, Rent"
                 autoCapitalize="words"
                 returnKeyType="done"
-                error={reviewAttempted && !hasTitle ? "Title is required." : undefined}
               />
 
               <View className="mt-4 gap-2">

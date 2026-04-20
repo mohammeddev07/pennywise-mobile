@@ -16,6 +16,7 @@ import { AppText } from "@/shared/ui/components/AppText";
 import { Card } from "@/shared/ui/components/Card";
 import { EmptyState } from "@/shared/ui/components/EmptyState";
 import { Skeleton } from "@/shared/ui/components/Skeleton";
+import { formatSignedCurrency } from "@/shared/utils/formatCurrency";
 
 function safeDate(iso: string) {
   try {
@@ -25,12 +26,6 @@ function safeDate(iso: string) {
   } catch {
     return null;
   }
-}
-
-function formatMoneySigned(kind: "income" | "expense", amountCents: number) {
-  const sign = kind === "income" ? "+" : "-";
-  const dollars = (Math.abs(amountCents) / 100).toFixed(2);
-  return `${sign}$${dollars}`;
 }
 
 function DetailRow({
@@ -150,6 +145,11 @@ export default function TransactionDetailsModal() {
     }
   };
 
+  const onEdit = () => {
+    if (!tx) return;
+    router.push({ pathname: "/modals/edit-transaction", params: { id: tx.id } });
+  };
+
   const retryHydration = () => {
     setHydrationError(false);
     setHydrated(txPersist?.hasHydrated?.() ?? true);
@@ -174,17 +174,18 @@ export default function TransactionDetailsModal() {
         rightAction={
           tx ? (
             <HapticPressable
-              onPress={onDelete}
+              onPress={onEdit}
               className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
               android_ripple={{ color: "#FFFFFF12", borderless: true }}
             >
-              <Ionicons name="trash-outline" size={20} color={tokens.colors.danger} />
+              <Ionicons name="create-outline" size={20} color={tokens.colors.accent} />
             </HapticPressable>
           ) : null
         }
         footer={
           tx ? (
             <View className="gap-3">
+              <Button label="Edit" onPress={onEdit} size="md" />
               <Button label="Duplicate" variant="ghost" onPress={onDuplicate} size="md" />
               <Button label="Delete" variant="danger" onPress={onDelete} size="md" />
               <Button label="Done" onPress={() => router.back()} size="md" />
@@ -236,7 +237,7 @@ export default function TransactionDetailsModal() {
                 className="mt-2"
                 style={{ color: tx.kind === "income" ? tokens.colors.accent : tokens.colors.text }}
               >
-                {formatMoneySigned(tx.kind, tx.amountCents)}
+                {formatSignedCurrency(tx.kind === "income" ? tx.amountCents : -tx.amountCents, tx.currency)}
               </AppText>
 
               <AppText variant="base" tone="muted" className="mt-2">

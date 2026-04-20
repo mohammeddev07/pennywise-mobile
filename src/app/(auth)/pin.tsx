@@ -6,17 +6,18 @@ import * as Haptics from "expo-haptics";
 
 import { tokens } from "@/shared/ui/theme/tokens";
 import { NumericKeypad, type Key } from "@/shared/ui/NumericKeypad";
-import { Button } from "@/shared/ui/components/Button";
 import { PinDots } from "@/shared/ui/components/PinDots";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { AppText } from "@/shared/ui/components/AppText";
-
-const DEMO_PIN = "1234";
+import { DEMO_PIN, useAuthStore } from "@/features/auth/store";
 
 export default function PinScreen() {
   const router = useRouter();
   const [pin, setPin] = useState("");
+  const [error, setError] = useState("");
   const didNavigateRef = useRef(false);
+  const unlockDemo = useAuthStore((s) => s.unlockDemo);
+  const onboardingCompleted = useAuthStore((s) => s.onboardingCompleted);
 
   const handleBack = () => {
     const canGoBack = typeof (router as any).canGoBack === "function" ? (router as any).canGoBack() : false;
@@ -26,6 +27,7 @@ export default function PinScreen() {
   };
 
   const onKey = (k: Key) => {
+    setError("");
     setPin((prev) => {
       if (k === "back") return prev.slice(0, -1);
       if (k === ".") return prev;
@@ -40,15 +42,17 @@ export default function PinScreen() {
 
     if (pin === DEMO_PIN) {
       didNavigateRef.current = true;
+      unlockDemo();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      router.replace("/(onboarding)/books");
+      router.replace(onboardingCompleted ? "/(tabs)/home" : "/(onboarding)/books");
       return;
     }
 
+    setError("That PIN did not match. Try 1234 for this demo.");
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
     const t = setTimeout(() => setPin(""), 250);
     return () => clearTimeout(t);
-  }, [pin, router]);
+  }, [onboardingCompleted, pin, router, unlockDemo]);
 
   return (
     <View className="flex-1 bg-app px-6 pt-14 pb-10">
@@ -72,17 +76,14 @@ export default function PinScreen() {
       <View className="mt-14 items-center">
         <PinDots length={4} filled={pin.length} />
         <AppText variant="xs" tone="muted" className="mt-4">
-          Demo PIN: 1234
+          Demo access PIN: 1234
         </AppText>
 
-        <View className="mt-6 w-full">
-          <Button
-            variant="ghost"
-            size="md"
-            label="Use biometrics (coming next step)"
-            onPress={() => Haptics.selectionAsync().catch(() => {})}
-          />
-        </View>
+        {error ? (
+          <AppText variant="sm" tone="danger" className="mt-4 text-center">
+            {error}
+          </AppText>
+        ) : null}
       </View>
 
       <View className="mt-auto">

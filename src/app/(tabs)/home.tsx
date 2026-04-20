@@ -18,14 +18,20 @@ import { TransactionRow } from "@/shared/ui/components/TransactionRow";
 import { useBooksStore } from "@/features/books/store";
 import { useTransactionsStore } from "@/features/transactions/store";
 import { useBudgetsStore } from "@/features/budgets/store";
+import { useSettingsStore } from "@/features/settings/store";
+import { formatCurrency } from "@/shared/utils/formatCurrency";
+import type { CurrencyCode } from "@/shared/types/models";
 
-function formatMoney2(cents: number) {
-  const sign = cents < 0 ? "-" : "";
-  const abs = Math.abs(cents);
-  const dollars = (abs / 100).toFixed(2);
-  const [i, d] = dollars.split(".");
-  const intWithSep = i.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  return `${sign}$${intWithSep}.${d}`;
+function monthKey(iso?: string) {
+  const t = iso ? Date.parse(iso) : NaN;
+  if (!Number.isFinite(t)) return "";
+  const d = new Date(t);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function nowMonthKey() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
 type BudgetItem = {
@@ -34,7 +40,7 @@ type BudgetItem = {
   budgetCents: number;
 };
 
-function BudgetTile({ item }: { item: BudgetItem }) {
+function BudgetTile({ item, currency }: { item: BudgetItem; currency: CurrencyCode }) {
   const remaining = item.budgetCents - item.spentCents;
   const over = remaining < 0;
   const progress = Math.min(1, item.spentCents / Math.max(1, item.budgetCents));
@@ -46,7 +52,7 @@ function BudgetTile({ item }: { item: BudgetItem }) {
       </AppText>
 
       <AppText variant="sm" tone="muted" className="mt-1">
-        {formatMoney2(item.spentCents)} of {formatMoney2(item.budgetCents)}
+        {formatCurrency(item.spentCents, currency)} of {formatCurrency(item.budgetCents, currency)}
       </AppText>
 
       <View className="mt-4 h-2 overflow-hidden rounded-full bg-stroke">
@@ -60,7 +66,7 @@ function BudgetTile({ item }: { item: BudgetItem }) {
       </View>
 
       <AppText variant="sm" className="mt-3" style={{ color: over ? tokens.colors.danger : tokens.colors.accent }}>
-        {over ? `${formatMoney2(Math.abs(remaining))} over` : `${formatMoney2(remaining)} left`}
+        {over ? `${formatCurrency(Math.abs(remaining), currency)} over` : `${formatCurrency(remaining, currency)} left`}
       </AppText>
     </Card>
   );
@@ -75,6 +81,7 @@ export default function Home() {
 
   const transactions = useTransactionsStore((s) => s.transactions);
   const budgets = useBudgetsStore((s) => s.budgets);
+  const primaryCurrency = useSettingsStore((s) => s.primaryCurrency);
 
   const booksPersist = (useBooksStore as any).persist;
   const txPersist = (useTransactionsStore as any).persist;
@@ -153,10 +160,12 @@ export default function Home() {
 
   const budgetItems = useMemo(() => {
     const bookBudgets = budgets.filter((b) => b.bookId === selectedBookId);
+    const currentMonth = nowMonthKey();
 
     const spentByCategory = new Map<string, number>();
     for (const tx of bookTransactions) {
       if (tx.kind !== "expense") continue;
+      if (monthKey(tx.occurredAt) !== currentMonth) continue;
       const key = (tx.category || "Uncategorized").trim() || "Uncategorized";
       spentByCategory.set(key, (spentByCategory.get(key) ?? 0) + tx.amountCents);
     }
@@ -261,7 +270,7 @@ export default function Home() {
                   Total balance
                 </AppText>
                 <AppText variant="amount" className="mt-2" style={{ color: balance.netCents < 0 ? tokens.colors.danger : tokens.colors.text }}>
-                  {formatMoney2(balance.netCents)}
+                  {formatCurrency(balance.netCents, primaryCurrency)}
                 </AppText>
 
                 <View className="mt-4 flex-row">
@@ -270,7 +279,7 @@ export default function Home() {
                       Income
                     </AppText>
                     <AppText variant="base" className="mt-1" style={{ color: tokens.colors.accent, fontFamily: "Inter_600SemiBold" }}>
-                      {formatMoney2(balance.incomeCents)}
+                      {formatCurrency(balance.incomeCents, primaryCurrency)}
                     </AppText>
                   </View>
 
@@ -279,7 +288,7 @@ export default function Home() {
                       Expense
                     </AppText>
                     <AppText variant="base" className="mt-1" style={{ fontFamily: "Inter_600SemiBold" }}>
-                      {formatMoney2(balance.expenseCents)}
+                      {formatCurrency(balance.expenseCents, primaryCurrency)}
                     </AppText>
                   </View>
                 </View>
@@ -320,7 +329,7 @@ export default function Home() {
                 >
                   {budgetItems.slice(0, 6).map((item) => (
                     <View key={item.category} className="mr-3">
-                      <BudgetTile item={item} />
+                    <BudgetTile item={item} currency={primaryCurrency} />
                     </View>
                   ))}
                 </ScrollView>

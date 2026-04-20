@@ -8,6 +8,7 @@ import { tokens } from "@/shared/ui/theme/tokens";
 import { useCategoriesStore } from "@/features/categories/store";
 import { useTransactionsStore } from "@/features/transactions/store";
 import { useAddTransactionDraftStore } from "@/features/transactions/addDraftStore";
+import { useSettingsStore } from "@/features/settings/store";
 
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { Sheet } from "@/shared/ui/components/Sheet";
@@ -16,6 +17,8 @@ import { Card } from "@/shared/ui/components/Card";
 import { EmptyState } from "@/shared/ui/components/EmptyState";
 import { Skeleton } from "@/shared/ui/components/Skeleton";
 import { Input } from "@/shared/ui/components/Input";
+import { formatCurrency } from "@/shared/utils/formatCurrency";
+import type { CurrencyCode } from "@/shared/types/models";
 
 type CatMeta = {
   id: string;
@@ -31,13 +34,6 @@ function safeTime(iso?: string) {
   if (!iso) return 0;
   const t = Date.parse(iso);
   return Number.isFinite(t) ? t : 0;
-}
-
-function formatMoney0(cents: number) {
-  const abs = Math.abs(cents);
-  const dollars = (abs / 100).toFixed(0);
-  const intWithSep = dollars.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  return `$${intWithSep}`;
 }
 
 function CatPill({
@@ -84,12 +80,14 @@ function CatCard({
   item,
   active,
   onPress,
+  currency,
 }: {
   item: CatMeta;
   active: boolean;
   onPress: () => void;
+  currency: CurrencyCode;
 }) {
-  const activity = item.count > 0 ? `${item.count} tx • ${formatMoney0(item.cents)}` : "No activity yet";
+  const activity = item.count > 0 ? `${item.count} tx • ${formatCurrency(item.cents, currency, 0)}` : "No activity yet";
 
   return (
     <HapticPressable onPress={onPress} haptic="selection" pressScale={0.99} pressOpacity={0.92}>
@@ -144,6 +142,7 @@ export default function AddTransactionCategory() {
   const consumeLastCreatedCategoryName = useCategoriesStore((s) => s.consumeLastCreatedCategoryName);
 
   const transactions = useTransactionsStore((s) => s.transactions);
+  const primaryCurrency = useSettingsStore((s) => s.primaryCurrency);
 
   const selected = useAddTransactionDraftStore((s) => s.category);
   const setCategory = useAddTransactionDraftStore((s) => s.setCategory);
@@ -441,7 +440,7 @@ export default function AddTransactionCategory() {
                       paddingTop: 8,
                     }}
                   >
-                    <CatCard item={item} active={item.name === selected} onPress={() => choose(item.name)} />
+                    <CatCard item={item} active={item.name === selected} onPress={() => choose(item.name)} currency={primaryCurrency} />
                   </View>
                 );
               }}

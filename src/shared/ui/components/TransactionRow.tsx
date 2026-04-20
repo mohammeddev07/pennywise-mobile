@@ -11,6 +11,7 @@ import { useUndoToastStore } from "@/shared/ui/state/useUndoToastStore";
 import { Card } from "@/shared/ui/components/Card";
 import { AppText } from "@/shared/ui/components/AppText";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
+import { formatSignedCurrency } from "@/shared/utils/formatCurrency";
 
 function safeDate(iso: string) {
   try {
@@ -37,12 +38,6 @@ function timeLabel(iso: string) {
   return format(d, "h:mm a");
 }
 
-function moneySigned(kind: Transaction["kind"], amountCents: number) {
-  const sign = kind === "income" ? "+" : "-";
-  const dollars = (Math.abs(amountCents) / 100).toFixed(2);
-  return `${sign}$${dollars}`;
-}
-
 export function TransactionRow({
   item,
   enableActions = true,
@@ -57,7 +52,7 @@ export function TransactionRow({
   const showDeleted = useUndoToastStore((s) => s.showDeleted);
 
   const isIncome = item.kind === "income";
-  const amount = moneySigned(item.kind, item.amountCents);
+  const amount = formatSignedCurrency(isIncome ? item.amountCents : -item.amountCents, item.currency);
 
   const primary = (item.title || "").trim() || (item.category || "").trim() || "Transaction";
   const category = (item.category || "Uncategorized").trim() || "Uncategorized";

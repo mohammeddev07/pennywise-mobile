@@ -11,11 +11,14 @@ import { useCategoriesStore } from "@/features/categories/store";
 import { useTransactionsStore } from "@/features/transactions/store";
 import { useBooksStore } from "@/features/books/store";
 import { useBudgetsStore } from "@/features/budgets/store";
+import { useSettingsStore } from "@/features/settings/store";
 import { AppText } from "@/shared/ui/components/AppText";
 import { Input } from "@/shared/ui/components/Input";
 import { Card } from "@/shared/ui/components/Card";
 import { EmptyState } from "@/shared/ui/components/EmptyState";
 import { Skeleton } from "@/shared/ui/components/Skeleton";
+import { formatCurrency } from "@/shared/utils/formatCurrency";
+import type { CurrencyCode } from "@/shared/types/models";
 
 function monthKey(iso?: string) {
   const t = iso ? Date.parse(iso) : NaN;
@@ -29,13 +32,6 @@ function nowMonthKey() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function formatMoney0(cents: number) {
-  const abs = Math.abs(cents);
-  const dollars = (abs / 100).toFixed(0);
-  const intWithSep = dollars.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  return `$${intWithSep}`;
-}
-
 type CategoryTile = {
   id: string;
   categoryId: string;
@@ -44,9 +40,10 @@ type CategoryTile = {
   color: string;
   spentCents: number;
   budgetCents: number;
+  isGhost?: boolean;
 };
 
-function Tile({ item }: { item: CategoryTile }) {
+function Tile({ item, currency }: { item: CategoryTile; currency: CurrencyCode }) {
   const remaining = item.budgetCents - item.spentCents;
   const hasBudget = item.budgetCents > 0;
   const over = hasBudget && remaining < 0;
@@ -56,10 +53,12 @@ function Tile({ item }: { item: CategoryTile }) {
     <Card variant="surface" className="min-h-[210px] p-0 overflow-hidden">
       <HapticPressable
         onPress={() =>
-          router.push({
-            pathname: "/modals/category-editor",
-            params: { id: item.categoryId },
-          })
+          item.isGhost
+            ? router.push("/modals/category-editor")
+            : router.push({
+                pathname: "/modals/category-editor",
+                params: { id: item.categoryId },
+              })
         }
         haptic="selection"
         pressScale={0.99}
@@ -83,7 +82,7 @@ function Tile({ item }: { item: CategoryTile }) {
         </AppText>
 
         <AppText variant="sm" tone="muted" className="mt-1">
-          {formatMoney0(item.spentCents)} spent
+          {formatCurrency(item.spentCents, currency, 0)} spent
         </AppText>
 
         <View className="mt-4 h-2 rounded-full bg-stroke overflow-hidden">
@@ -98,7 +97,7 @@ function Tile({ item }: { item: CategoryTile }) {
 
         {hasBudget ? (
           <AppText variant="sm" className="mt-3" style={{ color: over ? tokens.colors.danger : tokens.colors.accent }}>
-            {over ? `${formatMoney0(Math.abs(remaining))} over` : `${formatMoney0(remaining)} left`}
+            {over ? `${formatCurrency(Math.abs(remaining), currency, 0)} over` : `${formatCurrency(remaining, currency, 0)} left`}
           </AppText>
         ) : (
           <AppText variant="sm" tone="muted" className="mt-3">
@@ -131,6 +130,7 @@ export default function CategoriesScreen() {
   const transactions = useTransactionsStore((s) => s.transactions);
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
   const budgets = useBudgetsStore((s) => s.budgets);
+  const primaryCurrency = useSettingsStore((s) => s.primaryCurrency);
 
   const catsPersist = (useCategoriesStore as any).persist;
   const txPersist = (useTransactionsStore as any).persist;
@@ -236,17 +236,21 @@ export default function CategoriesScreen() {
       budgetCents: budgetByCat.get(c.name) ?? 0,
     }));
 
-    if (!out.some((x) => x.name === "Uncategorized") && spentByCat.has("Uncategorized")) {
+    const addGhost = (name: string, color = tokens.colors.muted) => {
+      if (out.some((x) => x.name === name)) return;
       out.unshift({
-        id: "uncat",
-        categoryId: "uncat",
-        name: "Uncategorized",
+        id: `ghost_${name}`,
+        categoryId: `ghost_${name}`,
+        name,
         icon: "pricetag-outline",
-        color: tokens.colors.muted,
-        spentCents: spentByCat.get("Uncategorized") ?? 0,
-        budgetCents: budgetByCat.get("Uncategorized") ?? 0,
+        color,
+        spentCents: spentByCat.get(name) ?? 0,
+        budgetCents: budgetByCat.get(name) ?? 0,
+        isGhost: true,
       });
-    }
+    };
+
+    for (const name of new Set([...spentByCat.keys(), ...budgetByCat.keys()])) addGhost(name);
 
     const q = query.trim().toLowerCase();
     const filtered = q ? out.filter((t) => t.name.toLowerCase().includes(q)) : out;
@@ -346,7 +350,7 @@ export default function CategoriesScreen() {
                     paddingTop: 8,
                   }}
                 >
-                  <Tile item={item} />
+                    <Tile item={item} currency={primaryCurrency} />
                 </View>
               );
             }}

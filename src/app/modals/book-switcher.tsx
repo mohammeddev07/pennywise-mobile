@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { View } from "react-native";
+import { Alert, ScrollView, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 
@@ -12,6 +12,7 @@ import { Card } from "@/shared/ui/components/Card";
 import { Skeleton } from "@/shared/ui/components/Skeleton";
 import { EmptyState } from "@/shared/ui/components/EmptyState";
 import { Button } from "@/shared/ui/components/Button";
+import { Input } from "@/shared/ui/components/Input";
 
 export default function BookSwitcherModal() {
   const router = useRouter();
@@ -20,10 +21,16 @@ export default function BookSwitcherModal() {
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
   const setSelectedBookId = useBooksStore((s) => s.setSelectedBookId);
   const addBook = useBooksStore((s) => s.addBook);
+  const updateBook = useBooksStore((s) => s.updateBook);
+  const removeBook = useBooksStore((s) => s.removeBook);
 
   const persist = (useBooksStore as any).persist;
   const [hydrated, setHydrated] = useState<boolean>(() => persist?.hasHydrated?.() ?? true);
   const [hydrationError, setHydrationError] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+  const [name, setName] = useState("");
+  const [subtitle, setSubtitle] = useState("");
 
   useEffect(() => {
     if (!persist?.onFinishHydration) return;
@@ -55,10 +62,64 @@ export default function BookSwitcherModal() {
     persist?.rehydrate?.();
   };
 
-  const createBook = () => {
-    const label = `Book ${books.length + 1}`;
-    const id = addBook({ name: label, subtitle: "CashBook Pro" });
-    setSelectedBookId(id);
+  const startCreate = () => {
+    setIsCreating(true);
+    setEditingId(null);
+    setName("");
+    setSubtitle("");
+  };
+
+  const startEdit = (bookId: string) => {
+    const book = books.find((b) => b.id === bookId);
+    if (!book) return;
+    setIsCreating(false);
+    setEditingId(book.id);
+    setName(book.name);
+    setSubtitle(book.subtitle ?? "");
+  };
+
+  const resetEditor = () => {
+    setIsCreating(false);
+    setEditingId(null);
+    setName("");
+    setSubtitle("");
+  };
+
+  const saveBook = () => {
+    const finalName = name.trim();
+    if (!finalName) return;
+
+    if (isCreating) {
+      const id = addBook({ name: finalName, subtitle: subtitle.trim() || undefined });
+      setSelectedBookId(id);
+      resetEditor();
+      return;
+    }
+
+    if (editingId) {
+      updateBook(editingId, { name: finalName, subtitle: subtitle.trim() || undefined });
+      resetEditor();
+    }
+  };
+
+  const deleteEditingBook = () => {
+    if (!editingId) return;
+    if (books.length <= 1) {
+      Alert.alert("Keep one book", "You need at least one book to track transactions.");
+      return;
+    }
+
+    Alert.alert("Delete book?", "Transactions in this book stay saved, but this book will no longer be selectable.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: () => {
+          const didRemove = removeBook(editingId);
+          if (didRemove) resetEditor();
+        },
+      },
+    ]);
   };
 
   return (
@@ -78,7 +139,7 @@ export default function BookSwitcherModal() {
         }
         rightAction={
           <HapticPressable
-            onPress={createBook}
+            onPress={startCreate}
             haptic="selection"
             className="h-12 w-12 items-center justify-center rounded-full border border-stroke bg-surface"
             android_ripple={{ color: "#FFFFFF12", borderless: true }}
@@ -104,65 +165,88 @@ export default function BookSwitcherModal() {
             <Skeleton height={72} borderRadius={24} />
             <Skeleton height={72} borderRadius={24} />
           </View>
-        ) : books.length === 0 ? (
+        ) : books.length === 0 && !isCreating ? (
           <View className="flex-1 justify-center">
             <EmptyState
               title="No books yet"
               message="Create your first book to start tracking."
               actionLabel="Create book"
-              onAction={createBook}
+              onAction={startCreate}
               className="px-0"
             />
           </View>
         ) : (
-          <View className="mt-2 gap-3">
+          <ScrollView className="mt-2" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
+            {isCreating || editingId ? (
+              <Card variant="surface" className="mb-4">
+                <AppText variant="lg">{isCreating ? "New book" : "Edit book"}</AppText>
+                <View className="mt-4 gap-4">
+                  <Input label="Name" value={name} onChangeText={setName} placeholder="Household" autoCapitalize="words" />
+                  <Input label="Subtitle" value={subtitle} onChangeText={setSubtitle} placeholder="Shared expenses" autoCapitalize="words" />
+                  <Button label={isCreating ? "Create book" : "Save book"} onPress={saveBook} disabled={!name.trim()} size="md" />
+                  <Button label="Cancel" variant="ghost" onPress={resetEditor} size="md" />
+                  {editingId ? <Button label="Delete book" variant="danger" onPress={deleteEditingBook} size="md" /> : null}
+                </View>
+              </Card>
+            ) : null}
+
+            <View className="gap-3">
             {books.map((book) => {
               const active = book.id === selectedBookId;
               return (
-                <HapticPressable
+                <Card
                   key={book.id}
-                  onPress={() => {
-                    setSelectedBookId(book.id);
-                    router.back();
+                  variant="surface"
+                  style={{
+                    borderColor: active ? tokens.colors.accent : tokens.colors.stroke,
+                    backgroundColor: active ? `${tokens.colors.accent}14` : tokens.colors.surface,
                   }}
-                  haptic="selection"
-                  pressScale={0.99}
                 >
-                  <Card
-                    variant="surface"
-                    style={{
-                      borderColor: active ? tokens.colors.accent : tokens.colors.stroke,
-                      backgroundColor: active ? `${tokens.colors.accent}14` : tokens.colors.surface,
-                    }}
-                  >
-                    <View className="flex-row items-center justify-between">
-                      <View className="flex-1 pr-3">
-                        <AppText variant="base" style={{ fontFamily: "Inter_600SemiBold" }} numberOfLines={1}>
-                          {book.name}
-                        </AppText>
-                        <AppText variant="xs" tone="muted" className="mt-1" numberOfLines={1}>
-                          {book.subtitle ? book.subtitle : "CashBook Pro"}
-                        </AppText>
-                      </View>
+                  <View className="flex-row items-center">
+                    <HapticPressable
+                      onPress={() => {
+                        setSelectedBookId(book.id);
+                        router.back();
+                      }}
+                      haptic="selection"
+                      pressScale={0.99}
+                      className="flex-1 pr-3"
+                      android_ripple={{ color: "#FFFFFF10" }}
+                    >
+                      <AppText variant="base" style={{ fontFamily: "Inter_600SemiBold" }} numberOfLines={1}>
+                        {book.name}
+                      </AppText>
+                      <AppText variant="xs" tone="muted" className="mt-1" numberOfLines={1}>
+                        {book.subtitle ? book.subtitle : "Everyday spending"}
+                      </AppText>
+                    </HapticPressable>
 
-                      {active ? (
-                        <View
-                          className="h-8 w-8 items-center justify-center rounded-full"
-                          style={{ backgroundColor: `${tokens.colors.accent}20` }}
-                        >
-                          <Ionicons name="checkmark" size={16} color={tokens.colors.accent} />
-                        </View>
-                      ) : (
-                        <View className="h-8 w-8 items-center justify-center">
-                          <Ionicons name="chevron-forward" size={16} color={tokens.colors.muted} />
-                        </View>
-                      )}
+                    <HapticPressable
+                      onPress={() => startEdit(book.id)}
+                      haptic="selection"
+                      pressScale={0.98}
+                      className="h-12 w-12 items-center justify-center rounded-full border border-stroke bg-card"
+                      android_ripple={{ color: "#FFFFFF10", borderless: true }}
+                    >
+                      <Ionicons name="create-outline" size={16} color={tokens.colors.accent} />
+                    </HapticPressable>
+
+                    <View
+                      className="ml-3 h-8 w-8 items-center justify-center rounded-full"
+                      style={{ backgroundColor: active ? `${tokens.colors.accent}20` : "transparent" }}
+                    >
+                      <Ionicons
+                        name={active ? "checkmark" : "chevron-forward"}
+                        size={16}
+                        color={active ? tokens.colors.accent : tokens.colors.muted}
+                      />
                     </View>
-                  </Card>
-                </HapticPressable>
+                  </View>
+                </Card>
               );
             })}
-          </View>
+            </View>
+          </ScrollView>
         )}
       </Sheet>
     </View>

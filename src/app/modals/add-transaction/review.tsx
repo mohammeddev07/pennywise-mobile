@@ -18,6 +18,7 @@ import { useBooksStore } from "@/features/books/store";
 import { useAddTransactionDraftStore } from "@/features/transactions/addDraftStore";
 import { useSettingsStore } from "@/features/settings/store";
 import type { CurrencyCode } from "@/shared/types/models";
+import { formatCurrency } from "@/shared/utils/formatCurrency";
 
 function parseAmountToCents(raw: string) {
   const cleaned = String(raw || "0")
@@ -26,15 +27,6 @@ function parseAmountToCents(raw: string) {
   const n = Number.parseFloat(cleaned);
   if (!Number.isFinite(n)) return 0;
   return Math.round(n * 100);
-}
-
-function formatMoney2(cents: number) {
-  const sign = cents < 0 ? "-" : "";
-  const abs = Math.abs(cents);
-  const dollars = (abs / 100).toFixed(2);
-  const [i, d] = dollars.split(".");
-  const intWithSep = i.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  return `${sign}$${intWithSep}.${d}`;
 }
 
 function safeWhen(iso: string) {
@@ -146,15 +138,12 @@ export default function AddTransactionReview() {
   const selectedBook = books.find((b) => b.id === bookId) ?? null;
 
   const amountCents = useMemo(() => parseAmountToCents(amount), [amount]);
-  const feeCents = 0;
-  const totalCents = amountCents + feeCents;
 
   const primaryLabel = title.length ? title : category;
   const currency: CurrencyCode = primaryCurrency;
   const hasAmountError = amountCents <= 0;
-  const hasTitleError = title.length === 0;
 
-  const canSubmit = booksHydrated && !!selectedBook && !hasAmountError && !hasTitleError;
+  const canSubmit = booksHydrated && !!selectedBook && !hasAmountError;
   const submitDisabled = !canSubmit || isSubmitting;
 
   const onSubmit = () => {
@@ -218,19 +207,9 @@ export default function AddTransactionReview() {
               Amount is required.
             </AppText>
             <AppText variant="sm" tone="muted" className="mt-2">
-              Enter an amount greater than $0.00 before saving.
+              Enter an amount greater than {formatCurrency(0, currency)} before saving.
             </AppText>
             <Button label="Back to amount" variant="ghost" size="md" onPress={() => router.back()} className="mt-4" />
-          </Card>
-        ) : hasTitleError ? (
-          <Card variant="surface" className="mt-2">
-            <AppText variant="base" tone="danger">
-              Title is required.
-            </AppText>
-            <AppText variant="sm" tone="muted" className="mt-2">
-              Add a title before submitting this transaction.
-            </AppText>
-            <Button label="Back to edit title" variant="ghost" size="md" onPress={() => router.back()} className="mt-4" />
           </Card>
         ) : !selectedBook ? (
           <View className="mt-6 py-8">
@@ -254,7 +233,7 @@ export default function AddTransactionReview() {
                 className="mt-2"
                 style={{ color: kind === "income" ? tokens.colors.accent : tokens.colors.text }}
               >
-                {formatMoney2(kind === "expense" ? -amountCents : amountCents).replace("-", "")}
+                {formatCurrency(amountCents, currency)}
               </AppText>
 
               <AppText variant="lg" className="mt-3" numberOfLines={1}>
@@ -262,7 +241,7 @@ export default function AddTransactionReview() {
               </AppText>
 
               <AppText variant="sm" tone="muted" className="mt-1" numberOfLines={1}>
-                {title ? category : "Uncategorized"}
+                {category}
               </AppText>
             </View>
 
@@ -304,12 +283,11 @@ export default function AddTransactionReview() {
 
             <Card variant="surface" className="mt-6">
               <AppText variant="sm" tone="muted">
-                Order summary
+                Summary
               </AppText>
-              <SummaryRow label="Amount" value={formatMoney2(amountCents)} />
-              <SummaryRow label="Fees" value={formatMoney2(feeCents)} />
+              <SummaryRow label="Amount" value={formatCurrency(amountCents, currency)} />
               <View className="mt-3 h-px bg-stroke" />
-              <SummaryRow label="Total" value={formatMoney2(totalCents)} strong />
+              <SummaryRow label="Saved total" value={formatCurrency(amountCents, currency)} strong />
             </Card>
 
             <AppText variant="sm" tone="muted" className="mt-4">

@@ -8,15 +8,32 @@ import { Input } from "@/shared/ui/components/Input";
 import { AppText } from "@/shared/ui/components/AppText";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { tokens } from "@/shared/ui/theme/tokens";
+import { useAuthStore } from "@/features/auth/store";
+
+function isEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
 
 export default function SignupScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [submitted, setSubmitted] = useState(false);
+  const setPendingEmail = useAuthStore((s) => s.setPendingEmail);
+
+  const emailError = submitted && !isEmail(email) ? "Enter a valid email." : undefined;
+  const passwordError = submitted && password.trim().length < 6 ? "Use at least 6 characters." : undefined;
 
   const handleBack = () => {
     const canGoBack = typeof (router as any).canGoBack === "function" ? (router as any).canGoBack() : false;
     if (canGoBack) router.back();
     else router.replace("/(auth)/welcome");
+  };
+
+  const onContinue = () => {
+    setSubmitted(true);
+    if (!isEmail(email) || password.trim().length < 6) return;
+    setPendingEmail(email);
+    router.push("/(auth)/pin");
   };
 
   return (
@@ -48,6 +65,8 @@ export default function SignupScreen() {
           placeholder="alex@email.com"
           keyboardType="email-address"
           autoCapitalize="none"
+          autoCorrect={false}
+          error={emailError}
         />
 
         <Input
@@ -57,11 +76,12 @@ export default function SignupScreen() {
           placeholder="Create a password"
           secureTextEntry
           autoCapitalize="none"
+          error={passwordError}
         />
       </View>
 
       <View className="mt-auto gap-4">
-        <Button label="Continue" onPress={() => router.push("/(auth)/pin")} />
+        <Button label="Continue" onPress={onContinue} />
 
         <View className="flex-row justify-center gap-2 items-center">
           <AppText variant="sm" tone="muted">

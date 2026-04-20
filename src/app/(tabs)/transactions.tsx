@@ -270,10 +270,12 @@ export default function TransactionsScreen() {
         ) : rows.length === 0 ? (
           <View className="flex-1 justify-center">
             <EmptyState
-              title={query.trim() ? "No matches" : "No transactions yet"}
+              title={query.trim() ? "No matches" : bookTransactions.length > 0 ? "No transactions in this range" : "No transactions yet"}
               message={
                 query.trim()
                   ? "Try a different search or widen the date range."
+                  : bookTransactions.length > 0
+                    ? "Switch to a wider date range to see older activity."
                   : "Log your first expense or income and it will appear here."
               }
               actionLabel="Add transaction"

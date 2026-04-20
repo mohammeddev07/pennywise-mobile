@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { View } from "react-native";
+import { Alert, ScrollView, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -14,6 +14,8 @@ import { Button } from "@/shared/ui/components/Button";
 import { useBooksStore } from "@/features/books/store";
 import { useTransactionsStore } from "@/features/transactions/store";
 import { useSettingsStore } from "@/features/settings/store";
+import { useAuthStore } from "@/features/auth/store";
+import { formatCurrency } from "@/shared/utils/formatCurrency";
 
 function ProfileRow({
   label,
@@ -56,6 +58,9 @@ export default function ProfileScreen() {
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
   const transactions = useTransactionsStore((s) => s.transactions);
   const currency = useSettingsStore((s) => s.primaryCurrency);
+  const userEmail = useAuthStore((s) => s.userEmail);
+  const lockDemo = useAuthStore((s) => s.lockDemo);
+  const restartDemo = useAuthStore((s) => s.restartDemo);
 
   const booksPersist = (useBooksStore as any).persist;
   const txPersist = (useTransactionsStore as any).persist;
@@ -125,6 +130,25 @@ export default function ProfileScreen() {
     [transactions]
   );
 
+  const onLock = () => {
+    lockDemo();
+    router.replace("/(auth)/welcome");
+  };
+
+  const onRestartDemo = () => {
+    Alert.alert("Restart demo setup?", "This signs out and shows onboarding again. Your local books and transactions stay on this device.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Restart",
+        style: "destructive",
+        onPress: () => {
+          restartDemo();
+          router.replace("/(auth)/welcome");
+        },
+      },
+    ]);
+  };
+
   return (
     <View className="flex-1 bg-app" style={{ paddingTop: insets.top + 12 }}>
       <View className="px-6">
@@ -134,7 +158,11 @@ export default function ProfileScreen() {
         </AppText>
       </View>
 
-      <View className="flex-1 px-6 mt-6">
+      <ScrollView
+        className="flex-1 px-6 mt-6"
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: (insets.bottom || 0) + 120 }}
+      >
         {hydrationError ? (
           <View className="flex-1 justify-center">
             <EmptyState
@@ -156,7 +184,7 @@ export default function ProfileScreen() {
             <EmptyState
               title="No books yet"
               message="Create a book to personalize your profile dashboard."
-              actionLabel="Create in switcher"
+              actionLabel="Create book"
               onAction={() => router.push("/modals/book-switcher")}
               className="px-0"
             />
@@ -164,9 +192,9 @@ export default function ProfileScreen() {
         ) : (
           <>
             <Card variant="surface">
-              <AppText variant="lg">PennyWise User</AppText>
+              <AppText variant="lg">{userEmail ?? "Demo account"}</AppText>
               <AppText variant="sm" tone="muted" className="mt-1">
-                Principal budget tracker
+                Local-first demo workspace
               </AppText>
 
               <View className="mt-4 flex-row">
@@ -206,14 +234,14 @@ export default function ProfileScreen() {
               <View className="mt-3 flex-row items-center justify-between">
                 <AppText variant="base">Income</AppText>
                 <AppText variant="base" style={{ color: tokens.colors.accent, fontFamily: "Inter_600SemiBold" }}>
-                  ${(totalIncome / 100).toFixed(2)}
+                  {formatCurrency(totalIncome, currency)}
                 </AppText>
               </View>
 
               <View className="mt-3 flex-row items-center justify-between">
                 <AppText variant="base">Expense</AppText>
                 <AppText variant="base" style={{ fontFamily: "Inter_600SemiBold" }}>
-                  ${(totalExpense / 100).toFixed(2)}
+                  {formatCurrency(totalExpense, currency)}
                 </AppText>
               </View>
             </Card>
@@ -221,9 +249,14 @@ export default function ProfileScreen() {
             <View className="mt-6">
               <Button label="Add transaction" onPress={() => router.push("/modals/add-transaction")} size="md" />
             </View>
+
+            <View className="mt-3 gap-3">
+              <Button label="Lock demo" variant="ghost" onPress={onLock} size="md" />
+              <Button label="Restart demo setup" variant="danger" onPress={onRestartDemo} size="md" />
+            </View>
           </>
         )}
-      </View>
+      </ScrollView>
     </View>
   );
 }
