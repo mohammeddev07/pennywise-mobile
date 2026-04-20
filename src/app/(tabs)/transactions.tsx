@@ -1,29 +1,32 @@
 import { useEffect, useMemo, useState } from "react";
-import { View } from "react-native";
+import { ScrollView, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { FlashList } from "@shopify/flash-list";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
-import { format, isSameDay, parseISO, startOfDay, subDays } from "date-fns";
+import { addMonths, endOfDay, endOfMonth, format, isSameDay, parseISO, startOfDay, startOfMonth, subDays } from "date-fns";
 
 import { tokens } from "@/shared/ui/theme/tokens";
 import { BookPill } from "@/shared/ui/components/BookPill";
 import { useTransactionsStore, type Transaction } from "@/features/transactions/store";
 import { TransactionRow } from "@/shared/ui/components/TransactionRow";
 import { useBooksStore } from "@/features/books/store";
+import { useSettingsStore } from "@/features/settings/store";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { EmptyState } from "@/shared/ui/components/EmptyState";
 import { AppText } from "@/shared/ui/components/AppText";
 import { Input } from "@/shared/ui/components/Input";
 import { Skeleton } from "@/shared/ui/components/Skeleton";
+import { Card } from "@/shared/ui/components/Card";
+import { formatCurrency } from "@/shared/utils/formatCurrency";
 
-type RangeKey = "today" | "week" | "month" | "all";
+type RangeKey = "today" | "month" | "all";
 
 type Row =
   | { type: "header"; id: string; title: string }
   | { type: "tx"; id: string; tx: Transaction };
 
-function inRange(tx: Transaction, range: RangeKey) {
+function inRange(tx: Transaction, range: RangeKey, month: Date) {
   if (range === "all") return true;
 
   const d = safeDate(tx.occurredAt);
@@ -31,15 +34,11 @@ function inRange(tx: Transaction, range: RangeKey) {
 
   const now = new Date();
 
-  if (range === "today") return isSameDay(d, now);
-
-  if (range === "week") {
-    const since = startOfDay(subDays(now, 6));
-    return d >= since;
+  if (range === "today") {
+    return d >= startOfDay(now) && d <= endOfDay(now);
   }
 
-  const since = startOfDay(subDays(now, 29));
-  return d >= since;
+  return d >= startOfMonth(month) && d <= endOfMonth(month);
 }
 
 function safeDate(iso: string) {
@@ -70,17 +69,47 @@ function RangeChip({ label, active, onPress }: { label: string; active: boolean;
       onPress={onPress}
       haptic="selection"
       pressScale={0.985}
-      className="rounded-full border px-4 min-h-11 items-center justify-center"
+      className="rounded-lg border px-4 min-h-11 items-center justify-center"
       android_ripple={{ color: "#FFFFFF10" }}
       style={{
         borderColor: active ? tokens.colors.accent : tokens.colors.stroke,
-        backgroundColor: active ? `${tokens.colors.accent}22` : "transparent",
+        backgroundColor: active ? tokens.colors.card : "transparent",
       }}
     >
       <AppText variant="sm" style={{ color: active ? tokens.colors.accent : tokens.colors.text }}>
         {label}
       </AppText>
     </HapticPressable>
+  );
+}
+
+function IconButton({ icon, onPress, disabled }: { icon: keyof typeof Ionicons.glyphMap; onPress: () => void; disabled?: boolean }) {
+  return (
+    <HapticPressable
+      onPress={onPress}
+      disabled={disabled}
+      haptic="selection"
+      pressScale={0.98}
+      className="h-11 w-11 items-center justify-center rounded-lg border border-stroke bg-surface"
+      android_ripple={{ color: "#FFFFFF10", borderless: true }}
+    >
+      <Ionicons name={icon} size={18} color={disabled ? tokens.colors.muted : tokens.colors.text} />
+    </HapticPressable>
+  );
+}
+
+function SummaryStat({ label, value, tone }: { label: string; value: string; tone?: "income" | "expense" }) {
+  const color = tone === "income" ? tokens.colors.accent : tone === "expense" ? tokens.colors.danger : tokens.colors.text;
+
+  return (
+    <View className="flex-1 rounded-lg border border-stroke bg-card p-3">
+      <AppText variant="xs" tone="muted">
+        {label}
+      </AppText>
+      <AppText variant="base" className="mt-1" style={{ color, fontFamily: "Inter_600SemiBold" }} numberOfLines={1}>
+        {value}
+      </AppText>
+    </View>
   );
 }
 
@@ -100,6 +129,7 @@ export default function TransactionsScreen() {
   const transactions = useTransactionsStore((s) => s.transactions);
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
   const books = useBooksStore((s) => s.books);
+  const primaryCurrency = useSettingsStore((s) => s.primaryCurrency);
 
   const txPersist = (useTransactionsStore as any).persist;
   const booksPersist = (useBooksStore as any).persist;
@@ -158,17 +188,21 @@ export default function TransactionsScreen() {
   }, [books, selectedBookId]);
 
   const [range, setRange] = useState<RangeKey>("today");
+  const [selectedMonth, setSelectedMonth] = useState(() => startOfMonth(new Date()));
   const [query, setQuery] = useState("");
 
   const bookTransactions = useMemo(() => {
     return transactions.filter((t) => t.bookId === selectedBookId);
   }, [transactions, selectedBookId]);
 
+  const rangeTransactions = useMemo(() => {
+    return bookTransactions.filter((tx) => inRange(tx, range, selectedMonth));
+  }, [bookTransactions, range, selectedMonth]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
 
-    return bookTransactions.filter((tx) => {
-      if (!inRange(tx, range)) return false;
+    return rangeTransactions.filter((tx) => {
       if (!q) return true;
 
       const hay = [
@@ -185,7 +219,24 @@ export default function TransactionsScreen() {
 
       return hay.includes(q);
     });
-  }, [bookTransactions, range, query]);
+  }, [query, rangeTransactions]);
+
+  const totals = useMemo(() => {
+    let income = 0;
+    let expense = 0;
+
+    for (const tx of rangeTransactions) {
+      if (tx.kind === "income") income += tx.amountCents;
+      else expense += tx.amountCents;
+    }
+
+    return {
+      incomeCents: income,
+      expenseCents: expense,
+      netCents: income - expense,
+      count: rangeTransactions.length,
+    };
+  }, [rangeTransactions]);
 
   const rows = useMemo<Row[]>(() => {
     const sorted = [...filtered].sort((a, b) => {
@@ -212,45 +263,107 @@ export default function TransactionsScreen() {
     return out;
   }, [filtered]);
 
+  const rangeLabel =
+    range === "today"
+      ? "Today"
+      : range === "month"
+        ? format(selectedMonth, "MMMM yyyy")
+        : "All activity";
+
+  const emptyTitle = query.trim()
+    ? "No matches"
+    : bookTransactions.length === 0
+      ? "No transactions yet"
+      : range === "today"
+        ? "Nothing logged today"
+        : range === "month"
+          ? `No activity in ${format(selectedMonth, "MMMM")}`
+          : "No transactions";
+
+  const emptyMessage = query.trim()
+    ? "Try a different search or clear the filter."
+    : bookTransactions.length === 0
+      ? "Log your first expense or income and it will appear here."
+      : range === "today"
+        ? "New transactions dated today will appear here immediately."
+        : "Pick another month or switch to All.";
+
   return (
     <View className="flex-1 bg-app" style={{ paddingTop: insets.top + 12 }}>
       <View className="px-6">
         <View className="flex-row items-start justify-between">
           <View className="flex-1 pr-3">
             <AppText variant="2xl">Transactions</AppText>
-            <View className="mt-3 self-start">
-              <BookPill label={selectedBookName} onPress={() => router.push("/modals/book-switcher")} />
-            </View>
+            <AppText variant="sm" tone="muted" className="mt-1">
+              {rangeLabel}
+            </AppText>
           </View>
 
-          <HapticPressable
-            onPress={() => router.push("/modals/add-transaction")}
-            haptic="impactLight"
-            className="h-12 w-12 items-center justify-center rounded-full border border-stroke bg-surface"
-            android_ripple={{ color: "#FFFFFF12", borderless: true }}
-          >
-            <Ionicons name="add" size={20} color={tokens.colors.accent} />
-          </HapticPressable>
+          <BookPill label={selectedBookName} onPress={() => router.push("/modals/book-switcher")} />
         </View>
+
+        <Card variant="surface" className="mt-5">
+          <View className="flex-row items-center justify-between">
+            <View>
+              <AppText variant="xs" tone="muted" className="uppercase">
+                Net total
+              </AppText>
+              <AppText
+                variant="2xl"
+                className="mt-1"
+                style={{ color: totals.netCents < 0 ? tokens.colors.danger : tokens.colors.text }}
+              >
+                {formatCurrency(totals.netCents, primaryCurrency)}
+              </AppText>
+            </View>
+
+            <HapticPressable
+              onPress={() => router.push("/modals/add-transaction")}
+              haptic="impactLight"
+              className="h-12 w-12 items-center justify-center rounded-lg bg-accent"
+              android_ripple={{ color: "#00000022", borderless: true }}
+            >
+              <Ionicons name="add" size={24} color={tokens.colors.black} />
+            </HapticPressable>
+          </View>
+
+          <View className="mt-4 flex-row" style={{ gap: 8 }}>
+            <SummaryStat label="Income" value={formatCurrency(totals.incomeCents, primaryCurrency)} tone="income" />
+            <SummaryStat label="Expense" value={formatCurrency(totals.expenseCents, primaryCurrency)} tone="expense" />
+            <SummaryStat label="Items" value={String(totals.count)} />
+          </View>
+        </Card>
+
+        <View className="mt-4 flex-row items-center" style={{ gap: 8 }}>
+          <RangeChip label="Today" active={range === "today"} onPress={() => setRange("today")} />
+          <RangeChip label="Month" active={range === "month"} onPress={() => setRange("month")} />
+          <RangeChip label="All" active={range === "all"} onPress={() => setRange("all")} />
+        </View>
+
+        {range === "month" ? (
+          <View className="mt-3 flex-row items-center justify-between rounded-lg border border-stroke bg-surface p-2">
+            <IconButton icon="chevron-back" onPress={() => setSelectedMonth((m) => addMonths(m, -1))} />
+            <View className="items-center">
+              <AppText variant="lg">{format(selectedMonth, "MMMM yyyy")}</AppText>
+              <AppText variant="xs" tone="muted" className="mt-0.5">
+                Tap arrows to review another month
+              </AppText>
+            </View>
+            <IconButton icon="chevron-forward" onPress={() => setSelectedMonth((m) => addMonths(m, 1))} />
+          </View>
+        ) : null}
 
         <Input
           value={query}
           onChangeText={setQuery}
-          placeholder="Search title, category, note..."
+          placeholder="Search transactions"
           autoCorrect={false}
           autoCapitalize="none"
-          containerClassName="mt-5"
+          containerClassName="mt-3"
         />
-
-        <View className="mt-4 flex-row items-center gap-2">
-          <RangeChip label="Today" active={range === "today"} onPress={() => setRange("today")} />
-          <RangeChip label="Week" active={range === "week"} onPress={() => setRange("week")} />
-          <RangeChip label="Month" active={range === "month"} onPress={() => setRange("month")} />
-          <RangeChip label="All" active={range === "all"} onPress={() => setRange("all")} />
-        </View>
       </View>
 
-      <View className="flex-1 px-6 mt-4">
+      <View className="flex-1 px-6 mt-3">
         {hydrationError ? (
           <View className="flex-1 justify-center">
             <EmptyState
@@ -270,14 +383,8 @@ export default function TransactionsScreen() {
         ) : rows.length === 0 ? (
           <View className="flex-1 justify-center">
             <EmptyState
-              title={query.trim() ? "No matches" : bookTransactions.length > 0 ? "No transactions in this range" : "No transactions yet"}
-              message={
-                query.trim()
-                  ? "Try a different search or widen the date range."
-                  : bookTransactions.length > 0
-                    ? "Switch to a wider date range to see older activity."
-                  : "Log your first expense or income and it will appear here."
-              }
+              title={emptyTitle}
+              message={emptyMessage}
               actionLabel="Add transaction"
               onAction={() => router.push("/modals/add-transaction")}
               className="px-0"

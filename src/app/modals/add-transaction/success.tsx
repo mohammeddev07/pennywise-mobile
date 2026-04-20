@@ -29,6 +29,13 @@ function parseAmountToCents(raw: string) {
   return Math.round(n * 100);
 }
 
+function normalizeOccurredAt(raw?: string) {
+  if (!raw) return new Date().toISOString();
+  const t = Date.parse(raw);
+  if (!Number.isFinite(t)) return new Date().toISOString();
+  return new Date(t).toISOString();
+}
+
 export default function AddTransactionSuccess() {
   const router = useRouter();
 
@@ -55,7 +62,7 @@ export default function AddTransactionSuccess() {
   const note = (params.note ?? "").trim() || undefined;
 
   const bookId = params.bookId ?? "personal";
-  const occurredAt = params.occurredAt ?? new Date().toISOString();
+  const occurredAt = normalizeOccurredAt(params.occurredAt);
 
   const currency: CurrencyCode = isCurrencyCode(params.currency) ? (params.currency as CurrencyCode) : "USD";
   const paymentMethod: PaymentMethod = normalizePaymentMethod(params.paymentMethod);
