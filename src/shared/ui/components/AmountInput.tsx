@@ -49,6 +49,7 @@ export function applyAmountKey(prev: string, k: NumericKey) {
 
 type Props = {
   value: string; // raw numeric string, no commas
+  type?: "income" | "expense";
   kind?: "income" | "expense";
   currencySymbol?: string;
   majorFontSize?: number;
@@ -59,6 +60,7 @@ type Props = {
 
 export function AmountInput({
   value,
+  type,
   kind = "expense",
   currencySymbol = "$",
   majorFontSize = tokens.typography.amount.fontSize,
@@ -68,9 +70,10 @@ export function AmountInput({
 }: Props) {
   const formatted = formatForTicker(value, currencySymbol);
   const valueNum = Number.parseFloat(String(value || "0"));
+  const transactionType = type ?? kind;
+  const isEmpty = !Number.isFinite(valueNum) || valueNum <= 0;
 
-  const color =
-    error ? tokens.colors.danger : kind === "income" && valueNum > 0 ? tokens.colors.success : tokens.colors.text;
+  const color = isEmpty ? tokens.colors.muted : transactionType === "income" ? tokens.colors.success : tokens.colors.danger;
 
   return (
     <View className="w-full items-center">

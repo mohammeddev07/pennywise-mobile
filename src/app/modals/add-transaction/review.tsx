@@ -246,6 +246,7 @@ export default function AddTransactionReview() {
             label="Swipe up to submit"
             onSubmit={onSubmit}
             disabled={submitDisabled}
+            thresholdPx={160}
             variant="panel"
             panelSafeBottom={insets.bottom}
           />

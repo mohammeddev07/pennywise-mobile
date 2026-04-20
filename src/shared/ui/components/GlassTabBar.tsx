@@ -1,11 +1,10 @@
-import { View, Platform } from "react-native";
+import { useState } from "react";
+import { View } from "react-native";
 import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { BlurView } from "expo-blur";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import Animated, { useAnimatedStyle, useSharedValue, withTiming, Easing } from "react-native-reanimated";
-import * as Haptics from "expo-haptics";
 
 import { tokens } from "@/shared/ui/theme/tokens";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
@@ -30,9 +29,7 @@ const iconFor = (name: string) => {
 export function GlassTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-
-  const halo = useSharedValue(0.0);
-  const haloStyle = useAnimatedStyle(() => ({ opacity: halo.value }));
+  const [fabPressed, setFabPressed] = useState(false);
 
   return (
     <View
@@ -107,73 +104,29 @@ export function GlassTabBar({ state, navigation }: BottomTabBarProps) {
           position: "absolute",
           left: 0,
           right: 0,
-          top: -72,
+          top: -64,
           alignItems: "center",
         }}
       >
-        {/* Small pulse reinforces the FAB without covering the tab icons. */}
-        <Animated.View
-          pointerEvents="none"
-          style={[
-            {
-              position: "absolute",
-              width: 80,
-              height: 80,
-              borderRadius: 40,
-              borderWidth: 2,
-              borderColor: "rgba(34,197,94,0.22)",
-              backgroundColor: "rgba(34,197,94,0.06)",
-            },
-            haloStyle,
-          ]}
-        />
-
         <HapticPressable
           haptic="impactMedium"
-          pressScale={0.92}
+          pressScale={0.94}
+          pressOpacity={1}
+          onPressIn={() => setFabPressed(true)}
+          onPressOut={() => setFabPressed(false)}
           onPress={() => {
-            // halo pulse
-            halo.value = withTiming(1, { duration: 80, easing: Easing.out(Easing.quad) }, () => {
-              halo.value = withTiming(0, { duration: 180, easing: Easing.out(Easing.quad) });
-            });
-
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
             router.push("/modals/add-transaction");
           }}
           style={{
-            width: 64,
-            height: 64,
-            borderRadius: 32,
-            backgroundColor: tokens.colors.accent,
+            width: 56,
+            height: 56,
+            borderRadius: 28,
+            backgroundColor: fabPressed ? tokens.colors.accentPressed : tokens.colors.accent,
             alignItems: "center",
             justifyContent: "center",
-            borderWidth: 2,
-            borderColor: tokens.colors.surface,
-
-            // keep shadow neutral/black to avoid green "mud"
-            ...(Platform.OS === "android"
-              ? { elevation: 8 }
-              : {
-                  shadowColor: "#000",
-                  shadowOpacity: 0.35,
-                  shadowRadius: 14,
-                  shadowOffset: { width: 0, height: 10 },
-                }),
           }}
         >
-          {/* subtle inner ring */}
-          <View
-            style={{
-              position: "absolute",
-              width: 54,
-              height: 54,
-              borderRadius: 27,
-              borderWidth: 1,
-              borderColor: "rgba(0,0,0,0.18)",
-              backgroundColor: "rgba(255,255,255,0.06)",
-            }}
-          />
-          <Ionicons name="add" size={34} color="#061007" />
+          <MaterialIcons name="add" size={24} color="#FFFFFF" />
         </HapticPressable>
       </View>
     </View>

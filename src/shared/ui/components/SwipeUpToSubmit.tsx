@@ -19,7 +19,6 @@ type Props = {
   disabled?: boolean;
   onSubmit: () => void;
   thresholdPx?: number;
-  minVelocityY?: number;
   variant?: "hint" | "panel";
   panelSafeBottom?: number;
   children?: ReactNode;
@@ -35,7 +34,6 @@ export function SwipeUpToSubmit({
   disabled = false,
   onSubmit,
   thresholdPx = 64,
-  minVelocityY = -800,
   variant = "hint",
   panelSafeBottom = 0,
   children,
@@ -63,7 +61,7 @@ export function SwipeUpToSubmit({
     .activeOffsetY([-8, 9999])
     .onUpdate((e) => {
       if (disabled) return;
-      dragY.value = clamp(e.translationY, -80, 0);
+      dragY.value = clamp(e.translationY, -thresholdPx, 0);
     })
     .onEnd((e) => {
       if (disabled) {
@@ -71,7 +69,7 @@ export function SwipeUpToSubmit({
         return;
       }
 
-      const shouldSubmit = e.translationY <= -thresholdPx || e.velocityY <= minVelocityY;
+      const shouldSubmit = e.translationY <= -thresholdPx;
       if (shouldSubmit) {
         runOnJS(onTriggered)();
       }
@@ -85,7 +83,7 @@ export function SwipeUpToSubmit({
   const handleStyle = useAnimatedStyle(() => {
     const progress = interpolate(Math.abs(dragY.value), [0, thresholdPx], [0, 1]);
     return {
-      transform: [{ translateY: dragY.value * 0.15 }],
+      transform: [{ translateY: dragY.value * 0.2 }],
       opacity: disabled ? 0.4 : 1 - progress * 0.06,
     };
   });
@@ -93,23 +91,13 @@ export function SwipeUpToSubmit({
   const contentStyle = useAnimatedStyle(() => {
     const progress = interpolate(Math.abs(dragY.value), [0, thresholdPx], [0, 1]);
     return {
-      transform: [{ scale: 1 + progress * 0.006 }],
+      transform: variant === "panel" ? [{ translateY: dragY.value }] : [{ scale: 1 + progress * 0.006 }],
       opacity: disabled ? 0.4 : 1 - progress * 0.04,
     };
   });
 
-  const tapGesture = Gesture.Tap()
-    .enabled(!disabled)
-    .maxDuration(220)
-    .onEnd((_event, success) => {
-      if (!success) return;
-      runOnJS(onTriggered)();
-    });
-
-  const composed = Gesture.Simultaneous(gesture, tapGesture);
-
   return (
-    <GestureDetector gesture={composed}>
+    <GestureDetector gesture={gesture}>
       <Animated.View>
         {variant === "panel" ? (
           <Animated.View

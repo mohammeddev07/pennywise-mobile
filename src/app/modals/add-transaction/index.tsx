@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ScrollView, StyleSheet, TextInput, View } from "react-native";
+import { ScrollView, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { parseISO, format } from "date-fns";
 
 import { NumericKeypad, type Key } from "@/shared/ui/NumericKeypad";
@@ -15,7 +16,6 @@ import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { Sheet } from "@/shared/ui/components/Sheet";
 import { AppText } from "@/shared/ui/components/AppText";
 import { AmountInput, applyAmountKey } from "@/shared/ui/components/AmountInput";
-import { Button } from "@/shared/ui/components/Button";
 import { EmptyState } from "@/shared/ui/components/EmptyState";
 
 const COLORS = {
@@ -47,8 +47,6 @@ const RADIUS = {
   sheet: tokens.radii.xl,
   pill: tokens.radii.pill,
 } as const;
-
-const TYPOGRAPHY = tokens.typography;
 
 function safeWhenLabel(iso: string) {
   try {
@@ -93,8 +91,40 @@ function FormPressRow({
   );
 }
 
+function ReviewButton({
+  disabled,
+  onPress,
+}: {
+  disabled?: boolean;
+  onPress: () => void;
+}) {
+  const [pressed, setPressed] = useState(false);
+
+  return (
+    <HapticPressable
+      onPress={onPress}
+      disabled={disabled}
+      haptic="selection"
+      pressScale={0.98}
+      pressOpacity={1}
+      onPressIn={() => setPressed(true)}
+      onPressOut={() => setPressed(false)}
+      style={[
+        styles.reviewButton,
+        { backgroundColor: pressed && !disabled ? tokens.colors.accentPressed : tokens.colors.accent },
+      ]}
+      android_ripple={{ color: "#00000022" }}
+    >
+      <AppText variant="2xl" style={styles.reviewButtonText}>
+        Review
+      </AppText>
+    </HapticPressable>
+  );
+}
+
 export default function AddTransactionEntry() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const books = useBooksStore((s) => s.books);
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
@@ -115,7 +145,6 @@ export default function AddTransactionEntry() {
   const setAmount = useAddTransactionDraftStore((s) => s.setAmount);
   const setKind = useAddTransactionDraftStore((s) => s.setKind);
   const setBookId = useAddTransactionDraftStore((s) => s.setBookId);
-  const setTitle = useAddTransactionDraftStore((s) => s.setTitle);
   const [reviewAttempted, setReviewAttempted] = useState(false);
 
   const didInitRef = useRef(false);
@@ -183,6 +212,7 @@ export default function AddTransactionEntry() {
         tone="app"
         style={styles.sheet}
         title="New transaction"
+        footerVariant="fullBleed"
         leftAction={
           <HapticPressable
             onPress={close}
@@ -194,10 +224,8 @@ export default function AddTransactionEntry() {
         }
         footer={
           hasBooks ? (
-            <View style={styles.footer}>
-              <Button label="Review" onPress={goReview} disabled={!canReview || !selectedBook} size="lg" />
-              {/* This divider separates the action area from number entry without adding another card. */}
-              <View style={styles.footerDivider} />
+            <View style={[styles.footer, { paddingBottom: insets.bottom + SPACING[8] }]}>
+              <ReviewButton onPress={goReview} disabled={!canReview || !selectedBook} />
               <NumericKeypad
                 onPress={(key) => applyKey(key as Key)}
                 onDelete={() => applyKey("back")}
@@ -222,21 +250,8 @@ export default function AddTransactionEntry() {
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={styles.content}
           >
-            <HapticPressable
-              onPress={() => router.push("/modals/book-switcher")}
-              haptic="selection"
-              pressScale={0.99}
-              style={styles.bookPill}
-              android_ripple={{ color: "#FFFFFF10", borderless: true }}
-            >
-              <Ionicons name="albums-outline" size={16} color={COLORS.muted} />
-              <AppText variant="sm" style={styles.bookText} numberOfLines={1}>
-                {selectedBook?.name ?? "Select book"}
-              </AppText>
-              <Ionicons name="chevron-down" size={16} color={COLORS.muted} />
-            </HapticPressable>
-
             <View style={styles.segmented}>
+              <View pointerEvents="none" style={styles.segmentTrack} />
               {(["expense", "income"] as const).map((item) => {
                 const active = kind === item;
                 return (
@@ -245,11 +260,13 @@ export default function AddTransactionEntry() {
                     onPress={() => setKind(item)}
                     haptic="selection"
                     pressScale={0.99}
-                    style={[styles.segment, active ? styles.segmentActive : null]}
+                    style={styles.segmentHit}
                   >
-                    <AppText variant="sm" style={[styles.segmentText, { color: active ? COLORS.text : COLORS.muted }]}>
-                      {item === "expense" ? "Expense" : "Income"}
-                    </AppText>
+                    <View style={[styles.segmentVisual, active ? styles.segmentActive : null]}>
+                      <AppText variant="xs" style={[styles.segmentText, { color: active ? COLORS.text : COLORS.muted }]}>
+                        {item === "expense" ? "Expense" : "Income"}
+                      </AppText>
+                    </View>
                   </HapticPressable>
                 );
               })}
@@ -258,7 +275,7 @@ export default function AddTransactionEntry() {
             <View style={styles.amountBlock}>
               <AmountInput
                 value={amount}
-                kind={kind}
+                type={kind}
                 currencySymbol={currencySymbol(primaryCurrency)}
                 helperText={kind === "expense" ? "Money out" : "Money in"}
                 error={reviewAttempted && valueNum <= 0 ? "Amount is required." : undefined}
@@ -266,22 +283,12 @@ export default function AddTransactionEntry() {
             </View>
 
             <View style={styles.formGroup}>
-              <View style={styles.titleRow}>
-                <View style={styles.formLabelWrap}>
-                  <AppText variant="sm" tone="muted">
-                    Title
-                  </AppText>
-                  <TextInput
-                    value={title}
-                    onChangeText={setTitle}
-                    placeholder="Coffee, Uber, Rent"
-                    placeholderTextColor={COLORS.muted}
-                    autoCapitalize="words"
-                    returnKeyType="done"
-                    style={styles.titleInput}
-                  />
-                </View>
-              </View>
+              <FormPressRow
+                label="Title"
+                value={title}
+                placeholder="Coffee, Uber, Rent"
+                onPress={() => router.push("/modals/add-transaction/title")}
+              />
               <View style={styles.divider} />
               <FormPressRow
                 label="When"
@@ -324,48 +331,44 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: RADIUS.pill,
-    borderWidth: 1,
-    borderColor: COLORS.stroke,
-    backgroundColor: COLORS.surface,
     alignItems: "center",
     justifyContent: "center",
   },
   content: {
+    paddingTop: SPACING[40],
     paddingBottom: SPACING[24],
   },
-  bookPill: {
-    minHeight: 44,
+  segmented: {
+    width: 200,
+    height: 44,
     alignSelf: "center",
     flexDirection: "row",
     alignItems: "center",
-    borderRadius: RADIUS.pill,
-    borderWidth: 1,
-    borderColor: COLORS.stroke,
-    backgroundColor: COLORS.surface,
-    paddingHorizontal: SPACING[16],
-    gap: SPACING[8],
+    justifyContent: "center",
+    position: "relative",
   },
-  bookText: {
-    maxWidth: 220,
-    color: COLORS.text,
-  },
-  segmented: {
-    alignSelf: "center",
-    flexDirection: "row",
-    marginTop: SPACING[24],
-    padding: SPACING[4],
+  segmentTrack: {
+    position: "absolute",
+    left: SPACING[0],
+    right: SPACING[0],
+    height: 36,
     borderRadius: RADIUS.pill,
     backgroundColor: COLORS.surface,
   },
-  segment: {
-    minHeight: 44,
-    minWidth: 112,
+  segmentHit: {
+    width: 100,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  segmentVisual: {
+    width: 96,
+    height: 36,
     alignItems: "center",
     justifyContent: "center",
     borderRadius: RADIUS.pill,
     borderWidth: 1,
     borderColor: "transparent",
-    paddingHorizontal: SPACING[20],
   },
   segmentActive: {
     borderColor: COLORS.stroke,
@@ -375,22 +378,16 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_600SemiBold",
   },
   amountBlock: {
-    marginTop: SPACING[32],
+    marginTop: SPACING[40],
     alignItems: "center",
   },
   formGroup: {
-    marginTop: SPACING[32],
+    marginTop: SPACING[40],
     overflow: "hidden",
     borderRadius: RADIUS.card,
     borderWidth: 1,
     borderColor: COLORS.stroke,
     backgroundColor: COLORS.surface,
-  },
-  titleRow: {
-    minHeight: 64,
-    justifyContent: "center",
-    paddingHorizontal: SPACING[16],
-    paddingVertical: SPACING[8],
   },
   formRow: {
     minHeight: 64,
@@ -401,12 +398,6 @@ const styles = StyleSheet.create({
   formLabelWrap: {
     flex: 1,
     gap: SPACING[4],
-  },
-  titleInput: {
-    ...TYPOGRAPHY.base,
-    minHeight: 28,
-    color: COLORS.text,
-    padding: SPACING[0],
   },
   chevronTarget: {
     width: 48,
@@ -420,10 +411,19 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.stroke,
   },
   footer: {
-    gap: SPACING[16],
+    backgroundColor: COLORS.bg,
+    paddingHorizontal: SPACING[24],
+    gap: SPACING[8],
   },
-  footerDivider: {
-    height: 1,
-    backgroundColor: COLORS.stroke,
+  reviewButton: {
+    width: "100%",
+    height: 56,
+    borderRadius: RADIUS.input,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  reviewButtonText: {
+    color: tokens.colors.black,
+    fontFamily: "Inter_700Bold",
   },
 });
