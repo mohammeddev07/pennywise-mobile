@@ -20,10 +20,10 @@ export function BookPill({
       haptic="selection"
       pressScale={0.98}
       className="rounded-full border border-stroke bg-surface"
-      android_ripple={{ color: "#FFFFFF10", borderless: true }}
+      android_ripple={{ color: "#0B122012", borderless: true }}
       style={[
         {
-          height: 44,
+          height: 46,
           paddingHorizontal: 16,
           flexDirection: "row",
           alignItems: "center",

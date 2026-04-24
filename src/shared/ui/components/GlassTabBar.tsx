@@ -1,13 +1,12 @@
-import { useState } from "react";
 import { View } from "react-native";
 import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
-import { BlurView } from "expo-blur";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 
 import { tokens } from "@/shared/ui/theme/tokens";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
+import { AppText } from "@/shared/ui/components/AppText";
 
 const iconFor = (name: string) => {
   switch (name) {
@@ -18,116 +17,131 @@ const iconFor = (name: string) => {
     case "analytics":
       return "pie-chart";
     case "categories":
-      return "pricetags";
+      return "grid";
     case "settings":
-      return "settings";
+      return "person";
     default:
       return "ellipse";
+  }
+};
+
+const labelFor = (name: string) => {
+  switch (name) {
+    case "analytics":
+      return "Insights";
+    case "settings":
+      return "Profile";
+    default:
+      return name.slice(0, 1).toUpperCase() + name.slice(1);
   }
 };
 
 export function GlassTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const [fabPressed, setFabPressed] = useState(false);
+
+  const first = state.routes.slice(0, 2);
+  const second = state.routes.slice(2);
+  const routes = [...first, { key: "add", name: "__add__" } as any, ...second];
 
   return (
     <View
       pointerEvents="box-none"
       style={{
         position: "absolute",
-        left: 16,
-        right: 16,
+        left: 18,
+        right: 18,
         bottom: (insets.bottom || 0) + 14,
       }}
     >
-      {/* Glass container */}
-      <View style={{ borderRadius: 34, overflow: "hidden" }}>
-        <BlurView intensity={32} tint="dark">
-          <View
-            style={{
-              borderRadius: 34,
-              borderWidth: 1,
-              borderColor: tokens.colors.stroke,
-              paddingVertical: 14,
-              paddingHorizontal: 14,
-              backgroundColor: "rgba(10,12,16,0.35)",
-            }}
-          >
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-              {state.routes.map((route, index) => {
-                const isFocused = state.index === index;
-
-                return (
-                  <HapticPressable
-                    key={route.key}
-                    haptic="selection"
-                    pressScale={0.92}
-                    onPress={() => {
-                      const event = navigation.emit({
-                        type: "tabPress",
-                        target: route.key,
-                        canPreventDefault: true,
-                      });
-                      if (!isFocused && !event.defaultPrevented) {
-                        navigation.navigate(route.name as never);
-                      }
-                    }}
-                    style={{
-                      width: 54,
-                      height: 44,
-                      borderRadius: 22,
-                      alignItems: "center",
-                      justifyContent: "center",
-                      backgroundColor: isFocused ? "rgba(255,255,255,0.06)" : "transparent",
-                      borderWidth: isFocused ? 1 : 0,
-                      borderColor: isFocused ? tokens.colors.stroke : "transparent",
-                    }}
-                  >
-                    <Ionicons
-                      name={iconFor(route.name) as any}
-                      size={20}
-                      color={isFocused ? tokens.colors.accent : tokens.colors.muted}
-                    />
-                  </HapticPressable>
-                );
-              })}
-            </View>
-          </View>
-        </BlurView>
-      </View>
-
-      {/* Center Add button */}
       <View
-        pointerEvents="box-none"
         style={{
-          position: "absolute",
-          left: 0,
-          right: 0,
-          top: -64,
+          minHeight: 78,
+          borderRadius: 32,
+          borderWidth: 1,
+          borderColor: tokens.colors.stroke,
+          backgroundColor: tokens.colors.surface,
+          paddingHorizontal: 10,
+          paddingVertical: 8,
+          flexDirection: "row",
           alignItems: "center",
+          justifyContent: "space-between",
+          ...tokens.elevation.tabBar.ios,
         }}
       >
-        <HapticPressable
-          haptic="impactMedium"
-          pressScale={0.94}
-          pressOpacity={1}
-          onPressIn={() => setFabPressed(true)}
-          onPressOut={() => setFabPressed(false)}
-          onPress={() => {
-            router.push("/modals/add-transaction");
-          }}
-          style={{
-            width: 56,
-            height: 56,
-            borderRadius: 28,
-            backgroundColor: fabPressed ? tokens.colors.accentPressed : tokens.colors.accent,
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <MaterialIcons name="add" size={24} color="#FFFFFF" />
-        </HapticPressable>
+        {routes.map((route) => {
+          if (route.name === "__add__") {
+            return (
+              <HapticPressable
+                key={route.key}
+                haptic="impactMedium"
+                pressScale={0.94}
+                pressOpacity={1}
+                onPress={() => router.push("/modals/add-transaction")}
+                android_ripple={{ color: "#FFFFFF22", borderless: true }}
+                style={{
+                  width: 64,
+                  height: 64,
+                  borderRadius: 32,
+                  backgroundColor: tokens.colors.accent,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginTop: -20,
+                  ...tokens.elevation.tabBar.ios,
+                }}
+              >
+                <MaterialIcons name="add" size={34} color={tokens.colors.white} />
+              </HapticPressable>
+            );
+          }
+
+          const index = state.routes.findIndex((r) => r.key === route.key);
+          const isFocused = state.index === index;
+
+          return (
+            <HapticPressable
+              key={route.key}
+              haptic="selection"
+              pressScale={0.96}
+              onPress={() => {
+                const event = navigation.emit({
+                  type: "tabPress",
+                  target: route.key,
+                  canPreventDefault: true,
+                });
+                if (!isFocused && !event.defaultPrevented) {
+                  navigation.navigate(route.name as never);
+                }
+              }}
+              style={{
+                width: 52,
+                minHeight: 58,
+                borderRadius: 24,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: isFocused ? tokens.colors.greenSoft : "transparent",
+              }}
+            >
+              <Ionicons
+                name={iconFor(route.name) as any}
+                size={24}
+                color={isFocused ? tokens.colors.accent : tokens.colors.muted}
+              />
+              <AppText
+                variant="xs"
+                numberOfLines={1}
+                style={{
+                  marginTop: 3,
+                  color: isFocused ? tokens.colors.accent : tokens.colors.muted,
+                  fontFamily: isFocused ? "Inter_600SemiBold" : "Inter_500Medium",
+                  fontSize: 10,
+                }}
+              >
+                {labelFor(route.name)}
+              </AppText>
+            </HapticPressable>
+          );
+        })}
       </View>
     </View>
   );

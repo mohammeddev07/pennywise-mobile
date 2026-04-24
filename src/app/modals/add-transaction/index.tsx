@@ -17,6 +17,7 @@ import { Sheet } from "@/shared/ui/components/Sheet";
 import { AppText } from "@/shared/ui/components/AppText";
 import { AmountInput, applyAmountKey } from "@/shared/ui/components/AmountInput";
 import { EmptyState } from "@/shared/ui/components/EmptyState";
+import { Card } from "@/shared/ui/components/Card";
 
 const COLORS = {
   bg: tokens.colors.app,
@@ -74,7 +75,7 @@ function FormPressRow({
       haptic="selection"
       pressScale={0.99}
       style={styles.formRow}
-      android_ripple={{ color: "#FFFFFF10" }}
+      android_ripple={{ color: "#0B122012" }}
     >
       <View style={styles.formLabelWrap}>
         <AppText variant="sm" tone="muted">
@@ -113,10 +114,10 @@ function ReviewButton({
         styles.reviewButton,
         { backgroundColor: pressed && !disabled ? tokens.colors.accentPressed : tokens.colors.accent },
       ]}
-      android_ripple={{ color: "#00000022" }}
+      android_ripple={{ color: "#FFFFFF22" }}
     >
-      <AppText variant="2xl" style={styles.reviewButtonText}>
-        Review
+      <AppText variant="lg" style={styles.reviewButtonText}>
+        Review Transaction
       </AppText>
     </HapticPressable>
   );
@@ -217,7 +218,7 @@ export default function AddTransactionEntry() {
           <HapticPressable
             onPress={close}
             style={styles.closeButton}
-            android_ripple={{ color: "#FFFFFF12", borderless: true }}
+            android_ripple={{ color: "#0B122012", borderless: true }}
           >
             <Ionicons name="close" size={18} color={COLORS.text} />
           </HapticPressable>
@@ -250,37 +251,57 @@ export default function AddTransactionEntry() {
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={styles.content}
           >
-            <View style={styles.segmented}>
-              <View pointerEvents="none" style={styles.segmentTrack} />
-              {(["expense", "income"] as const).map((item) => {
-                const active = kind === item;
-                return (
-                  <HapticPressable
-                    key={item}
-                    onPress={() => setKind(item)}
-                    haptic="selection"
-                    pressScale={0.99}
-                    style={styles.segmentHit}
-                  >
-                    <View style={[styles.segmentVisual, active ? styles.segmentActive : null]}>
-                      <AppText variant="xs" style={[styles.segmentText, { color: active ? COLORS.text : COLORS.muted }]}>
-                        {item === "expense" ? "Expense" : "Income"}
-                      </AppText>
-                    </View>
-                  </HapticPressable>
-                );
-              })}
-            </View>
+            <Card style={styles.amountCard}>
+              <View style={styles.amountHeader}>
+                <View style={styles.currencyPill}>
+                  <AppText variant="sm" style={styles.semibold}>
+                    {primaryCurrency}
+                  </AppText>
+                  <Ionicons name="chevron-down" size={16} color={COLORS.muted} style={{ marginLeft: 8 }} />
+                </View>
+                <View style={styles.calculatorBubble}>
+                  <Ionicons name="calculator-outline" size={24} color={COLORS.accent} />
+                </View>
+              </View>
 
-            <View style={styles.amountBlock}>
-              <AmountInput
-                value={amount}
-                type={kind}
-                currencySymbol={currencySymbol(primaryCurrency)}
-                helperText={kind === "expense" ? "Money out" : "Money in"}
-                error={reviewAttempted && valueNum <= 0 ? "Amount is required." : undefined}
-              />
-            </View>
+              <View style={styles.amountBlock}>
+                <AmountInput
+                  value={amount}
+                  type={kind}
+                  currencySymbol={currencySymbol(primaryCurrency)}
+                  helperText={kind === "expense" ? "Money out" : "Money in"}
+                  error={reviewAttempted && valueNum <= 0 ? "Amount is required." : undefined}
+                />
+              </View>
+
+              <View style={styles.segmented}>
+                <View pointerEvents="none" style={styles.segmentTrack} />
+                {(["expense", "income"] as const).map((item) => {
+                  const active = kind === item;
+                  return (
+                    <HapticPressable
+                      key={item}
+                      onPress={() => setKind(item)}
+                      haptic="selection"
+                      pressScale={0.99}
+                      style={styles.segmentHit}
+                    >
+                      <View style={[styles.segmentVisual, active ? styles.segmentActive : null]}>
+                        <Ionicons
+                          name={item === "expense" ? "arrow-down" : "arrow-up"}
+                          size={20}
+                          color={active ? COLORS.accent : COLORS.muted}
+                          style={{ marginRight: 8 }}
+                        />
+                        <AppText variant="base" style={[styles.segmentText, { color: active ? COLORS.accent : COLORS.text }]}>
+                          {item === "expense" ? "Expense" : "Income"}
+                        </AppText>
+                      </View>
+                    </HapticPressable>
+                  );
+                })}
+              </View>
+            </Card>
 
             <View style={styles.formGroup}>
               <FormPressRow
@@ -335,35 +356,65 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   content: {
-    paddingTop: SPACING[40],
+    paddingTop: SPACING[16],
     paddingBottom: SPACING[24],
   },
+  amountCard: {
+    padding: SPACING[16],
+  },
+  amountHeader: {
+    minHeight: 48,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  currencyPill: {
+    minHeight: 44,
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: RADIUS.pill,
+    borderWidth: 1,
+    borderColor: COLORS.stroke,
+    paddingHorizontal: SPACING[16],
+  },
+  calculatorBubble: {
+    width: 56,
+    height: 56,
+    borderRadius: RADIUS.pill,
+    backgroundColor: tokens.colors.greenSoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   segmented: {
-    width: 200,
-    height: 44,
+    width: "100%",
+    height: 58,
     alignSelf: "center",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     position: "relative",
+    marginTop: SPACING[24],
   },
   segmentTrack: {
     position: "absolute",
     left: SPACING[0],
     right: SPACING[0],
-    height: 36,
+    height: 54,
     borderRadius: RADIUS.pill,
+    borderWidth: 1,
+    borderColor: COLORS.stroke,
     backgroundColor: COLORS.surface,
   },
   segmentHit: {
-    width: 100,
-    height: 44,
+    flex: 1,
+    height: 58,
     alignItems: "center",
     justifyContent: "center",
   },
   segmentVisual: {
-    width: 96,
-    height: 36,
+    width: "96%",
+    height: 48,
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     borderRadius: RADIUS.pill,
@@ -371,14 +422,14 @@ const styles = StyleSheet.create({
     borderColor: "transparent",
   },
   segmentActive: {
-    borderColor: COLORS.stroke,
-    backgroundColor: COLORS.card,
+    borderColor: tokens.colors.greenSoft,
+    backgroundColor: tokens.colors.greenSoft,
   },
   segmentText: {
     fontFamily: "Inter_600SemiBold",
   },
   amountBlock: {
-    marginTop: SPACING[40],
+    marginTop: SPACING[20],
     alignItems: "center",
   },
   formGroup: {
@@ -423,7 +474,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   reviewButtonText: {
-    color: tokens.colors.black,
+    color: tokens.colors.white,
     fontFamily: "Inter_700Bold",
+  },
+  semibold: {
+    fontFamily: "Inter_600SemiBold",
   },
 });

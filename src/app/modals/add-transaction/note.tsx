@@ -134,7 +134,7 @@ export default function NoteModal() {
           <HapticPressable
             onPress={() => router.back()}
             className="h-12 w-12 items-center justify-center rounded-full border border-stroke bg-surface"
-            android_ripple={{ color: "#FFFFFF12", borderless: true }}
+            android_ripple={{ color: "#0B122012", borderless: true }}
           >
             <Ionicons name="chevron-back" size={20} color={tokens.colors.text} />
           </HapticPressable>
@@ -216,7 +216,7 @@ export default function NoteModal() {
                     key={item}
                     onPress={() => onAppendRecent(item)}
                     className="mr-3 min-h-11 justify-center rounded-full border border-stroke bg-surface px-4"
-                    android_ripple={{ color: "#FFFFFF10", borderless: true }}
+                    android_ripple={{ color: "#0B122012", borderless: true }}
                   >
                     <AppText variant="sm">{item}</AppText>
                   </HapticPressable>

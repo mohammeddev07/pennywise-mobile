@@ -118,11 +118,11 @@ export function SwipeUpToSubmit({
             />
 
             <Animated.View className="mt-3 min-h-11 flex-row items-center justify-center" style={handleStyle}>
-              <Ionicons name="chevron-up" size={16} color={tokens.colors.black} />
+              <Ionicons name="chevron-up" size={16} color={tokens.colors.white} />
               <AppText
                 variant="xl"
                 className="ml-2"
-                style={{ color: tokens.colors.black, fontFamily: "Inter_600SemiBold" }}
+                style={{ color: tokens.colors.white, fontFamily: "Inter_600SemiBold" }}
               >
                 {label}
               </AppText>
@@ -142,12 +142,12 @@ export function SwipeUpToSubmit({
                 handleStyle,
               ]}
             >
-              <Ionicons name="chevron-up" size={16} color={disabled ? tokens.colors.muted : tokens.colors.black} />
+              <Ionicons name="chevron-up" size={16} color={disabled ? tokens.colors.muted : tokens.colors.white} />
               <AppText
                 variant="sm"
                 className="ml-1"
                 style={{
-                  color: disabled ? tokens.colors.muted : tokens.colors.black,
+                  color: disabled ? tokens.colors.muted : tokens.colors.white,
                   fontFamily: "Inter_600SemiBold",
                 }}
               >

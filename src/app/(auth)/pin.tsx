@@ -92,7 +92,7 @@ export default function PinScreen() {
         <HapticPressable
           onPress={handleBack}
           style={styles.backButton}
-          android_ripple={{ color: "#FFFFFF12", borderless: true }}
+          android_ripple={{ color: "#0B122012", borderless: true }}
         >
           <Ionicons name="chevron-back" size={20} color={COLORS.text} />
         </HapticPressable>
@@ -106,6 +106,10 @@ export default function PinScreen() {
       </View>
 
       <View style={styles.body}>
+        <View style={styles.heroIcon}>
+          <Ionicons name="shield-checkmark" size={44} color={tokens.colors.accent} />
+        </View>
+
         <View style={styles.pinCluster}>
           <PinDots length={4} filled={pin.length} />
           <AppText variant="xs" tone="muted" style={styles.demoText}>
@@ -121,6 +125,28 @@ export default function PinScreen() {
 
         <View style={styles.keypadWrap}>
           <NumericKeypad onPress={addDigit} onDelete={deleteDigit} decimalAllowed={false} />
+        </View>
+
+        <View style={styles.biometricBlock}>
+          <View style={styles.orRow}>
+            <View style={styles.orLine} />
+            <AppText variant="sm" tone="muted" style={{ marginHorizontal: SPACING[16] }}>
+              OR
+            </AppText>
+            <View style={styles.orLine} />
+          </View>
+          <HapticPressable
+            onPress={() => setPin(DEMO_PIN)}
+            haptic="selection"
+            pressScale={0.98}
+            style={styles.biometricButton}
+            android_ripple={{ color: "#0B122012" }}
+          >
+            <Ionicons name="finger-print" size={30} color={tokens.colors.accent} />
+            <AppText variant="base" style={{ marginLeft: 12, color: tokens.colors.accent, fontFamily: "Inter_600SemiBold" }}>
+              Use fingerprint to unlock
+            </AppText>
+          </HapticPressable>
         </View>
       </View>
     </View>
@@ -160,7 +186,16 @@ const styles = StyleSheet.create({
   body: {
     flex: 1,
     justifyContent: "space-between",
-    paddingTop: SPACING[40],
+    paddingTop: SPACING[24],
+  },
+  heroIcon: {
+    width: 112,
+    height: 112,
+    borderRadius: RADIUS.pill,
+    backgroundColor: tokens.colors.greenSoft,
+    alignItems: "center",
+    justifyContent: "center",
+    alignSelf: "center",
   },
   pinCluster: {
     alignItems: "center",
@@ -176,5 +211,25 @@ const styles = StyleSheet.create({
   },
   keypadWrap: {
     alignItems: "center",
+  },
+  biometricBlock: {
+    gap: SPACING[20],
+  },
+  orRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  orLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: COLORS.stroke,
+  },
+  biometricButton: {
+    minHeight: 56,
+    borderRadius: RADIUS.pill,
+    backgroundColor: tokens.colors.greenSoft,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
   },
 });

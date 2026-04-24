@@ -17,6 +17,7 @@ import { Input } from "@/shared/ui/components/Input";
 import { Card } from "@/shared/ui/components/Card";
 import { EmptyState } from "@/shared/ui/components/EmptyState";
 import { Skeleton } from "@/shared/ui/components/Skeleton";
+import { RingProgress } from "@/shared/ui/components/RingProgress";
 import { formatCurrency } from "@/shared/utils/formatCurrency";
 import type { CurrencyCode } from "@/shared/types/models";
 
@@ -64,7 +65,7 @@ function Tile({ item, currency }: { item: CategoryTile; currency: CurrencyCode }
         pressScale={0.99}
         pressOpacity={0.92}
         className="pb-1"
-        android_ripple={{ color: "#FFFFFF10" }}
+        android_ripple={{ color: "#0B122012" }}
       >
         <View className="flex-row items-center justify-between">
           <View
@@ -111,7 +112,7 @@ function Tile({ item, currency }: { item: CategoryTile; currency: CurrencyCode }
         haptic="selection"
         pressScale={0.98}
         className="mt-2 -ml-3 min-h-11 px-3 rounded-full flex-row items-center self-start"
-        android_ripple={{ color: "#FFFFFF10" }}
+        android_ripple={{ color: "#0B122012" }}
       >
         <AppText variant="sm" className="text-accent" style={{ fontFamily: "Inter_600SemiBold" }}>
           {hasBudget ? "Edit budget" : "Set budget"}
@@ -258,6 +259,10 @@ export default function CategoriesScreen() {
 
   const GUTTER = 8;
   const HALF = GUTTER / 2;
+  const totalBudgetCents = tiles.reduce((sum, item) => sum + item.budgetCents, 0);
+  const totalSpentCents = tiles.reduce((sum, item) => sum + item.spentCents, 0);
+  const remainingCents = Math.max(0, totalBudgetCents - totalSpentCents);
+  const budgetProgress = totalBudgetCents > 0 ? totalSpentCents / totalBudgetCents : 0;
 
   return (
     <View className="flex-1 bg-app" style={{ paddingTop: insets.top + 12 }}>
@@ -270,11 +275,53 @@ export default function CategoriesScreen() {
             haptic="selection"
             pressScale={0.98}
             className="h-12 w-12 items-center justify-center rounded-full border border-stroke bg-surface"
-            android_ripple={{ color: "#FFFFFF12", borderless: true }}
+            android_ripple={{ color: "#0B122012", borderless: true }}
           >
             <Ionicons name="add" size={20} color={tokens.colors.accent} />
           </HapticPressable>
         </View>
+
+        <Card className="mt-6">
+          <View className="flex-row items-center justify-between">
+            <View className="flex-1 pr-4">
+              <AppText variant="xs" tone="muted" className="uppercase">
+                Total monthly budget
+              </AppText>
+              <AppText variant="2xl" className="mt-3">
+                {formatCurrency(totalBudgetCents, primaryCurrency)}
+              </AppText>
+              <View className="mt-3 flex-row items-center">
+                <Ionicons name="calendar-outline" size={16} color={tokens.colors.accent} />
+                <AppText variant="sm" tone="muted" className="ml-2">
+                  This month
+                </AppText>
+              </View>
+            </View>
+            <View className="items-center">
+              <RingProgress progress={budgetProgress} color={tokens.colors.accent} />
+              <AppText variant="lg" style={{ marginTop: -58, fontFamily: "Inter_700Bold" }}>
+                {Math.round(Math.min(1, budgetProgress) * 100)}%
+              </AppText>
+              <AppText variant="xs" tone="muted" style={{ marginTop: 36 }}>
+                Used
+              </AppText>
+            </View>
+          </View>
+          <View className="mt-5 flex-row" style={{ gap: 12 }}>
+            <View className="flex-1 rounded-lg border border-stroke bg-surfaceAlt p-3">
+              <AppText variant="xs" tone="muted">Spent</AppText>
+              <AppText variant="base" className="mt-1" style={{ fontFamily: "Inter_700Bold" }}>
+                {formatCurrency(totalSpentCents, primaryCurrency)}
+              </AppText>
+            </View>
+            <View className="flex-1 rounded-lg border border-stroke bg-surfaceAlt p-3">
+              <AppText variant="xs" tone="muted">Remaining</AppText>
+              <AppText variant="base" className="mt-1" style={{ color: tokens.colors.accent, fontFamily: "Inter_700Bold" }}>
+                {formatCurrency(remainingCents, primaryCurrency)}
+              </AppText>
+            </View>
+          </View>
+        </Card>
 
         <Input
           value={query}
@@ -282,6 +329,8 @@ export default function CategoriesScreen() {
           placeholder="Search categories..."
           autoCorrect={false}
           autoCapitalize="none"
+          variant="search"
+          leftIcon={<Ionicons name="search" size={22} color={tokens.colors.muted} />}
           containerClassName="mt-5"
         />
       </View>

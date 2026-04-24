@@ -13,6 +13,7 @@ const COLORS = {
   stroke: tokens.colors.stroke,
   text: tokens.colors.text,
   muted: tokens.colors.muted,
+  accent: tokens.colors.accent,
 } as const;
 
 const SPACING = {
@@ -126,11 +127,11 @@ function KeyBtn({
       onPressIn={() => setPressed(true)}
       onPressOut={() => setPressed(false)}
       style={styles.keyTouch}
-      android_ripple={{ color: "#FFFFFF12", borderless: true }}
+      android_ripple={{ color: "#0B122012", borderless: true }}
     >
       <View style={[styles.keyCircle, pressed && !disabled ? styles.keyCirclePressed : null]}>
         {isBackspace ? (
-          <Ionicons name="backspace-outline" size={22} color={COLORS.muted} />
+          <Ionicons name="backspace-outline" size={22} color={COLORS.accent} />
         ) : (
           <AppText
             variant={label === "." ? "lg" : "2xl"}
@@ -176,6 +177,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   keyCirclePressed: {
-    backgroundColor: COLORS.card,
+    backgroundColor: tokens.colors.surfaceAlt,
   },
 });

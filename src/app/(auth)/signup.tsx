@@ -43,7 +43,7 @@ export default function SignupScreen() {
           onPress={handleBack}
           haptic="selection"
           className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
-          android_ripple={{ color: "#FFFFFF12", borderless: true }}
+          android_ripple={{ color: "#0B122012", borderless: true }}
         >
           <Ionicons name="chevron-back" size={20} color={tokens.colors.text} />
         </HapticPressable>

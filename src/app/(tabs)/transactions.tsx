@@ -70,13 +70,13 @@ function RangeChip({ label, active, onPress }: { label: string; active: boolean;
       haptic="selection"
       pressScale={0.985}
       className="rounded-full border px-4 min-h-11 items-center justify-center"
-      android_ripple={{ color: "#FFFFFF10" }}
+      android_ripple={{ color: "#0B122012" }}
       style={{
-        borderColor: active ? tokens.colors.accent : tokens.colors.stroke,
-        backgroundColor: active ? tokens.colors.accent : tokens.colors.card,
+        borderColor: active ? tokens.colors.greenSoft : tokens.colors.stroke,
+        backgroundColor: active ? tokens.colors.greenSoft : tokens.colors.surface,
       }}
     >
-      <AppText variant="sm" style={{ color: active ? tokens.colors.black : tokens.colors.text, fontFamily: "Inter_600SemiBold" }}>
+      <AppText variant="sm" style={{ color: active ? tokens.colors.accent : tokens.colors.text, fontFamily: "Inter_600SemiBold" }}>
         {label}
       </AppText>
     </HapticPressable>
@@ -90,8 +90,8 @@ function IconButton({ icon, onPress, disabled }: { icon: keyof typeof Ionicons.g
       disabled={disabled}
       haptic="selection"
       pressScale={0.98}
-      className="h-11 w-11 items-center justify-center rounded-lg border border-stroke bg-surface"
-      android_ripple={{ color: "#FFFFFF10", borderless: true }}
+      className="h-11 w-11 items-center justify-center rounded-full border border-stroke bg-surface"
+      android_ripple={{ color: "#0B122012", borderless: true }}
     >
       <Ionicons name={icon} size={18} color={disabled ? tokens.colors.muted : tokens.colors.text} />
     </HapticPressable>
@@ -102,7 +102,7 @@ function SummaryStat({ label, value, tone }: { label: string; value: string; ton
   const color = tone === "income" ? tokens.colors.accent : tone === "expense" ? tokens.colors.danger : tokens.colors.text;
 
   return (
-    <View className="flex-1 min-h-11 rounded-full border border-stroke bg-card px-4 flex-row items-center justify-between">
+    <View className="flex-1 min-h-14 rounded-lg border border-stroke bg-surface px-4 flex-row items-center justify-between">
       <AppText variant="xs" tone="muted">
         {label}
       </AppText>
@@ -320,10 +320,10 @@ export default function TransactionsScreen() {
             <HapticPressable
               onPress={() => router.push("/modals/add-transaction")}
               haptic="impactLight"
-              className="h-12 w-12 items-center justify-center rounded-lg bg-accent"
-              android_ripple={{ color: "#00000022", borderless: true }}
+              className="h-12 w-12 items-center justify-center rounded-full bg-accent"
+              android_ripple={{ color: "#FFFFFF22", borderless: true }}
             >
-              <Ionicons name="add" size={24} color={tokens.colors.black} />
+              <Ionicons name="add" size={24} color={tokens.colors.white} />
             </HapticPressable>
           </View>
         </Card>
@@ -359,6 +359,8 @@ export default function TransactionsScreen() {
           placeholder="Search transactions"
           autoCorrect={false}
           autoCapitalize="none"
+          variant="search"
+          leftIcon={<Ionicons name="search" size={22} color={tokens.colors.muted} />}
           containerClassName="mt-3"
         />
       </View>

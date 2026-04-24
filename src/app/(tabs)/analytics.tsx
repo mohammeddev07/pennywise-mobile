@@ -47,10 +47,10 @@ function RangeChip({ label, active, onPress }: { label: string; active: boolean;
       haptic="selection"
       pressScale={0.985}
       className="rounded-full border px-4 min-h-11 items-center justify-center"
-      android_ripple={{ color: "#FFFFFF10" }}
+      android_ripple={{ color: "#0B122012" }}
       style={{
-        borderColor: active ? tokens.colors.accent : tokens.colors.stroke,
-        backgroundColor: active ? `${tokens.colors.accent}22` : "transparent",
+        borderColor: active ? tokens.colors.greenSoft : tokens.colors.stroke,
+        backgroundColor: active ? tokens.colors.greenSoft : tokens.colors.surface,
       }}
     >
       <AppText variant="sm" style={{ color: active ? tokens.colors.accent : tokens.colors.text }}>
@@ -199,9 +199,9 @@ export default function AnalyticsScreen() {
         <View className="px-6">
           <View className="flex-row items-start justify-between">
             <View className="flex-1 pr-3">
-              <AppText variant="2xl">Analytics</AppText>
+              <AppText variant="3xl">Insights</AppText>
               <AppText variant="sm" tone="muted" className="mt-1">
-                {rangeLabel}
+                Understand your money, make smarter decisions.
               </AppText>
               <View className="mt-3 self-start">
                 <BookPill label={selectedBookName} onPress={() => router.push("/modals/book-switcher")} />
@@ -211,7 +211,7 @@ export default function AnalyticsScreen() {
             <HapticPressable
               onPress={() => router.push("/modals/book-switcher")}
               className="h-12 w-12 items-center justify-center rounded-full border border-stroke bg-surface"
-              android_ripple={{ color: "#FFFFFF12", borderless: true }}
+              android_ripple={{ color: "#0B122012", borderless: true }}
             >
               <Ionicons name="swap-horizontal" size={18} color={tokens.colors.accent} />
             </HapticPressable>
@@ -255,7 +255,7 @@ export default function AnalyticsScreen() {
             <View className="px-6 mt-8">
               <Card variant="surface">
                 <AppText variant="xs" tone="muted" className="uppercase">
-                  Net
+                  Spending Trend
                 </AppText>
                 <AppText variant="amount" className="mt-2">
                   {formatCurrency(totals.netCents, primaryCurrency)}

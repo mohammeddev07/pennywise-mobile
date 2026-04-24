@@ -132,7 +132,7 @@ export default function BookSwitcherModal() {
           <HapticPressable
             onPress={() => router.back()}
             className="h-12 w-12 items-center justify-center rounded-full border border-stroke bg-surface"
-            android_ripple={{ color: "#FFFFFF12", borderless: true }}
+            android_ripple={{ color: "#0B122012", borderless: true }}
           >
             <Ionicons name="close" size={18} color={tokens.colors.text} />
           </HapticPressable>
@@ -142,7 +142,7 @@ export default function BookSwitcherModal() {
             onPress={startCreate}
             haptic="selection"
             className="h-12 w-12 items-center justify-center rounded-full border border-stroke bg-surface"
-            android_ripple={{ color: "#FFFFFF12", borderless: true }}
+            android_ripple={{ color: "#0B122012", borderless: true }}
           >
             <Ionicons name="add" size={20} color={tokens.colors.accent} />
           </HapticPressable>
@@ -211,7 +211,7 @@ export default function BookSwitcherModal() {
                       haptic="selection"
                       pressScale={0.99}
                       className="flex-1 pr-3"
-                      android_ripple={{ color: "#FFFFFF10" }}
+                      android_ripple={{ color: "#0B122012" }}
                     >
                       <AppText variant="base" style={{ fontFamily: "Inter_600SemiBold" }} numberOfLines={1}>
                         {book.name}
@@ -226,7 +226,7 @@ export default function BookSwitcherModal() {
                       haptic="selection"
                       pressScale={0.98}
                       className="h-12 w-12 items-center justify-center rounded-full border border-stroke bg-card"
-                      android_ripple={{ color: "#FFFFFF10", borderless: true }}
+                      android_ripple={{ color: "#0B122012", borderless: true }}
                     >
                       <Ionicons name="create-outline" size={16} color={tokens.colors.accent} />
                     </HapticPressable>

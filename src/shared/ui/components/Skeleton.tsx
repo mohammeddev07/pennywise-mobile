@@ -37,7 +37,7 @@ export function Skeleton({ width = "100%", height, borderRadius = 16, style }: P
           width,
           height,
           borderRadius: r,
-          backgroundColor: "rgba(255,255,255,0.06)",
+          backgroundColor: "#EEF2F7",
           borderWidth: 1,
           borderColor: tokens.colors.stroke,
           overflow: "hidden",
@@ -45,7 +45,7 @@ export function Skeleton({ width = "100%", height, borderRadius = 16, style }: P
         style,
       ]}
     >
-      <Animated.View style={[{ flex: 1, backgroundColor: "rgba(255,255,255,0.08)" }, shimmer]} />
+      <Animated.View style={[{ flex: 1, backgroundColor: "#F7F9FC" }, shimmer]} />
     </View>
   );
 }

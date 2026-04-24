@@ -11,6 +11,8 @@ import { EmptyState } from "@/shared/ui/components/EmptyState";
 import { Skeleton } from "@/shared/ui/components/Skeleton";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { Button } from "@/shared/ui/components/Button";
+import { IconButton } from "@/shared/ui/components/IconButton";
+import { CategoryIcon } from "@/shared/ui/components/CategoryIcon";
 import { useBooksStore } from "@/features/books/store";
 import { useTransactionsStore } from "@/features/transactions/store";
 import { useSettingsStore } from "@/features/settings/store";
@@ -32,7 +34,7 @@ function ProfileRow({
       haptic="selection"
       pressScale={0.99}
       className="min-h-14 px-4 py-3 flex-row items-center"
-      android_ripple={{ color: "#FFFFFF10" }}
+      android_ripple={{ color: "#0B122012" }}
     >
       <View className="flex-1 pr-3">
         <AppText variant="sm" tone="muted">
@@ -152,10 +154,15 @@ export default function ProfileScreen() {
   return (
     <View className="flex-1 bg-app" style={{ paddingTop: insets.top + 12 }}>
       <View className="px-6">
-        <AppText variant="2xl">Profile</AppText>
-        <AppText variant="sm" tone="muted" className="mt-2">
-          Account and app preferences
-        </AppText>
+        <View className="flex-row items-center justify-between">
+          <View className="flex-1 pr-3">
+            <AppText variant="3xl">Profile & Settings</AppText>
+            <AppText variant="sm" tone="muted" className="mt-2">
+              Manage your account and app preferences
+            </AppText>
+          </View>
+          <IconButton icon="notifications-outline" onPress={() => {}} />
+        </View>
       </View>
 
       <ScrollView
@@ -192,13 +199,19 @@ export default function ProfileScreen() {
         ) : (
           <>
             <Card variant="surface">
-              <AppText variant="lg">{userEmail ?? "Demo account"}</AppText>
-              <AppText variant="sm" tone="muted" className="mt-1">
-                Local-first demo workspace
-              </AppText>
+              <View className="flex-row items-center">
+                <CategoryIcon icon="person" color={tokens.colors.accent} size={72} />
+                <View className="ml-4 flex-1">
+                  <AppText variant="xl">{userEmail ?? "Demo account"}</AppText>
+                  <AppText variant="sm" tone="muted" className="mt-1">
+                    Local-first demo workspace
+                  </AppText>
+                </View>
+                <Ionicons name="chevron-forward" size={24} color={tokens.colors.muted} />
+              </View>
 
               <View className="mt-4 flex-row">
-                <View className="flex-1 rounded-lg border border-stroke bg-card p-3 mr-2">
+                <View className="flex-1 rounded-lg border border-stroke bg-surfaceAlt p-3 mr-2">
                   <AppText variant="xs" tone="muted">
                     Books
                   </AppText>
@@ -207,7 +220,7 @@ export default function ProfileScreen() {
                   </AppText>
                 </View>
 
-                <View className="flex-1 rounded-lg border border-stroke bg-card p-3 ml-2">
+                <View className="flex-1 rounded-lg border border-stroke bg-surfaceAlt p-3 ml-2">
                   <AppText variant="xs" tone="muted">
                     Transactions
                   </AppText>
@@ -251,7 +264,7 @@ export default function ProfileScreen() {
             </View>
 
             <View className="mt-3 gap-3">
-              <Button label="Lock demo" variant="ghost" onPress={onLock} size="md" />
+              <Button label="Lock demo" variant="outline" onPress={onLock} size="md" />
               <Button label="Restart demo setup" variant="danger" onPress={onRestartDemo} size="md" />
             </View>
           </>

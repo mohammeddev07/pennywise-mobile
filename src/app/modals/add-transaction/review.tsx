@@ -36,7 +36,7 @@ const COLORS = {
   muted: tokens.colors.muted,
   accent: tokens.colors.accent,
   danger: tokens.colors.danger,
-  black: tokens.colors.black,
+  black: tokens.colors.white,
 } as const;
 
 const SPACING = {
@@ -94,7 +94,7 @@ function ReviewRow({
       haptic="selection"
       pressScale={0.99}
       className="min-h-14 px-4 py-3 flex-row items-center"
-      android_ripple={{ color: "#FFFFFF10" }}
+      android_ripple={{ color: "#0B122012" }}
     >
       <View className="flex-1 pr-3">
         <AppText variant="sm" tone="muted">
@@ -236,7 +236,7 @@ export default function AddTransactionReview() {
           <HapticPressable
             onPress={() => router.back()}
             className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
-            android_ripple={{ color: "#FFFFFF12", borderless: true }}
+            android_ripple={{ color: "#0B122012", borderless: true }}
           >
             <Ionicons name="chevron-back" size={20} color={tokens.colors.text} />
           </HapticPressable>

@@ -55,7 +55,7 @@ function CatPill({
         borderColor: active ? tokens.colors.accent : tokens.colors.stroke,
         backgroundColor: active ? `${tokens.colors.accent}14` : tokens.colors.surface,
       }}
-      android_ripple={{ color: "#FFFFFF10", borderless: true }}
+      android_ripple={{ color: "#0B122012", borderless: true }}
     >
       <View
         className="h-7 w-7 items-center justify-center rounded-full border border-stroke"
@@ -292,7 +292,7 @@ export default function AddTransactionCategory() {
           <HapticPressable
             onPress={() => router.back()}
             className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
-            android_ripple={{ color: "#FFFFFF12", borderless: true }}
+            android_ripple={{ color: "#0B122012", borderless: true }}
           >
             <Ionicons name="chevron-back" size={20} color={tokens.colors.text} />
           </HapticPressable>
@@ -303,7 +303,7 @@ export default function AddTransactionCategory() {
             haptic="selection"
             pressScale={0.98}
             className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
-            android_ripple={{ color: "#FFFFFF12", borderless: true }}
+            android_ripple={{ color: "#0B122012", borderless: true }}
           >
             <Ionicons name="add" size={20} color={tokens.colors.accent} />
           </HapticPressable>
@@ -331,7 +331,7 @@ export default function AddTransactionCategory() {
               haptic="selection"
               pressScale={0.98}
               className="mt-2 self-end min-h-11 px-4 items-center justify-center rounded-full border border-stroke bg-surface"
-              android_ripple={{ color: "#FFFFFF10", borderless: true }}
+              android_ripple={{ color: "#0B122012", borderless: true }}
             >
               <AppText variant="sm" tone="muted">
                 Clear

@@ -57,7 +57,7 @@ function CategoryChip({ label, active, onPress }: { label: string; active: boole
         borderColor: active ? tokens.colors.accent : tokens.colors.stroke,
         backgroundColor: active ? `${tokens.colors.accent}18` : tokens.colors.surface,
       }}
-      android_ripple={{ color: "#FFFFFF10", borderless: true }}
+      android_ripple={{ color: "#0B122012", borderless: true }}
     >
       <AppText variant="sm" style={{ color: active ? tokens.colors.accent : tokens.colors.text }}>
         {label}
@@ -171,7 +171,7 @@ export default function EditTransactionModal() {
           <HapticPressable
             onPress={() => router.back()}
             className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
-            android_ripple={{ color: "#FFFFFF12", borderless: true }}
+            android_ripple={{ color: "#0B122012", borderless: true }}
           >
             <Ionicons name="chevron-back" size={20} color={tokens.colors.text} />
           </HapticPressable>

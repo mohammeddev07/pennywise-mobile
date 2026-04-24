@@ -55,7 +55,7 @@ export function UndoToast() {
           overflow: "hidden",
           borderWidth: 1,
           borderColor: tokens.colors.stroke,
-          backgroundColor: "rgba(16, 21, 29, 0.92)",
+          backgroundColor: tokens.colors.surface,
           paddingVertical: 12,
           paddingHorizontal: 14,
           flexDirection: "row",
@@ -102,7 +102,7 @@ export function UndoToast() {
           onPress={hide}
           haptic="selection"
           className="ml-2 h-10 w-10 items-center justify-center rounded-full"
-          android_ripple={{ color: "#FFFFFF10", borderless: true }}
+          android_ripple={{ color: "#0B122012", borderless: true }}
         >
           <Ionicons name="close" size={18} color={tokens.colors.muted} />
         </HapticPressable>

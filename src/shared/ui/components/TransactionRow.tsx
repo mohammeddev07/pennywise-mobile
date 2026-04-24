@@ -11,6 +11,7 @@ import { useUndoToastStore } from "@/shared/ui/state/useUndoToastStore";
 import { Card } from "@/shared/ui/components/Card";
 import { AppText } from "@/shared/ui/components/AppText";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
+import { CategoryIcon } from "@/shared/ui/components/CategoryIcon";
 import { formatSignedCurrency } from "@/shared/utils/formatCurrency";
 
 function safeDate(iso: string) {
@@ -41,9 +42,11 @@ function timeLabel(iso: string) {
 export function TransactionRow({
   item,
   enableActions = true,
+  embedded = false,
 }: {
   item: Transaction;
   enableActions?: boolean;
+  embedded?: boolean;
 }) {
   const router = useRouter();
 
@@ -87,27 +90,21 @@ export function TransactionRow({
     ]);
   };
 
-  return (
-    <Card variant="surface" className="p-0 overflow-hidden">
-      <HapticPressable
+  const row = (
+    <HapticPressable
         onPress={() => router.push({ pathname: "/modals/transaction-details", params: { id: item.id } })}
         onLongPress={openActions}
         className="px-4 py-3"
         haptic="selection"
         pressScale={0.99}
-        android_ripple={{ color: "#FFFFFF10" }}
+        android_ripple={{ color: "#0B12200F" }}
       >
         <View className="flex-row items-center">
-          <View
-            className="h-11 w-11 items-center justify-center rounded-full border border-stroke"
-            style={{ backgroundColor: tokens.colors.card }}
-          >
-            <Ionicons
-              name={isIncome ? "arrow-down" : "arrow-up"}
-              size={18}
-              color={isIncome ? tokens.colors.accent : tokens.colors.danger}
-            />
-          </View>
+          <CategoryIcon
+            icon={isIncome ? "arrow-down" : "arrow-up"}
+            color={isIncome ? tokens.colors.accent : tokens.colors.danger}
+            size={52}
+          />
 
           <View className="ml-3 flex-1">
             <AppText variant="base" style={{ fontFamily: "Inter_600SemiBold" }} numberOfLines={1}>
@@ -125,9 +122,17 @@ export function TransactionRow({
           >
             {amount}
           </AppText>
+
+          <Ionicons name="chevron-forward" size={18} color={tokens.colors.muted} style={{ marginLeft: 8 }} />
         </View>
       </HapticPressable>
+  );
 
+  if (embedded) return row;
+
+  return (
+    <Card variant="surface" padding={0} className="overflow-hidden">
+      {row}
     </Card>
   );
 }

@@ -7,6 +7,7 @@ import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { AppText } from "@/shared/ui/components/AppText";
 
 type Variant = "primary" | "ghost" | "danger";
+type ExtendedVariant = Variant | "secondary" | "outline";
 type Size = "lg" | "md";
 
 export function Button({
@@ -21,7 +22,7 @@ export function Button({
 }: {
   label: string;
   onPress: () => void;
-  variant?: Variant;
+  variant?: ExtendedVariant;
   size?: Size;
   className?: string;
   disabled?: boolean;
@@ -43,20 +44,32 @@ export function Button({
     className
   );
 
+  const visualVariant = variant as ExtendedVariant;
+
   const bg =
-    variant === "primary"
+    visualVariant === "primary"
       ? pressed
         ? "bg-accentPressed"
         : "bg-accent"
-      : variant === "danger"
-      ? "bg-transparent border border-danger"
+      : visualVariant === "secondary"
+      ? "bg-accentSoft border border-accentSoft"
+      : visualVariant === "danger"
+      ? "bg-dangerSoft border border-dangerSoft"
+      : visualVariant === "outline"
+      ? "bg-surface border border-stroke"
       : "bg-transparent border border-stroke";
 
   const textClass =
-    variant === "primary" ? "text-black" : variant === "danger" ? "text-danger" : "text-text";
+    visualVariant === "primary"
+      ? "text-white"
+      : visualVariant === "danger"
+      ? "text-danger"
+      : visualVariant === "secondary"
+      ? "text-accent"
+      : "text-text";
 
   const spinnerColor =
-    variant === "primary" ? tokens.colors.black : tokens.colors.text;
+    visualVariant === "primary" ? tokens.colors.white : tokens.colors.text;
 
   return (
     <HapticPressable
@@ -68,7 +81,7 @@ export function Button({
       className={clsx(base, bg)}
       onPressIn={() => setPressed(true)}
       onPressOut={() => setPressed(false)}
-      android_ripple={{ color: "#00000022" }}
+      android_ripple={{ color: visualVariant === "primary" ? "#FFFFFF22" : "#0B122012" }}
     >
       {loading ? (
         <ActivityIndicator color={spinnerColor} />

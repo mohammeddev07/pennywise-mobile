@@ -73,7 +73,7 @@ export function AmountInput({
   const transactionType = type ?? kind;
   const isEmpty = !Number.isFinite(valueNum) || valueNum <= 0;
 
-  const color = isEmpty ? tokens.colors.muted : transactionType === "income" ? tokens.colors.success : tokens.colors.danger;
+  const color = isEmpty ? tokens.colors.text : transactionType === "income" ? tokens.colors.success : tokens.colors.text;
 
   return (
     <View className="w-full items-center">

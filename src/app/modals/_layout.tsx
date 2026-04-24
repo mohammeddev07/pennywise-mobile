@@ -6,7 +6,7 @@ export default function ModalsLayout() {
     <Stack
       screenOptions={{
         headerShown: false,
-        contentStyle: { backgroundColor: tokens.colors.ink },
+        contentStyle: { backgroundColor: tokens.colors.app },
       }}
     >
       <Stack.Screen

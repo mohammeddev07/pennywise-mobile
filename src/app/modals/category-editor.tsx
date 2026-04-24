@@ -162,7 +162,7 @@ export default function CategoryEditorModal() {
           <HapticPressable
             onPress={() => router.back()}
             className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
-            android_ripple={{ color: "#FFFFFF12", borderless: true }}
+            android_ripple={{ color: "#0B122012", borderless: true }}
           >
             <Ionicons name="close" size={20} color={tokens.colors.text} />
           </HapticPressable>
@@ -172,7 +172,7 @@ export default function CategoryEditorModal() {
             <HapticPressable
               onPress={onDelete}
               className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
-              android_ripple={{ color: "#FFFFFF12", borderless: true }}
+              android_ripple={{ color: "#0B122012", borderless: true }}
             >
               <Ionicons name="trash-outline" size={20} color={tokens.colors.danger} />
             </HapticPressable>
@@ -236,7 +236,7 @@ export default function CategoryEditorModal() {
                         borderColor: active ? tokens.colors.accent : tokens.colors.stroke,
                         backgroundColor: active ? `${tokens.colors.accent}14` : tokens.colors.surface,
                       }}
-                      android_ripple={{ color: "#FFFFFF10", borderless: true }}
+                      android_ripple={{ color: "#0B122012", borderless: true }}
                     >
                       <Ionicons name={n as any} size={20} color={active ? tokens.colors.accent : tokens.colors.text} />
                     </HapticPressable>
@@ -261,7 +261,7 @@ export default function CategoryEditorModal() {
                       pressScale={0.98}
                       className="h-12 w-12 items-center justify-center rounded-full border mr-3 mb-3"
                       style={{ borderColor: active ? tokens.colors.text : tokens.colors.stroke, backgroundColor: tokens.colors.surface }}
-                      android_ripple={{ color: "#FFFFFF10", borderless: true }}
+                      android_ripple={{ color: "#0B122012", borderless: true }}
                     >
                       <View className="h-7 w-7 rounded-full" style={{ backgroundColor: c }} />
                     </HapticPressable>
