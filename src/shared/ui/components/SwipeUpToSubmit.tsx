@@ -1,10 +1,9 @@
 import { type ReactNode, useRef } from "react";
-import { Dimensions, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
-  interpolate,
   runOnJS,
+  type SharedValue,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -14,8 +13,6 @@ import * as Haptics from "expo-haptics";
 import { tokens } from "@/shared/ui/theme/tokens";
 import { AppText } from "@/shared/ui/components/AppText";
 
-const SCREEN_HEIGHT = Dimensions.get("window").height;
-
 type Props = {
   label?: string;
   disabled?: boolean;
@@ -23,6 +20,7 @@ type Props = {
   thresholdPx?: number;
   variant?: "hint" | "panel";
   panelSafeBottom?: number;
+  progressValue?: SharedValue<number>;
   children?: ReactNode;
 };
 
@@ -38,6 +36,7 @@ export function SwipeUpToSubmit({
   thresholdPx = 64,
   variant = "hint",
   panelSafeBottom = 0,
+  progressValue,
   children,
 }: Props) {
   const dragY = useSharedValue(0);
@@ -64,16 +63,23 @@ export function SwipeUpToSubmit({
     .onUpdate((e) => {
       if (disabled) return;
       dragY.value = clamp(e.translationY, -thresholdPx, 0);
+      if (progressValue) {
+        progressValue.value = Math.min(1, Math.abs(dragY.value) / thresholdPx);
+      }
     })
     .onEnd((e) => {
       if (disabled) {
         dragY.value = withTiming(0, { duration: 120 });
+        if (progressValue) progressValue.value = withTiming(0, { duration: 120 });
         return;
       }
 
       const shouldSubmit = e.translationY <= -thresholdPx;
       if (shouldSubmit) {
+        if (progressValue) progressValue.value = withTiming(1, { duration: 120 });
         runOnJS(onTriggered)();
+      } else if (progressValue) {
+        progressValue.value = withTiming(0, { duration: 140 });
       }
 
       dragY.value = withTiming(0, { duration: 140 });
@@ -83,7 +89,7 @@ export function SwipeUpToSubmit({
     });
 
   const handleStyle = useAnimatedStyle(() => {
-    const progress = interpolate(Math.abs(dragY.value), [0, thresholdPx], [0, 1]);
+    const progress = Math.min(1, Math.abs(dragY.value) / thresholdPx);
     return {
       transform: [{ translateY: dragY.value * 0.2 }],
       opacity: disabled ? 0.4 : 1 - progress * 0.06,
@@ -91,18 +97,10 @@ export function SwipeUpToSubmit({
   });
 
   const contentStyle = useAnimatedStyle(() => {
-    const progress = interpolate(Math.abs(dragY.value), [0, thresholdPx], [0, 1]);
+    const progress = Math.min(1, Math.abs(dragY.value) / thresholdPx);
     return {
       transform: variant === "panel" ? [{ translateY: 0 }] : [{ scale: 1 + progress * 0.006 }],
       opacity: disabled ? 0.4 : 1 - progress * 0.04,
-    };
-  });
-
-  const panelBackdropStyle = useAnimatedStyle(() => {
-    const progress = interpolate(Math.abs(dragY.value), [0, thresholdPx], [0, 1]);
-    return {
-      opacity: disabled ? 0 : progress,
-      transform: [{ translateY: SCREEN_HEIGHT * (1 - progress) }],
     };
   });
 
@@ -111,22 +109,6 @@ export function SwipeUpToSubmit({
       <Animated.View>
         {variant === "panel" ? (
           <Animated.View style={{ overflow: "visible", position: "relative" }}>
-            <Animated.View
-              pointerEvents="none"
-              style={[
-                {
-                  position: "absolute",
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  height: SCREEN_HEIGHT + panelSafeBottom + 80,
-                  backgroundColor: tokens.colors.accent,
-                  zIndex: 0,
-                },
-                panelBackdropStyle,
-              ]}
-            />
-
             <Animated.View
               className="w-full items-center"
               style={[

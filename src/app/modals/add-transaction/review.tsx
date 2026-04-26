@@ -6,6 +6,7 @@ import { format, parseISO } from "date-fns";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
   Easing,
+  interpolate,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
@@ -131,6 +132,7 @@ export default function AddTransactionReview() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showCompletion, setShowCompletion] = useState(false);
   const completion = useSharedValue(0);
+  const swipeProgress = useSharedValue(0);
 
   const books = useBooksStore((s) => s.books);
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
@@ -225,6 +227,10 @@ export default function AddTransactionReview() {
     transform: [{ translateY: SCREEN_HEIGHT * (1 - completion.value) }],
   }));
 
+  const swipeFillStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(swipeProgress.value, [0, 0.08, 1], [0, 0.28, 1]),
+  }));
+
   return (
     <View className="flex-1 bg-app">
       <Sheet
@@ -249,6 +255,7 @@ export default function AddTransactionReview() {
             thresholdPx={160}
             variant="panel"
             panelSafeBottom={insets.bottom}
+            progressValue={swipeProgress}
           />
         }
       >
@@ -354,6 +361,11 @@ export default function AddTransactionReview() {
         )}
       </Sheet>
 
+      <Animated.View
+        pointerEvents="none"
+        style={[styles.swipeFill, { bottom: insets.bottom + 80 }, swipeFillStyle]}
+      />
+
       {showCompletion ? (
         <Animated.View pointerEvents="none" style={[styles.completionOverlay, completionStyle]}>
           <View style={styles.completionHandle} />
@@ -375,6 +387,11 @@ export default function AddTransactionReview() {
 }
 
 const styles = StyleSheet.create({
+  swipeFill: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 10,
+    backgroundColor: COLORS.accent,
+  },
   completionOverlay: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 20,
