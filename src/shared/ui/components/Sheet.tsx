@@ -35,7 +35,7 @@ export function Sheet({
       {...rest}
       className={clsx(
         "w-full rounded-t-[32px] border border-stroke",
-        tone === "ink" ? "bg-ink" : "bg-app",
+        "bg-app",
         className
       )}
       style={[

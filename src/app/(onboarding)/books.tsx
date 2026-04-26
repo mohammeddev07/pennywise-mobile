@@ -106,7 +106,7 @@ export default function BooksScreen() {
                     <View className="flex-1 pr-3">
                       <AppText variant="lg">{book.name}</AppText>
                       <AppText variant="sm" tone="muted" className="mt-1">
-                        {book.subtitle ? book.subtitle : "CashBook Pro"}
+                        {book.subtitle ? book.subtitle : "Everyday spending"}
                       </AppText>
                     </View>
 

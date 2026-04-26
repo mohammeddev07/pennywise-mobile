@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { View } from "react-native";
+import { Alert, ScrollView, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -11,9 +11,13 @@ import { EmptyState } from "@/shared/ui/components/EmptyState";
 import { Skeleton } from "@/shared/ui/components/Skeleton";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { Button } from "@/shared/ui/components/Button";
+import { IconButton } from "@/shared/ui/components/IconButton";
+import { CategoryIcon } from "@/shared/ui/components/CategoryIcon";
 import { useBooksStore } from "@/features/books/store";
 import { useTransactionsStore } from "@/features/transactions/store";
 import { useSettingsStore } from "@/features/settings/store";
+import { useAuthStore } from "@/features/auth/store";
+import { formatCurrency } from "@/shared/utils/formatCurrency";
 
 function ProfileRow({
   label,
@@ -30,7 +34,7 @@ function ProfileRow({
       haptic="selection"
       pressScale={0.99}
       className="min-h-14 px-4 py-3 flex-row items-center"
-      android_ripple={{ color: "#FFFFFF10" }}
+      android_ripple={{ color: "#0B122012" }}
     >
       <View className="flex-1 pr-3">
         <AppText variant="sm" tone="muted">
@@ -56,6 +60,9 @@ export default function ProfileScreen() {
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
   const transactions = useTransactionsStore((s) => s.transactions);
   const currency = useSettingsStore((s) => s.primaryCurrency);
+  const userEmail = useAuthStore((s) => s.userEmail);
+  const lockDemo = useAuthStore((s) => s.lockDemo);
+  const restartDemo = useAuthStore((s) => s.restartDemo);
 
   const booksPersist = (useBooksStore as any).persist;
   const txPersist = (useTransactionsStore as any).persist;
@@ -125,16 +132,44 @@ export default function ProfileScreen() {
     [transactions]
   );
 
+  const onLock = () => {
+    lockDemo();
+    router.replace("/(auth)/welcome");
+  };
+
+  const onRestartDemo = () => {
+    Alert.alert("Restart demo setup?", "This signs out and shows onboarding again. Your local books and transactions stay on this device.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Restart",
+        style: "destructive",
+        onPress: () => {
+          restartDemo();
+          router.replace("/(auth)/welcome");
+        },
+      },
+    ]);
+  };
+
   return (
     <View className="flex-1 bg-app" style={{ paddingTop: insets.top + 12 }}>
       <View className="px-6">
-        <AppText variant="2xl">Profile</AppText>
-        <AppText variant="sm" tone="muted" className="mt-2">
-          Account and app preferences
-        </AppText>
+        <View className="flex-row items-center justify-between">
+          <View className="flex-1 pr-3">
+            <AppText variant="3xl">Profile & Settings</AppText>
+            <AppText variant="sm" tone="muted" className="mt-2">
+              Manage your account and app preferences
+            </AppText>
+          </View>
+          <IconButton icon="notifications-outline" onPress={() => {}} />
+        </View>
       </View>
 
-      <View className="flex-1 px-6 mt-6">
+      <ScrollView
+        className="flex-1 px-6 mt-6"
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: (insets.bottom || 0) + 120 }}
+      >
         {hydrationError ? (
           <View className="flex-1 justify-center">
             <EmptyState
@@ -156,7 +191,7 @@ export default function ProfileScreen() {
             <EmptyState
               title="No books yet"
               message="Create a book to personalize your profile dashboard."
-              actionLabel="Create in switcher"
+              actionLabel="Create book"
               onAction={() => router.push("/modals/book-switcher")}
               className="px-0"
             />
@@ -164,13 +199,19 @@ export default function ProfileScreen() {
         ) : (
           <>
             <Card variant="surface">
-              <AppText variant="lg">PennyWise User</AppText>
-              <AppText variant="sm" tone="muted" className="mt-1">
-                Principal budget tracker
-              </AppText>
+              <View className="flex-row items-center">
+                <CategoryIcon icon="person" color={tokens.colors.accent} size={72} />
+                <View className="ml-4 flex-1">
+                  <AppText variant="xl">{userEmail ?? "Demo account"}</AppText>
+                  <AppText variant="sm" tone="muted" className="mt-1">
+                    Local-first demo workspace
+                  </AppText>
+                </View>
+                <Ionicons name="chevron-forward" size={24} color={tokens.colors.muted} />
+              </View>
 
               <View className="mt-4 flex-row">
-                <View className="flex-1 rounded-lg border border-stroke bg-card p-3 mr-2">
+                <View className="flex-1 rounded-lg border border-stroke bg-surfaceAlt p-3 mr-2">
                   <AppText variant="xs" tone="muted">
                     Books
                   </AppText>
@@ -179,7 +220,7 @@ export default function ProfileScreen() {
                   </AppText>
                 </View>
 
-                <View className="flex-1 rounded-lg border border-stroke bg-card p-3 ml-2">
+                <View className="flex-1 rounded-lg border border-stroke bg-surfaceAlt p-3 ml-2">
                   <AppText variant="xs" tone="muted">
                     Transactions
                   </AppText>
@@ -206,24 +247,29 @@ export default function ProfileScreen() {
               <View className="mt-3 flex-row items-center justify-between">
                 <AppText variant="base">Income</AppText>
                 <AppText variant="base" style={{ color: tokens.colors.accent, fontFamily: "Inter_600SemiBold" }}>
-                  ${(totalIncome / 100).toFixed(2)}
+                  {formatCurrency(totalIncome, currency)}
                 </AppText>
               </View>
 
               <View className="mt-3 flex-row items-center justify-between">
                 <AppText variant="base">Expense</AppText>
                 <AppText variant="base" style={{ fontFamily: "Inter_600SemiBold" }}>
-                  ${(totalExpense / 100).toFixed(2)}
+                  {formatCurrency(totalExpense, currency)}
                 </AppText>
               </View>
             </Card>
 
             <View className="mt-6">
-              <Button label="Add transaction" onPress={() => router.push("/modals/add-transaction")} size="md" />
+              <Button label="Add transaction" onPress={() => router.push("/modals/add-transaction")} size="lg" />
+            </View>
+
+            <View className="mt-3 gap-3">
+              <Button label="Lock demo" variant="outline" onPress={onLock} size="md" />
+              <Button label="Restart demo setup" variant="danger" onPress={onRestartDemo} size="md" />
             </View>
           </>
         )}
-      </View>
+      </ScrollView>
     </View>
   );
 }

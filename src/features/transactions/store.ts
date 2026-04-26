@@ -26,6 +26,10 @@ export type NewTransaction = {
   createdAt?: string;
 };
 
+export type TransactionPatch = Partial<
+  Pick<Transaction, "bookId" | "kind" | "amountCents" | "currency" | "title" | "category" | "note" | "paymentMethod" | "occurredAt">
+>;
+
 type PersistedShapeV3 = {
   transactions: Transaction[];
 };
@@ -34,11 +38,13 @@ type State = {
   transactions: Transaction[];
 
   addTransaction: (tx: NewTransaction) => string;
+  updateTransaction: (id: string, patch: TransactionPatch) => boolean;
   removeTransaction: (id: string) => void;
   clearTransactions: () => void;
 
   insertTransaction: (tx: Transaction, index?: number) => void;
   duplicateTransaction: (id: string) => string | null;
+  renameTransactionCategory: (oldName: string, newName: string) => void;
 };
 
 function makeId() {
@@ -80,40 +86,61 @@ export function normalizePaymentMethod(input: any): PaymentMethod {
   return "cash";
 }
 
+function normalizeAmountCents(input: any, fallback = 0) {
+  const n = Number(input);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(0, Math.round(Math.abs(n)));
+}
+
+function normalizeTransaction(input: NewTransaction, existing?: Transaction): Transaction {
+  const now = new Date().toISOString();
+
+  const category = (input.category ?? existing?.category ?? "Uncategorized").trim() || "Uncategorized";
+  const title = (input.title ?? existing?.title ?? "").trim();
+  const note = input.note !== undefined ? (input.note.trim() ? input.note.trim() : undefined) : existing?.note;
+  const currency = isCurrencyCode(input.currency) ? input.currency : isCurrencyCode(existing?.currency) ? existing.currency : defaultCurrencyFallback();
+
+  return {
+    id: input.id ?? existing?.id ?? makeId(),
+    createdAt: input.createdAt ?? existing?.createdAt ?? now,
+    occurredAt: input.occurredAt ?? existing?.occurredAt ?? now,
+
+    bookId: input.bookId ?? existing?.bookId ?? currentBookIdFallback(),
+
+    kind: input.kind ?? existing?.kind ?? "expense",
+    amountCents: normalizeAmountCents(input.amountCents, existing?.amountCents ?? 0),
+    currency,
+
+    title: title.length ? title : category,
+    category,
+    note,
+
+    paymentMethod: normalizePaymentMethod(input.paymentMethod ?? existing?.paymentMethod),
+  };
+}
+
 export const useTransactionsStore = create<State>()(
   persist(
     (set, get) => ({
       transactions: [],
 
       addTransaction: (input) => {
-        const now = new Date().toISOString();
-
-        const title = (input.title ?? "").trim();
-        const category = (input.category ?? "Uncategorized").trim() || "Uncategorized";
-        const note = input.note?.trim() ? input.note.trim() : undefined;
-
-        const currency = isCurrencyCode(input.currency) ? input.currency : defaultCurrencyFallback();
-
-        const tx: Transaction = {
-          id: input.id ?? makeId(),
-          createdAt: input.createdAt ?? now,
-          occurredAt: input.occurredAt ?? now,
-
-          bookId: input.bookId ?? currentBookIdFallback(),
-
-          kind: input.kind,
-          amountCents: input.amountCents,
-          currency,
-
-          title: title.length ? title : category,
-          category,
-          note,
-
-          paymentMethod: normalizePaymentMethod(input.paymentMethod),
-        };
+        const tx = normalizeTransaction(input);
 
         set((s) => ({ transactions: [tx, ...s.transactions] }));
         return tx.id;
+      },
+
+      updateTransaction: (id, patch) => {
+        let updated = false;
+        set((s) => ({
+          transactions: s.transactions.map((tx) => {
+            if (tx.id !== id) return tx;
+            updated = true;
+            return normalizeTransaction({ ...tx, ...patch, id: tx.id, createdAt: tx.createdAt }, tx);
+          }),
+        }));
+        return updated;
       },
 
       removeTransaction: (id) =>
@@ -149,6 +176,24 @@ export const useTransactionsStore = create<State>()(
 
         set((s) => ({ transactions: [next, ...s.transactions] }));
         return next.id;
+      },
+
+      renameTransactionCategory: (oldName, newName) => {
+        const from = oldName.trim();
+        const to = newName.trim() || "Uncategorized";
+        if (!from || from === to) return;
+
+        set((s) => ({
+          transactions: s.transactions.map((tx) =>
+            tx.category === from
+              ? {
+                  ...tx,
+                  category: to,
+                  title: tx.title === from ? to : tx.title,
+                }
+              : tx
+          ),
+        }));
       },
     }),
     {

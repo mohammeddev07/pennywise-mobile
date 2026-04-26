@@ -17,7 +17,7 @@ type State = {
 
   addBook: (input: Omit<Book, "id"> & { id?: string }) => string;
   updateBook: (id: string, patch: Partial<Omit<Book, "id">>) => void;
-  removeBook: (id: string) => void;
+  removeBook: (id: string) => boolean;
 };
 
 function makeId() {
@@ -25,8 +25,8 @@ function makeId() {
 }
 
 const DEFAULT_BOOKS: Book[] = [
-  { id: "personal", name: "Personal", subtitle: "CashBook Pro", lastSyncedAt: new Date().toISOString() },
-  { id: "business", name: "Business", subtitle: "LLC", lastSyncedAt: new Date().toISOString() },
+  { id: "personal", name: "Personal", subtitle: "Everyday spending", lastSyncedAt: new Date().toISOString() },
+  { id: "business", name: "Business", subtitle: "Work expenses", lastSyncedAt: new Date().toISOString() },
 ];
 
 export const useBooksStore = create<State>()(
@@ -68,11 +68,17 @@ export const useBooksStore = create<State>()(
       },
 
       removeBook: (id) => {
+        let didRemove = false;
         set((s) => {
+          if (s.books.length <= 1) return s;
+          if (!s.books.some((b) => b.id === id)) return s;
+
           const books = s.books.filter((b) => b.id !== id);
           const selectedBookId = s.selectedBookId === id ? (books[0]?.id ?? "personal") : s.selectedBookId;
+          didRemove = true;
           return { books, selectedBookId };
         });
+        return didRemove;
       },
     }),
     {

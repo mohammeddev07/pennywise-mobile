@@ -16,6 +16,7 @@ import { AppText } from "@/shared/ui/components/AppText";
 import { Card } from "@/shared/ui/components/Card";
 import { EmptyState } from "@/shared/ui/components/EmptyState";
 import { Skeleton } from "@/shared/ui/components/Skeleton";
+import { formatSignedCurrency } from "@/shared/utils/formatCurrency";
 
 function safeDate(iso: string) {
   try {
@@ -25,12 +26,6 @@ function safeDate(iso: string) {
   } catch {
     return null;
   }
-}
-
-function formatMoneySigned(kind: "income" | "expense", amountCents: number) {
-  const sign = kind === "income" ? "+" : "-";
-  const dollars = (Math.abs(amountCents) / 100).toFixed(2);
-  return `${sign}$${dollars}`;
 }
 
 function DetailRow({
@@ -150,6 +145,11 @@ export default function TransactionDetailsModal() {
     }
   };
 
+  const onEdit = () => {
+    if (!tx) return;
+    router.push({ pathname: "/modals/edit-transaction", params: { id: tx.id } });
+  };
+
   const retryHydration = () => {
     setHydrationError(false);
     setHydrated(txPersist?.hasHydrated?.() ?? true);
@@ -157,16 +157,16 @@ export default function TransactionDetailsModal() {
   };
 
   return (
-    <View className="flex-1 bg-ink">
+    <View className="flex-1 bg-app">
       <Sheet
-        tone="ink"
+        tone="app"
         className="flex-1"
-        title="Transaction"
+        title="Transaction Details"
         leftAction={
           <HapticPressable
             onPress={() => router.back()}
             className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
-            android_ripple={{ color: "#FFFFFF12", borderless: true }}
+            android_ripple={{ color: "#0B122012", borderless: true }}
           >
             <Ionicons name="chevron-back" size={20} color={tokens.colors.text} />
           </HapticPressable>
@@ -174,18 +174,19 @@ export default function TransactionDetailsModal() {
         rightAction={
           tx ? (
             <HapticPressable
-              onPress={onDelete}
+              onPress={onEdit}
               className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
-              android_ripple={{ color: "#FFFFFF12", borderless: true }}
+              android_ripple={{ color: "#0B122012", borderless: true }}
             >
-              <Ionicons name="trash-outline" size={20} color={tokens.colors.danger} />
+              <Ionicons name="create-outline" size={20} color={tokens.colors.accent} />
             </HapticPressable>
           ) : null
         }
         footer={
           tx ? (
             <View className="gap-3">
-              <Button label="Duplicate" variant="ghost" onPress={onDuplicate} size="md" />
+              <Button label="Edit" onPress={onEdit} size="md" />
+              <Button label="Duplicate" variant="outline" onPress={onDuplicate} size="md" />
               <Button label="Delete" variant="danger" onPress={onDelete} size="md" />
               <Button label="Done" onPress={() => router.back()} size="md" />
             </View>
@@ -219,32 +220,46 @@ export default function TransactionDetailsModal() {
           </View>
         ) : (
           <>
-            <View className="mt-2 items-center">
+            <Card variant="surface" className="mt-2 items-center overflow-hidden">
               <View
-                className="h-14 w-14 items-center justify-center rounded-xl border border-stroke"
+                className="h-24 w-24 items-center justify-center rounded-full"
                 style={{ backgroundColor: `${categoryMeta.color}22` }}
               >
-                <Ionicons name={categoryMeta.icon} size={26} color={categoryMeta.color} />
+                <Ionicons name={categoryMeta.icon} size={44} color={categoryMeta.color} />
               </View>
 
-              <AppText variant="xs" tone="muted" className="mt-4 uppercase">
-                {tx.kind === "income" ? "Income" : "Expense"}
+              <View className="mt-5 rounded-full px-4 py-2" style={{ backgroundColor: tx.kind === "income" ? tokens.colors.greenSoft : tokens.colors.redSoft }}>
+                <AppText variant="sm" style={{ color: tx.kind === "income" ? tokens.colors.accent : tokens.colors.danger, fontFamily: "Inter_600SemiBold" }}>
+                  {tx.kind === "income" ? "Income" : "Expense"}
+                </AppText>
+              </View>
+
+              <AppText variant="2xl" className="mt-5" numberOfLines={1}>
+                {tx.title || categoryMeta.name}
+              </AppText>
+
+              <AppText variant="base" tone="muted" className="mt-2" numberOfLines={1}>
+                {categoryMeta.name}
               </AppText>
 
               <AppText
                 variant="amount"
-                className="mt-2"
+                className="mt-4"
                 style={{ color: tx.kind === "income" ? tokens.colors.accent : tokens.colors.text }}
               >
-                {formatMoneySigned(tx.kind, tx.amountCents)}
+                {formatSignedCurrency(tx.kind === "income" ? tx.amountCents : -tx.amountCents, tx.currency)}
               </AppText>
 
               <AppText variant="base" tone="muted" className="mt-2">
-                {categoryMeta.name}
+                {dateLabel} • {timeLabel}
               </AppText>
+            </Card>
+
+            <View className="mt-6">
+              <AppText variant="lg">Transaction Details</AppText>
             </View>
 
-            <Card variant="surface" className="mt-6 p-0 overflow-hidden">
+            <Card variant="surface" className="mt-3 p-0 overflow-hidden">
               <DetailRow label="Title" value={tx.title || "—"} icon="create-outline" muted={!tx.title} />
               <View className="h-px bg-stroke" />
               <DetailRow label="Payment method" value={(tx.paymentMethod || "cash").toLowerCase()} icon="card-outline" />

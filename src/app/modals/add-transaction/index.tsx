@@ -1,22 +1,53 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ScrollView, View } from "react-native";
+import { ScrollView, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { parseISO, format } from "date-fns";
 
 import { NumericKeypad, type Key } from "@/shared/ui/NumericKeypad";
 import { tokens } from "@/shared/ui/theme/tokens";
 import { useBooksStore } from "@/features/books/store";
 import { useAddTransactionDraftStore } from "@/features/transactions/addDraftStore";
+import { useSettingsStore } from "@/features/settings/store";
+import { currencySymbol } from "@/shared/utils/formatCurrency";
 
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { Sheet } from "@/shared/ui/components/Sheet";
 import { AppText } from "@/shared/ui/components/AppText";
-import { SelectRow } from "@/shared/ui/components/SelectRow";
 import { AmountInput, applyAmountKey } from "@/shared/ui/components/AmountInput";
-import { Button } from "@/shared/ui/components/Button";
 import { EmptyState } from "@/shared/ui/components/EmptyState";
-import { Input } from "@/shared/ui/components/Input";
+import { Card } from "@/shared/ui/components/Card";
+
+const COLORS = {
+  bg: tokens.colors.app,
+  surface: tokens.colors.surface,
+  card: tokens.colors.card,
+  stroke: tokens.colors.stroke,
+  text: tokens.colors.text,
+  muted: tokens.colors.muted,
+  accent: tokens.colors.accent,
+  danger: tokens.colors.danger,
+} as const;
+
+const SPACING = {
+  0: tokens.space[0],
+  4: tokens.space[1],
+  8: tokens.space[2],
+  12: tokens.space[3],
+  16: tokens.space[4],
+  20: tokens.space[5],
+  24: tokens.space[6],
+  32: tokens.space[7],
+  40: tokens.space[8],
+} as const;
+
+const RADIUS = {
+  input: tokens.radii.md,
+  card: tokens.radii.lg,
+  sheet: tokens.radii.xl,
+  pill: tokens.radii.pill,
+} as const;
 
 function safeWhenLabel(iso: string) {
   try {
@@ -27,13 +58,80 @@ function safeWhenLabel(iso: string) {
   }
 }
 
+function FormPressRow({
+  label,
+  value,
+  placeholder,
+  onPress,
+}: {
+  label: string;
+  value?: string;
+  placeholder: string;
+  onPress: () => void;
+}) {
+  return (
+    <HapticPressable
+      onPress={onPress}
+      haptic="selection"
+      pressScale={0.99}
+      style={styles.formRow}
+      android_ripple={{ color: "#0B122012" }}
+    >
+      <View style={styles.formLabelWrap}>
+        <AppText variant="sm" tone="muted">
+          {label}
+        </AppText>
+        <AppText variant="base" numberOfLines={1} style={{ color: value ? COLORS.text : COLORS.muted }}>
+          {value || placeholder}
+        </AppText>
+      </View>
+      <View style={styles.chevronTarget}>
+        <Ionicons name="chevron-forward" size={18} color={COLORS.muted} />
+      </View>
+    </HapticPressable>
+  );
+}
+
+function ReviewButton({
+  disabled,
+  onPress,
+}: {
+  disabled?: boolean;
+  onPress: () => void;
+}) {
+  const [pressed, setPressed] = useState(false);
+
+  return (
+    <HapticPressable
+      onPress={onPress}
+      disabled={disabled}
+      haptic="selection"
+      pressScale={0.98}
+      pressOpacity={1}
+      onPressIn={() => setPressed(true)}
+      onPressOut={() => setPressed(false)}
+      style={[
+        styles.reviewButton,
+        { backgroundColor: pressed && !disabled ? tokens.colors.accentPressed : tokens.colors.accent },
+      ]}
+      android_ripple={{ color: "#FFFFFF22" }}
+    >
+      <AppText variant="lg" style={styles.reviewButtonText}>
+        Review Transaction
+      </AppText>
+    </HapticPressable>
+  );
+}
+
 export default function AddTransactionEntry() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const books = useBooksStore((s) => s.books);
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
   const addBook = useBooksStore((s) => s.addBook);
   const setSelectedBookId = useBooksStore((s) => s.setSelectedBookId);
+  const primaryCurrency = useSettingsStore((s) => s.primaryCurrency);
 
   const resetDraft = useAddTransactionDraftStore((s) => s.reset);
 
@@ -48,7 +146,6 @@ export default function AddTransactionEntry() {
   const setAmount = useAddTransactionDraftStore((s) => s.setAmount);
   const setKind = useAddTransactionDraftStore((s) => s.setKind);
   const setBookId = useAddTransactionDraftStore((s) => s.setBookId);
-  const setTitle = useAddTransactionDraftStore((s) => s.setTitle);
   const [reviewAttempted, setReviewAttempted] = useState(false);
 
   const didInitRef = useRef(false);
@@ -72,8 +169,7 @@ export default function AddTransactionEntry() {
   }, [selectedBook?.id, setBookId, selectedBook]);
 
   const valueNum = useMemo(() => Number(amount || "0") || 0, [amount]);
-  const hasTitle = title.trim().length > 0;
-  const canReview = valueNum > 0 && hasTitle;
+  const canReview = valueNum > 0;
 
   const close = () => {
     resetDraft();
@@ -82,9 +178,8 @@ export default function AddTransactionEntry() {
     else router.replace("/(tabs)/home");
   };
 
-  const onKey = (k: Key) => {
-    const next = applyAmountKey(amount, k);
-    setAmount(next);
+  const applyKey = (k: Key) => {
+    setAmount(applyAmountKey(amount, k));
   };
 
   const goReview = () => {
@@ -113,27 +208,33 @@ export default function AddTransactionEntry() {
   };
 
   return (
-    <View className="flex-1 bg-ink">
+    <View style={styles.screen}>
       <Sheet
-        tone="ink"
-        className="flex-1"
+        tone="app"
+        style={styles.sheet}
         title="New transaction"
+        footerVariant="fullBleed"
         leftAction={
           <HapticPressable
             onPress={close}
-            className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
-            android_ripple={{ color: "#FFFFFF12", borderless: true }}
+            style={styles.closeButton}
+            android_ripple={{ color: "#0B122012", borderless: true }}
           >
-            <Ionicons name="close" size={18} color={tokens.colors.text} />
+            <Ionicons name="close" size={18} color={COLORS.text} />
           </HapticPressable>
         }
         footer={
-          <View>
-            <Button label="Review" onPress={goReview} disabled={!canReview || !selectedBook} size="md" />
-            <View className="mt-2">
-              <NumericKeypad onKey={onKey} keyHeight={56} containerClassName="px-2" />
+          hasBooks ? (
+            <View style={[styles.footer, { paddingBottom: insets.bottom + SPACING[8] }]}>
+              <ReviewButton onPress={goReview} disabled={!canReview || !selectedBook} />
+              <NumericKeypad
+                onPress={(key) => applyKey(key as Key)}
+                onDelete={() => applyKey("back")}
+                decimalAllowed
+                disabled={!selectedBook}
+              />
             </View>
-          </View>
+          ) : null
         }
       >
         {!hasBooks ? (
@@ -142,87 +243,241 @@ export default function AddTransactionEntry() {
             message="Create a book to start tracking transactions."
             actionLabel="Create a book"
             onAction={createDefaultBook}
+            className="px-0"
           />
         ) : (
-          <>
-            <SelectRow
-              label="Book"
-              value={selectedBook?.name}
-              placeholder="Select book"
-              onPress={() => router.push("/modals/book-switcher")}
-              className="mt-2"
-            />
-
-            <View className="mt-6 items-center">
-              <View className="flex-row rounded-full border border-stroke bg-surface overflow-hidden">
-                <HapticPressable
-                  onPress={() => setKind("expense")}
-                  haptic="selection"
-                  pressScale={0.99}
-                  className={`px-6 h-12 items-center justify-center ${kind === "expense" ? "bg-card" : ""}`}
-                >
-                  <AppText variant="sm" className={kind === "expense" ? "text-text" : "text-muted"}>
-                    Expense
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={styles.content}
+          >
+            <Card style={styles.amountCard}>
+              <View style={styles.amountHeader}>
+                <View style={styles.currencyPill}>
+                  <AppText variant="sm" style={styles.semibold}>
+                    {primaryCurrency}
                   </AppText>
-                </HapticPressable>
-
-                <HapticPressable
-                  onPress={() => setKind("income")}
-                  haptic="selection"
-                  pressScale={0.99}
-                  className={`px-6 h-12 items-center justify-center ${kind === "income" ? "bg-card" : ""}`}
-                >
-                  <AppText variant="sm" className={kind === "income" ? "text-text" : "text-muted"}>
-                    Income
-                  </AppText>
-                </HapticPressable>
+                  <Ionicons name="chevron-down" size={16} color={COLORS.muted} style={{ marginLeft: 8 }} />
+                </View>
+                <View style={styles.calculatorBubble}>
+                  <Ionicons name="calculator-outline" size={24} color={COLORS.accent} />
+                </View>
               </View>
-            </View>
 
-            <View className="items-center mt-8">
-              <AmountInput
-                value={amount}
-                kind={kind}
-                currencySymbol="$"
-                helperText={kind === "expense" ? "Money out" : "Money in"}
-              />
-            </View>
+              <View style={styles.amountBlock}>
+                <AmountInput
+                  value={amount}
+                  type={kind}
+                  currencySymbol={currencySymbol(primaryCurrency)}
+                  helperText={kind === "expense" ? "Money out" : "Money in"}
+                  error={reviewAttempted && valueNum <= 0 ? "Amount is required." : undefined}
+                />
+              </View>
 
-            <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 24 }}>
-              <Input
-                value={title}
-                onChangeText={setTitle}
+              <View style={styles.segmented}>
+                <View pointerEvents="none" style={styles.segmentTrack} />
+                {(["expense", "income"] as const).map((item) => {
+                  const active = kind === item;
+                  return (
+                    <HapticPressable
+                      key={item}
+                      onPress={() => setKind(item)}
+                      haptic="selection"
+                      pressScale={0.99}
+                      style={styles.segmentHit}
+                    >
+                      <View style={[styles.segmentVisual, active ? styles.segmentActive : null]}>
+                        <Ionicons
+                          name={item === "expense" ? "arrow-down" : "arrow-up"}
+                          size={20}
+                          color={active ? COLORS.accent : COLORS.muted}
+                          style={{ marginRight: 8 }}
+                        />
+                        <AppText variant="base" style={[styles.segmentText, { color: active ? COLORS.accent : COLORS.text }]}>
+                          {item === "expense" ? "Expense" : "Income"}
+                        </AppText>
+                      </View>
+                    </HapticPressable>
+                  );
+                })}
+              </View>
+            </Card>
+
+            <View style={styles.formGroup}>
+              <FormPressRow
                 label="Title"
+                value={title}
                 placeholder="Coffee, Uber, Rent"
-                autoCapitalize="words"
-                returnKeyType="done"
-                error={reviewAttempted && !hasTitle ? "Title is required." : undefined}
+                onPress={() => router.push("/modals/add-transaction/title")}
               />
-
-              <View className="mt-4 gap-2">
-                <SelectRow
-                  label="When"
-                  value={safeWhenLabel(occurredAt)}
-                  placeholder="Now"
-                  onPress={() => router.push("/modals/add-transaction/datetime")}
-                />
-                <SelectRow
-                  label="Category"
-                  value={category}
-                  placeholder="Uncategorized"
-                  onPress={() => router.push("/modals/add-transaction/category")}
-                />
-                <SelectRow
-                  label="Note"
-                  value={note}
-                  placeholder="Add details"
-                  onPress={() => router.push("/modals/add-transaction/note")}
-                />
-              </View>
-            </ScrollView>
-          </>
+              <View style={styles.divider} />
+              <FormPressRow
+                label="When"
+                value={safeWhenLabel(occurredAt)}
+                placeholder="Now"
+                onPress={() => router.push("/modals/add-transaction/datetime")}
+              />
+              <View style={styles.divider} />
+              <FormPressRow
+                label="Category"
+                value={category}
+                placeholder="Uncategorized"
+                onPress={() => router.push("/modals/add-transaction/category")}
+              />
+              <View style={styles.divider} />
+              <FormPressRow
+                label="Note"
+                value={note}
+                placeholder="Add details"
+                onPress={() => router.push("/modals/add-transaction/note")}
+              />
+            </View>
+          </ScrollView>
         )}
       </Sheet>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: COLORS.bg,
+  },
+  sheet: {
+    flex: 1,
+    backgroundColor: COLORS.bg,
+  },
+  closeButton: {
+    width: 48,
+    height: 48,
+    borderRadius: RADIUS.pill,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  content: {
+    paddingTop: SPACING[16],
+    paddingBottom: SPACING[24],
+  },
+  amountCard: {
+    padding: SPACING[16],
+  },
+  amountHeader: {
+    minHeight: 48,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  currencyPill: {
+    minHeight: 44,
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: RADIUS.pill,
+    borderWidth: 1,
+    borderColor: COLORS.stroke,
+    paddingHorizontal: SPACING[16],
+  },
+  calculatorBubble: {
+    width: 56,
+    height: 56,
+    borderRadius: RADIUS.pill,
+    backgroundColor: tokens.colors.greenSoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  segmented: {
+    width: "100%",
+    height: 58,
+    alignSelf: "center",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+    marginTop: SPACING[24],
+  },
+  segmentTrack: {
+    position: "absolute",
+    left: SPACING[0],
+    right: SPACING[0],
+    height: 54,
+    borderRadius: RADIUS.pill,
+    borderWidth: 1,
+    borderColor: COLORS.stroke,
+    backgroundColor: COLORS.surface,
+  },
+  segmentHit: {
+    flex: 1,
+    height: 58,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  segmentVisual: {
+    width: "96%",
+    height: 48,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: RADIUS.pill,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  segmentActive: {
+    borderColor: tokens.colors.greenSoft,
+    backgroundColor: tokens.colors.greenSoft,
+  },
+  segmentText: {
+    fontFamily: "Inter_600SemiBold",
+  },
+  amountBlock: {
+    marginTop: SPACING[20],
+    alignItems: "center",
+  },
+  formGroup: {
+    marginTop: SPACING[40],
+    overflow: "hidden",
+    borderRadius: RADIUS.card,
+    borderWidth: 1,
+    borderColor: COLORS.stroke,
+    backgroundColor: COLORS.surface,
+  },
+  formRow: {
+    minHeight: 64,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingLeft: SPACING[16],
+  },
+  formLabelWrap: {
+    flex: 1,
+    gap: SPACING[4],
+  },
+  chevronTarget: {
+    width: 48,
+    height: 48,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  divider: {
+    height: 1,
+    marginLeft: SPACING[16],
+    backgroundColor: COLORS.stroke,
+  },
+  footer: {
+    backgroundColor: COLORS.bg,
+    paddingHorizontal: SPACING[24],
+    gap: SPACING[8],
+  },
+  reviewButton: {
+    width: "100%",
+    height: 56,
+    borderRadius: RADIUS.input,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  reviewButtonText: {
+    color: tokens.colors.white,
+    fontFamily: "Inter_700Bold",
+  },
+  semibold: {
+    fontFamily: "Inter_600SemiBold",
+  },
+});

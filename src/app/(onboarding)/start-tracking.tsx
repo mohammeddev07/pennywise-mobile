@@ -9,11 +9,13 @@ import { EmptyState } from "@/shared/ui/components/EmptyState";
 import { Skeleton } from "@/shared/ui/components/Skeleton";
 import { useBooksStore } from "@/features/books/store";
 import { useSettingsStore } from "@/features/settings/store";
+import { useAuthStore } from "@/features/auth/store";
 
 export default function StartTrackingScreen() {
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
   const books = useBooksStore((s) => s.books);
   const currency = useSettingsStore((s) => s.primaryCurrency);
+  const completeOnboarding = useAuthStore((s) => s.completeOnboarding);
 
   const booksPersist = (useBooksStore as any).persist;
   const settingsPersist = (useSettingsStore as any).persist;
@@ -118,6 +120,7 @@ export default function StartTrackingScreen() {
         <Button
           label="Open dashboard"
           onPress={() => {
+            completeOnboarding();
             router.replace("/(tabs)/home");
           }}
         />

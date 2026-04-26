@@ -1,10 +1,9 @@
 import { type ReactNode, useRef } from "react";
-import { View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
-  interpolate,
   runOnJS,
+  type SharedValue,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -19,9 +18,9 @@ type Props = {
   disabled?: boolean;
   onSubmit: () => void;
   thresholdPx?: number;
-  minVelocityY?: number;
   variant?: "hint" | "panel";
   panelSafeBottom?: number;
+  progressValue?: SharedValue<number>;
   children?: ReactNode;
 };
 
@@ -35,9 +34,9 @@ export function SwipeUpToSubmit({
   disabled = false,
   onSubmit,
   thresholdPx = 64,
-  minVelocityY = -800,
   variant = "hint",
   panelSafeBottom = 0,
+  progressValue,
   children,
 }: Props) {
   const dragY = useSharedValue(0);
@@ -63,17 +62,24 @@ export function SwipeUpToSubmit({
     .activeOffsetY([-8, 9999])
     .onUpdate((e) => {
       if (disabled) return;
-      dragY.value = clamp(e.translationY, -80, 0);
+      dragY.value = clamp(e.translationY, -thresholdPx, 0);
+      if (progressValue) {
+        progressValue.value = Math.min(1, Math.abs(dragY.value) / thresholdPx);
+      }
     })
     .onEnd((e) => {
       if (disabled) {
         dragY.value = withTiming(0, { duration: 120 });
+        if (progressValue) progressValue.value = withTiming(0, { duration: 120 });
         return;
       }
 
-      const shouldSubmit = e.translationY <= -thresholdPx || e.velocityY <= minVelocityY;
+      const shouldSubmit = e.translationY <= -thresholdPx;
       if (shouldSubmit) {
+        if (progressValue) progressValue.value = withTiming(1, { duration: 120 });
         runOnJS(onTriggered)();
+      } else if (progressValue) {
+        progressValue.value = withTiming(0, { duration: 140 });
       }
 
       dragY.value = withTiming(0, { duration: 140 });
@@ -83,64 +89,57 @@ export function SwipeUpToSubmit({
     });
 
   const handleStyle = useAnimatedStyle(() => {
-    const progress = interpolate(Math.abs(dragY.value), [0, thresholdPx], [0, 1]);
+    const progress = Math.min(1, Math.abs(dragY.value) / thresholdPx);
     return {
-      transform: [{ translateY: dragY.value * 0.15 }],
+      transform: [{ translateY: dragY.value * 0.2 }],
       opacity: disabled ? 0.4 : 1 - progress * 0.06,
     };
   });
 
   const contentStyle = useAnimatedStyle(() => {
-    const progress = interpolate(Math.abs(dragY.value), [0, thresholdPx], [0, 1]);
+    const progress = Math.min(1, Math.abs(dragY.value) / thresholdPx);
     return {
-      transform: [{ scale: 1 + progress * 0.006 }],
+      transform: variant === "panel" ? [{ translateY: 0 }] : [{ scale: 1 + progress * 0.006 }],
       opacity: disabled ? 0.4 : 1 - progress * 0.04,
     };
   });
 
-  const tapGesture = Gesture.Tap()
-    .enabled(!disabled)
-    .maxDuration(220)
-    .onEnd((_event, success) => {
-      if (!success) return;
-      runOnJS(onTriggered)();
-    });
-
-  const composed = Gesture.Simultaneous(gesture, tapGesture);
-
   return (
-    <GestureDetector gesture={composed}>
+    <GestureDetector gesture={gesture}>
       <Animated.View>
         {variant === "panel" ? (
-          <Animated.View
-            className="w-full items-center"
-            style={[
-              {
-                backgroundColor: tokens.colors.accent,
-                paddingTop: 8,
-                paddingBottom: panelSafeBottom + 12,
-                paddingHorizontal: 24,
-              },
-              contentStyle,
-            ]}
-          >
+          <Animated.View style={{ overflow: "visible", position: "relative" }}>
             <Animated.View
-              className="h-1 w-12 rounded-full"
-              style={[{ backgroundColor: "#00000022" }, handleStyle]}
-            />
+              className="w-full items-center"
+              style={[
+                {
+                  backgroundColor: tokens.colors.accent,
+                  paddingTop: 8,
+                  paddingBottom: panelSafeBottom + 12,
+                  paddingHorizontal: 24,
+                  zIndex: 1,
+                },
+                contentStyle,
+              ]}
+            >
+              <Animated.View
+                className="h-1 w-12 rounded-full"
+                style={[{ backgroundColor: "#00000022" }, handleStyle]}
+              />
 
-            <Animated.View className="mt-3 min-h-11 flex-row items-center justify-center" style={handleStyle}>
-              <Ionicons name="chevron-up" size={16} color={tokens.colors.black} />
-              <AppText
-                variant="xl"
-                className="ml-2"
-                style={{ color: tokens.colors.black, fontFamily: "Inter_600SemiBold" }}
-              >
-                {label}
-              </AppText>
+              <Animated.View className="mt-3 min-h-11 flex-row items-center justify-center" style={handleStyle}>
+                <Ionicons name="chevron-up" size={16} color={tokens.colors.white} />
+                <AppText
+                  variant="xl"
+                  className="ml-2"
+                  style={{ color: tokens.colors.white, fontFamily: "Inter_600SemiBold" }}
+                >
+                  {label}
+                </AppText>
+              </Animated.View>
+
+              {children}
             </Animated.View>
-
-            {children}
           </Animated.View>
         ) : (
           <>
@@ -154,12 +153,12 @@ export function SwipeUpToSubmit({
                 handleStyle,
               ]}
             >
-              <Ionicons name="chevron-up" size={16} color={disabled ? tokens.colors.muted : tokens.colors.black} />
+              <Ionicons name="chevron-up" size={16} color={disabled ? tokens.colors.muted : tokens.colors.white} />
               <AppText
                 variant="sm"
                 className="ml-1"
                 style={{
-                  color: disabled ? tokens.colors.muted : tokens.colors.black,
+                  color: disabled ? tokens.colors.muted : tokens.colors.white,
                   fontFamily: "Inter_600SemiBold",
                 }}
               >

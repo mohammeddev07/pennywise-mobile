@@ -6,6 +6,9 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { tokens } from "@/shared/ui/theme/tokens";
 import { Button } from "@/shared/ui/components/Button";
 import { useCategoriesStore } from "@/features/categories/store";
+import { useTransactionsStore } from "@/features/transactions/store";
+import { useBudgetsStore } from "@/features/budgets/store";
+import { useBooksStore } from "@/features/books/store";
 import { Sheet } from "@/shared/ui/components/Sheet";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { AppText } from "@/shared/ui/components/AppText";
@@ -31,7 +34,7 @@ const ICONS = [
   "wallet-outline",
 ] as const;
 
-const COLORS = ["#00C805", "#60A5FA", "#A78BFA", "#F472B6", "#FFB020", "#34D399", "#F87171", "#94A3B8"];
+const COLORS = ["#22C55E", "#60A5FA", "#A78BFA", "#F472B6", "#FFB020", "#34D399", "#F87171", "#94A3B8"];
 
 export default function CategoryEditorModal() {
   const router = useRouter();
@@ -44,6 +47,10 @@ export default function CategoryEditorModal() {
   const updateCategory = useCategoriesStore((s) => s.updateCategory);
   const removeCategory = useCategoriesStore((s) => s.removeCategory);
   const markLastCreatedCategoryName = useCategoriesStore((s) => s.markLastCreatedCategoryName);
+  const renameTransactionCategory = useTransactionsStore((s) => s.renameTransactionCategory);
+  const books = useBooksStore((s) => s.books);
+  const renameBudgetCategory = useBudgetsStore((s) => s.renameBudgetCategory);
+  const removeBudgetForCategory = useBudgetsStore((s) => s.removeBudgetForCategory);
 
   const persist = (useCategoriesStore as any).persist;
   const [hydrated, setHydrated] = useState<boolean>(() => persist?.hasHydrated?.() ?? true);
@@ -107,7 +114,12 @@ export default function CategoryEditorModal() {
     const finalName = name.trim() || "Untitled";
 
     if (editing) {
+      const previousName = editing.name;
       updateCategory(editing.id, { name: finalName, icon, color });
+      renameTransactionCategory(previousName, finalName);
+      for (const book of books) {
+        renameBudgetCategory(book.id, previousName, finalName);
+      }
       router.back();
       return;
     }
@@ -130,6 +142,9 @@ export default function CategoryEditorModal() {
         text: "Delete",
         style: "destructive",
         onPress: () => {
+          for (const book of books) {
+            removeBudgetForCategory(book.id, editing.name);
+          }
           removeCategory(editing.id);
           router.back();
         },
@@ -138,16 +153,16 @@ export default function CategoryEditorModal() {
   };
 
   return (
-    <View className="flex-1 bg-ink">
+    <View className="flex-1 bg-app">
       <Sheet
-        tone="ink"
+        tone="app"
         className="flex-1"
         title={title}
         leftAction={
           <HapticPressable
             onPress={() => router.back()}
             className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
-            android_ripple={{ color: "#FFFFFF12", borderless: true }}
+            android_ripple={{ color: "#0B122012", borderless: true }}
           >
             <Ionicons name="close" size={20} color={tokens.colors.text} />
           </HapticPressable>
@@ -157,7 +172,7 @@ export default function CategoryEditorModal() {
             <HapticPressable
               onPress={onDelete}
               className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
-              android_ripple={{ color: "#FFFFFF12", borderless: true }}
+              android_ripple={{ color: "#0B122012", borderless: true }}
             >
               <Ionicons name="trash-outline" size={20} color={tokens.colors.danger} />
             </HapticPressable>
@@ -221,7 +236,7 @@ export default function CategoryEditorModal() {
                         borderColor: active ? tokens.colors.accent : tokens.colors.stroke,
                         backgroundColor: active ? `${tokens.colors.accent}14` : tokens.colors.surface,
                       }}
-                      android_ripple={{ color: "#FFFFFF10", borderless: true }}
+                      android_ripple={{ color: "#0B122012", borderless: true }}
                     >
                       <Ionicons name={n as any} size={20} color={active ? tokens.colors.accent : tokens.colors.text} />
                     </HapticPressable>
@@ -246,7 +261,7 @@ export default function CategoryEditorModal() {
                       pressScale={0.98}
                       className="h-12 w-12 items-center justify-center rounded-full border mr-3 mb-3"
                       style={{ borderColor: active ? tokens.colors.text : tokens.colors.stroke, backgroundColor: tokens.colors.surface }}
-                      android_ripple={{ color: "#FFFFFF10", borderless: true }}
+                      android_ripple={{ color: "#0B122012", borderless: true }}
                     >
                       <View className="h-7 w-7 rounded-full" style={{ backgroundColor: c }} />
                     </HapticPressable>

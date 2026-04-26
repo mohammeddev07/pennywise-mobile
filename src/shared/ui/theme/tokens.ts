@@ -1,34 +1,51 @@
 export const tokens = {
-  // Keep existing keys for backwards compatibility
+  // Keep existing keys for backwards compatibility while mapping them to the
+  // light-first visual system from /Light_design.
   colors: {
-    app: "#0B0F14",
-    ink: "#000000",
-    surface: "#10151D",
-    card: "#141A23",
-    stroke: "#1C2430",
-    accent: "#00C805",
-    accentPressed: "#009624",
-    text: "#E7EEF8",
-    muted: "#93A4B7",
-    danger: "#FF4D4D",
+    app: "#F8FAFC",
+    ink: "#0B1220",
+    surface: "#FFFFFF",
+    card: "#FFFFFF",
+    surfaceAlt: "#F3F7F4",
+    stroke: "#E6EAF0",
+    accent: "#00C313",
+    accentPressed: "#00A80F",
+    text: "#0B1220",
+    muted: "#7A8596",
+    danger: "#FF4D57",
     warning: "#F59E0B",
-    success: "#00C805",
+    success: "#00C313",
     black: "#000000",
+    white: "#FFFFFF",
+    greenSoft: "#EAFBEA",
+    redSoft: "#FFE9EA",
+    amberSoft: "#FFF4DD",
+    blueSoft: "#EEF5FF",
+    purpleSoft: "#F2EEFF",
+    neutralSoft: "#F2F4F7",
   },
 
   semantic: {
-    bg: "#0B0F14",
-    surface: "#10151D",
-    surfaceAlt: "#141A23",
-    text: "#E7EEF8",
-    textMuted: "#93A4B7",
-    border: "#1C2430",
-    primary: "#00C805",
-    primaryPressed: "#009624",
-    danger: "#FF4D4D",
+    bg: "#F8FAFC",
+    surface: "#FFFFFF",
+    surfaceAlt: "#F3F7F4",
+    text: "#0B1220",
+    textMuted: "#7A8596",
+    border: "#E6EAF0",
+    primary: "#00C313",
+    primaryPressed: "#00A80F",
+    primarySoft: "#EAFBEA",
+    danger: "#FF4D57",
+    dangerSoft: "#FFE9EA",
     warning: "#F59E0B",
-    success: "#00C805",
-    ink: "#000000",
+    warningSoft: "#FFF4DD",
+    success: "#00C313",
+    info: "#5B5BF7",
+    infoSoft: "#EEF5FF",
+    purple: "#8B5CF6",
+    purpleSoft: "#F2EEFF",
+    neutralSoft: "#F2F4F7",
+    ink: "#0B1220",
   },
 
   // Allowed spacing only
@@ -62,7 +79,8 @@ export const tokens = {
     lg: { fontSize: 18, lineHeight: 24, fontFamily: "Inter_600SemiBold" },
     xl: { fontSize: 20, lineHeight: 28, fontFamily: "Inter_600SemiBold" },
     "2xl": { fontSize: 28, lineHeight: 34, fontFamily: "Inter_700Bold" },
-    amount: { fontSize: 48, lineHeight: 52, fontFamily: "Inter_700Bold" },
+    "3xl": { fontSize: 40, lineHeight: 46, fontFamily: "Inter_700Bold" },
+    amount: { fontSize: 48, lineHeight: 54, fontFamily: "Inter_700Bold" },
   },
 
   layout: {
@@ -76,13 +94,41 @@ export const tokens = {
   },
 
   elevation: {
+    card: {
+      ios: {
+        shadowColor: "#0F172A",
+        shadowOpacity: 0.06,
+        shadowRadius: 18,
+        shadowOffset: { width: 0, height: 10 },
+      },
+      android: { elevation: 2 },
+    },
     sheet: {
-      ios: { shadowOpacity: 0.35, shadowRadius: 24, shadowOffset: { width: 0, height: 10 } },
+      ios: {
+        shadowColor: "#0F172A",
+        shadowOpacity: 0.08,
+        shadowRadius: 24,
+        shadowOffset: { width: 0, height: 12 },
+      },
       android: { elevation: 8 },
     },
     toast: {
-      ios: { shadowOpacity: 0.25, shadowRadius: 18, shadowOffset: { width: 0, height: 8 } },
+      ios: {
+        shadowColor: "#0F172A",
+        shadowOpacity: 0.12,
+        shadowRadius: 18,
+        shadowOffset: { width: 0, height: 8 },
+      },
       android: { elevation: 6 },
+    },
+    tabBar: {
+      ios: {
+        shadowColor: "#0F172A",
+        shadowOpacity: 0.09,
+        shadowRadius: 20,
+        shadowOffset: { width: 0, height: 10 },
+      },
+      android: { elevation: 8 },
     },
   },
 } as const;

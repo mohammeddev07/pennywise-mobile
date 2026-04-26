@@ -110,24 +110,24 @@ export default function BudgetEditor() {
   };
 
   return (
-    <View className="flex-1 bg-ink">
+    <View className="flex-1 bg-app">
       <Sheet
-        tone="ink"
+        tone="app"
         className="flex-1"
-        title="Budget"
+        title={cat ? `${cat} Budget` : "Budget"}
         leftAction={
           <HapticPressable
             onPress={() => router.back()}
             className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
-            android_ripple={{ color: "#FFFFFF12", borderless: true }}
+            android_ripple={{ color: "#0B122012", borderless: true }}
           >
             <Ionicons name="chevron-back" size={20} color={tokens.colors.text} />
           </HapticPressable>
         }
         footer={
           <View className="gap-3">
-            <Button label="Save budget" disabled={!canSave || !cat} onPress={onSave} size="md" />
-            {existing ? <Button label="Remove budget" variant="danger" onPress={onRemove} size="md" /> : null}
+            <Button label="Save Budget" disabled={!canSave || !cat} onPress={onSave} size="md" />
+            {existing ? <Button label="Reset Budget" variant="secondary" onPress={onRemove} size="md" /> : null}
           </View>
         }
       >
@@ -158,11 +158,25 @@ export default function BudgetEditor() {
         ) : (
           <>
             <Card variant="surface" className="mt-2">
+              <View className="flex-row items-center">
+                <View className="h-20 w-20 items-center justify-center rounded-full bg-amberSoft">
+                  <Ionicons name="pie-chart-outline" size={36} color={tokens.colors.warning} />
+                </View>
+                <View className="ml-4 flex-1">
+                  <AppText variant="2xl">
+                    {cat}
+                  </AppText>
+                  <AppText variant="base" tone="muted" className="mt-1">
+                    This Month
+                  </AppText>
+                </View>
+              </View>
+              <View className="mt-6 h-px bg-stroke" />
               <AppText variant="xs" tone="muted" className="uppercase">
-                Category
+                Monthly budget
               </AppText>
               <AppText variant="xl" className="mt-2">
-                {cat}
+                {existing ? centsToText(existing) : "No budget set"}
               </AppText>
             </Card>
 

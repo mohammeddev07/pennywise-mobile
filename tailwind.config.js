@@ -10,32 +10,40 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // Core app backgrounds
-        app: "#0B0F14",     // global app background (near-black)
-        ink: "#000000",     // pure black (Add Transaction flow ONLY)
-        surface: "#10151D", // elevated surfaces
-        card: "#141A23",
+        // Core light app backgrounds
+        app: "#F8FAFC",
+        ink: "#0B1220",
+        surface: "#FFFFFF",
+        card: "#FFFFFF",
+        surfaceAlt: "#F3F7F4",
 
         // Strokes & text
-        stroke: "#1C2430",
-        text: "#E7EEF8",
-        muted: "#93A4B7",
+        stroke: "#E6EAF0",
+        text: "#0B1220",
+        muted: "#7A8596",
 
         // Accent
-        accent: "#00C805",
-        accentPressed: "#009624",
+        accent: "#00C313",
+        accentPressed: "#00A80F",
+        accentSoft: "#EAFBEA",
 
         // Optional utility
-        danger: "#FF4D4D",
+        danger: "#FF4D57",
+        dangerSoft: "#FFE9EA",
 
-        // Keep your previous light tokens if you want (harmless)
-        backgroundLight: "#f6f6f8",
-        textLight: "#111218",
-        textMutedLight: "#616889",
+        backgroundLight: "#F8FAFC",
+        textLight: "#0B1220",
+        textMutedLight: "#7A8596",
 
-        // inside extend.colors
         warning: "#F59E0B",
-        success: "#00C805",
+        warningSoft: "#FFF4DD",
+        success: "#00C313",
+        greenSoft: "#EAFBEA",
+        redSoft: "#FFE9EA",
+        amberSoft: "#FFF4DD",
+        blueSoft: "#EEF5FF",
+        purpleSoft: "#F2EEFF",
+        neutralSoft: "#F2F4F7",
       },
       borderRadius: {
         DEFAULT: "8px",

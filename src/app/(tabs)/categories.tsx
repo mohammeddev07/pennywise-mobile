@@ -11,11 +11,15 @@ import { useCategoriesStore } from "@/features/categories/store";
 import { useTransactionsStore } from "@/features/transactions/store";
 import { useBooksStore } from "@/features/books/store";
 import { useBudgetsStore } from "@/features/budgets/store";
+import { useSettingsStore } from "@/features/settings/store";
 import { AppText } from "@/shared/ui/components/AppText";
 import { Input } from "@/shared/ui/components/Input";
 import { Card } from "@/shared/ui/components/Card";
 import { EmptyState } from "@/shared/ui/components/EmptyState";
 import { Skeleton } from "@/shared/ui/components/Skeleton";
+import { RingProgress } from "@/shared/ui/components/RingProgress";
+import { formatCurrency } from "@/shared/utils/formatCurrency";
+import type { CurrencyCode } from "@/shared/types/models";
 
 function monthKey(iso?: string) {
   const t = iso ? Date.parse(iso) : NaN;
@@ -29,13 +33,6 @@ function nowMonthKey() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function formatMoney0(cents: number) {
-  const abs = Math.abs(cents);
-  const dollars = (abs / 100).toFixed(0);
-  const intWithSep = dollars.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  return `$${intWithSep}`;
-}
-
 type CategoryTile = {
   id: string;
   categoryId: string;
@@ -44,33 +41,36 @@ type CategoryTile = {
   color: string;
   spentCents: number;
   budgetCents: number;
+  isGhost?: boolean;
 };
 
-function Tile({ item }: { item: CategoryTile }) {
+function Tile({ item, currency }: { item: CategoryTile; currency: CurrencyCode }) {
   const remaining = item.budgetCents - item.spentCents;
   const hasBudget = item.budgetCents > 0;
   const over = hasBudget && remaining < 0;
   const progress = hasBudget ? Math.min(1, item.spentCents / Math.max(1, item.budgetCents)) : 0;
 
   return (
-    <Card variant="surface" className="min-h-[210px] p-0 overflow-hidden">
+    <Card variant="card" className="min-h-[178px] overflow-hidden">
       <HapticPressable
         onPress={() =>
-          router.push({
-            pathname: "/modals/category-editor",
-            params: { id: item.categoryId },
-          })
+          item.isGhost
+            ? router.push("/modals/category-editor")
+            : router.push({
+                pathname: "/modals/category-editor",
+                params: { id: item.categoryId },
+              })
         }
         haptic="selection"
         pressScale={0.99}
         pressOpacity={0.92}
-        className="px-4 pt-4 pb-3"
-        android_ripple={{ color: "#FFFFFF10" }}
+        className="pb-1"
+        android_ripple={{ color: "#0B122012" }}
       >
         <View className="flex-row items-center justify-between">
           <View
-            className="h-10 w-10 items-center justify-center rounded-lg border border-stroke"
-            style={{ backgroundColor: `${item.color}22` }}
+            className="h-10 w-10 items-center justify-center rounded-full border border-stroke"
+            style={{ backgroundColor: `${item.color}26` }}
           >
             <Ionicons name={item.icon as any} size={18} color={item.color} />
           </View>
@@ -83,14 +83,14 @@ function Tile({ item }: { item: CategoryTile }) {
         </AppText>
 
         <AppText variant="sm" tone="muted" className="mt-1">
-          {formatMoney0(item.spentCents)} spent
+          {formatCurrency(item.spentCents, currency, 0)} spent
         </AppText>
 
-        <View className="mt-4 h-2 rounded-full bg-stroke overflow-hidden">
+        <View className="mt-4 h-1 rounded-full bg-stroke overflow-hidden">
           <View
-            className="h-2 rounded-full"
+            className="h-1 rounded-full"
             style={{
-              width: `${Math.max(4, Math.round(progress * 100))}%`,
+              width: `${Math.round(progress * 100)}%`,
               backgroundColor: over ? tokens.colors.danger : tokens.colors.accent,
             }}
           />
@@ -98,7 +98,7 @@ function Tile({ item }: { item: CategoryTile }) {
 
         {hasBudget ? (
           <AppText variant="sm" className="mt-3" style={{ color: over ? tokens.colors.danger : tokens.colors.accent }}>
-            {over ? `${formatMoney0(Math.abs(remaining))} over` : `${formatMoney0(remaining)} left`}
+            {over ? `${formatCurrency(Math.abs(remaining), currency, 0)} over` : `${formatCurrency(remaining, currency, 0)} left`}
           </AppText>
         ) : (
           <AppText variant="sm" tone="muted" className="mt-3">
@@ -107,16 +107,14 @@ function Tile({ item }: { item: CategoryTile }) {
         )}
       </HapticPressable>
 
-      <View className="h-px bg-stroke" />
-
       <HapticPressable
         onPress={() => router.push({ pathname: "/modals/budget-editor", params: { category: item.name } })}
         haptic="selection"
         pressScale={0.98}
-        className="min-h-12 px-4 flex-row items-center justify-center"
-        android_ripple={{ color: "#FFFFFF10" }}
+        className="mt-2 -ml-3 min-h-11 px-3 rounded-full flex-row items-center self-start"
+        android_ripple={{ color: "#0B122012" }}
       >
-        <AppText variant="sm" className="text-accent">
+        <AppText variant="sm" className="text-accent" style={{ fontFamily: "Inter_600SemiBold" }}>
           {hasBudget ? "Edit budget" : "Set budget"}
         </AppText>
       </HapticPressable>
@@ -131,6 +129,7 @@ export default function CategoriesScreen() {
   const transactions = useTransactionsStore((s) => s.transactions);
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
   const budgets = useBudgetsStore((s) => s.budgets);
+  const primaryCurrency = useSettingsStore((s) => s.primaryCurrency);
 
   const catsPersist = (useCategoriesStore as any).persist;
   const txPersist = (useTransactionsStore as any).persist;
@@ -236,17 +235,21 @@ export default function CategoriesScreen() {
       budgetCents: budgetByCat.get(c.name) ?? 0,
     }));
 
-    if (!out.some((x) => x.name === "Uncategorized") && spentByCat.has("Uncategorized")) {
+    const addGhost = (name: string, color = tokens.colors.muted) => {
+      if (out.some((x) => x.name === name)) return;
       out.unshift({
-        id: "uncat",
-        categoryId: "uncat",
-        name: "Uncategorized",
+        id: `ghost_${name}`,
+        categoryId: `ghost_${name}`,
+        name,
         icon: "pricetag-outline",
-        color: tokens.colors.muted,
-        spentCents: spentByCat.get("Uncategorized") ?? 0,
-        budgetCents: budgetByCat.get("Uncategorized") ?? 0,
+        color,
+        spentCents: spentByCat.get(name) ?? 0,
+        budgetCents: budgetByCat.get(name) ?? 0,
+        isGhost: true,
       });
-    }
+    };
+
+    for (const name of new Set([...spentByCat.keys(), ...budgetByCat.keys()])) addGhost(name);
 
     const q = query.trim().toLowerCase();
     const filtered = q ? out.filter((t) => t.name.toLowerCase().includes(q)) : out;
@@ -256,6 +259,10 @@ export default function CategoriesScreen() {
 
   const GUTTER = 8;
   const HALF = GUTTER / 2;
+  const totalBudgetCents = tiles.reduce((sum, item) => sum + item.budgetCents, 0);
+  const totalSpentCents = tiles.reduce((sum, item) => sum + item.spentCents, 0);
+  const remainingCents = Math.max(0, totalBudgetCents - totalSpentCents);
+  const budgetProgress = totalBudgetCents > 0 ? totalSpentCents / totalBudgetCents : 0;
 
   return (
     <View className="flex-1 bg-app" style={{ paddingTop: insets.top + 12 }}>
@@ -268,11 +275,53 @@ export default function CategoriesScreen() {
             haptic="selection"
             pressScale={0.98}
             className="h-12 w-12 items-center justify-center rounded-full border border-stroke bg-surface"
-            android_ripple={{ color: "#FFFFFF12", borderless: true }}
+            android_ripple={{ color: "#0B122012", borderless: true }}
           >
             <Ionicons name="add" size={20} color={tokens.colors.accent} />
           </HapticPressable>
         </View>
+
+        <Card className="mt-6">
+          <View className="flex-row items-center justify-between">
+            <View className="flex-1 pr-4">
+              <AppText variant="xs" tone="muted" className="uppercase">
+                Total monthly budget
+              </AppText>
+              <AppText variant="2xl" className="mt-3">
+                {formatCurrency(totalBudgetCents, primaryCurrency)}
+              </AppText>
+              <View className="mt-3 flex-row items-center">
+                <Ionicons name="calendar-outline" size={16} color={tokens.colors.accent} />
+                <AppText variant="sm" tone="muted" className="ml-2">
+                  This month
+                </AppText>
+              </View>
+            </View>
+            <View className="items-center">
+              <RingProgress progress={budgetProgress} color={tokens.colors.accent} />
+              <AppText variant="lg" style={{ marginTop: -58, fontFamily: "Inter_700Bold" }}>
+                {Math.round(Math.min(1, budgetProgress) * 100)}%
+              </AppText>
+              <AppText variant="xs" tone="muted" style={{ marginTop: 36 }}>
+                Used
+              </AppText>
+            </View>
+          </View>
+          <View className="mt-5 flex-row" style={{ gap: 12 }}>
+            <View className="flex-1 rounded-lg border border-stroke bg-surfaceAlt p-3">
+              <AppText variant="xs" tone="muted">Spent</AppText>
+              <AppText variant="base" className="mt-1" style={{ fontFamily: "Inter_700Bold" }}>
+                {formatCurrency(totalSpentCents, primaryCurrency)}
+              </AppText>
+            </View>
+            <View className="flex-1 rounded-lg border border-stroke bg-surfaceAlt p-3">
+              <AppText variant="xs" tone="muted">Remaining</AppText>
+              <AppText variant="base" className="mt-1" style={{ color: tokens.colors.accent, fontFamily: "Inter_700Bold" }}>
+                {formatCurrency(remainingCents, primaryCurrency)}
+              </AppText>
+            </View>
+          </View>
+        </Card>
 
         <Input
           value={query}
@@ -280,6 +329,8 @@ export default function CategoriesScreen() {
           placeholder="Search categories..."
           autoCorrect={false}
           autoCapitalize="none"
+          variant="search"
+          leftIcon={<Ionicons name="search" size={22} color={tokens.colors.muted} />}
           containerClassName="mt-5"
         />
       </View>
@@ -346,7 +397,7 @@ export default function CategoriesScreen() {
                     paddingTop: 8,
                   }}
                 >
-                  <Tile item={item} />
+                    <Tile item={item} currency={primaryCurrency} />
                 </View>
               );
             }}

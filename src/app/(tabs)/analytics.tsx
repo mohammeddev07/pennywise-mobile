@@ -10,11 +10,13 @@ import { BookPill } from "@/shared/ui/components/BookPill";
 import { useTransactionsStore, type Transaction } from "@/features/transactions/store";
 import { useCategoriesStore } from "@/features/categories/store";
 import { useBooksStore } from "@/features/books/store";
+import { useSettingsStore } from "@/features/settings/store";
 import { AppText } from "@/shared/ui/components/AppText";
 import { Card } from "@/shared/ui/components/Card";
 import { EmptyState } from "@/shared/ui/components/EmptyState";
 import { Skeleton } from "@/shared/ui/components/Skeleton";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
+import { formatCurrency } from "@/shared/utils/formatCurrency";
 
 type RangeKey = "week" | "month" | "all";
 
@@ -38,15 +40,6 @@ function inRange(tx: Transaction, range: RangeKey) {
   return d >= since;
 }
 
-function formatMoney(cents: number) {
-  const sign = cents < 0 ? "-" : "";
-  const abs = Math.abs(cents);
-  const dollars = (abs / 100).toFixed(2);
-  const [i, d] = dollars.split(".");
-  const intWithSep = i.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  return `${sign}$${intWithSep}.${d}`;
-}
-
 function RangeChip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
   return (
     <HapticPressable
@@ -54,10 +47,10 @@ function RangeChip({ label, active, onPress }: { label: string; active: boolean;
       haptic="selection"
       pressScale={0.985}
       className="rounded-full border px-4 min-h-11 items-center justify-center"
-      android_ripple={{ color: "#FFFFFF10" }}
+      android_ripple={{ color: "#0B122012" }}
       style={{
-        borderColor: active ? tokens.colors.accent : tokens.colors.stroke,
-        backgroundColor: active ? `${tokens.colors.accent}22` : "transparent",
+        borderColor: active ? tokens.colors.greenSoft : tokens.colors.stroke,
+        backgroundColor: active ? tokens.colors.greenSoft : tokens.colors.surface,
       }}
     >
       <AppText variant="sm" style={{ color: active ? tokens.colors.accent : tokens.colors.text }}>
@@ -75,6 +68,7 @@ export default function AnalyticsScreen() {
   const categories = useCategoriesStore((s) => s.categories);
   const books = useBooksStore((s) => s.books);
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
+  const primaryCurrency = useSettingsStore((s) => s.primaryCurrency);
 
   const txPersist = (useTransactionsStore as any).persist;
   const catsPersist = (useCategoriesStore as any).persist;
@@ -205,9 +199,9 @@ export default function AnalyticsScreen() {
         <View className="px-6">
           <View className="flex-row items-start justify-between">
             <View className="flex-1 pr-3">
-              <AppText variant="2xl">Analytics</AppText>
+              <AppText variant="3xl">Insights</AppText>
               <AppText variant="sm" tone="muted" className="mt-1">
-                {rangeLabel}
+                Understand your money, make smarter decisions.
               </AppText>
               <View className="mt-3 self-start">
                 <BookPill label={selectedBookName} onPress={() => router.push("/modals/book-switcher")} />
@@ -217,7 +211,7 @@ export default function AnalyticsScreen() {
             <HapticPressable
               onPress={() => router.push("/modals/book-switcher")}
               className="h-12 w-12 items-center justify-center rounded-full border border-stroke bg-surface"
-              android_ripple={{ color: "#FFFFFF12", borderless: true }}
+              android_ripple={{ color: "#0B122012", borderless: true }}
             >
               <Ionicons name="swap-horizontal" size={18} color={tokens.colors.accent} />
             </HapticPressable>
@@ -261,24 +255,24 @@ export default function AnalyticsScreen() {
             <View className="px-6 mt-8">
               <Card variant="surface">
                 <AppText variant="xs" tone="muted" className="uppercase">
-                  Net
+                  Spending Trend
                 </AppText>
                 <AppText variant="amount" className="mt-2">
-                  {formatMoney(totals.netCents)}
+                  {formatCurrency(totals.netCents, primaryCurrency)}
                 </AppText>
 
                 <View className="mt-3 flex-row items-center">
                   <View className="flex-row items-center">
                     <Ionicons name="arrow-down" size={16} color={tokens.colors.accent} />
                     <AppText variant="sm" className="ml-2" style={{ color: tokens.colors.accent }}>
-                      +{formatMoney(totals.incomeCents)} income
+                      +{formatCurrency(totals.incomeCents, primaryCurrency)} income
                     </AppText>
                   </View>
 
                   <View className="ml-5 flex-row items-center">
                     <Ionicons name="arrow-up" size={16} color={tokens.colors.danger} />
                     <AppText variant="sm" className="ml-2" style={{ color: tokens.colors.danger }}>
-                      -{formatMoney(totals.expenseCents)} spend
+                      -{formatCurrency(totals.expenseCents, primaryCurrency)} spend
                     </AppText>
                   </View>
                 </View>
@@ -317,7 +311,7 @@ export default function AnalyticsScreen() {
                     Total spend
                   </AppText>
                   <AppText variant="base" style={{ fontFamily: "Inter_600SemiBold" }}>
-                    {formatMoney(totals.expenseCents)}
+                    {formatCurrency(totals.expenseCents, primaryCurrency)}
                   </AppText>
                 </View>
               </Card>
@@ -359,7 +353,7 @@ export default function AnalyticsScreen() {
                         </View>
 
                         <AppText variant="base" style={{ fontFamily: "Inter_600SemiBold" }}>
-                          {formatMoney(c.cents)}
+                          {formatCurrency(c.cents, primaryCurrency)}
                         </AppText>
                       </View>
 

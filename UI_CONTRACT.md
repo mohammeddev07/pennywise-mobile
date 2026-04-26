@@ -1,182 +1,110 @@
 # UI_CONTRACT.md
 
 ## Purpose
-Lock a single design system contract (tokens + reusable components) so UI work is deterministic, reviewable, and consistent.
+Lock the PennyWise light design system so screens, modals, and reusable components feel like one modern product.
 
-**Rules**
-- Screens must not invent new spacing, typography, radii, or colors outside this contract.
-- No new screens during Contract Phase; only components + tokens.
-- Handle UI states everywhere: Loading / Success / Error / Empty.
-
----
+## Rules
+- Screens must use shared tokens and components for color, spacing, typography, radius, buttons, cards, inputs, rows, and tab navigation.
+- Prefer extending shared primitives over adding screen-local copies of chips, rows, stat cards, icon buttons, or segmented controls.
+- Inline styles are allowed for layout math and dynamic values only; static color, radius, spacing, and typography should come from tokens.
+- Data-backed UI must preserve Loading, Error, Empty, and Success states.
 
 ## Tokens
 
-### 1) Spacing scale (px) — allowed values only
-`0, 4, 8, 12, 16, 20, 24, 32, 40`
+### Spacing
+Allowed spacing values: `0, 4, 8, 12, 16, 20, 24, 32, 40`.
 
-**Defaults**
-- Screen horizontal padding: **24**
-- Standard card padding: **16**
-- Dense list row vertical padding: **12**
-- Section gap between blocks: **24**
+Defaults:
+- Screen horizontal padding: `24`
+- Standard card padding: `16`
+- Dense row vertical padding: `12`
+- Section gap: `24`
+- Bottom tab clearance: safe area + `120`
 
----
+### Radius
+Allowed radii: `8, 16, 24, 32, 9999`.
 
-### 2) Radius (px) — allowed values only
-`8, 16, 24, 32, 9999`
+Assignments:
+- Inputs/buttons: `16`
+- Cards: `24`
+- Sheets/full-screen modals: `32` top radius when modal, otherwise full light screen
+- Pills/chips/icon buttons: `9999`
+- Small icon tiles: `16` or `9999` depending on context
 
-**Assignments**
-- Inputs: **16**
-- Cards: **24**
-- Sheets/Modals: **32** (top corners)
-- Pills/Chips: **9999**
-- Icon buttons: **9999** (circular)
+### Typography
+Font family: Inter.
 
----
+Required variants:
+- `xs`: `12 / 16`, weight `500`
+- `sm`: `14 / 20`, weight `500`
+- `base`: `16 / 22`, weight `400`
+- `lg`: `18 / 24`, weight `600`
+- `xl`: `20 / 28`, weight `600`
+- `2xl`: `28 / 34`, weight `700`
+- `3xl`: `40 / 46`, weight `700`
+- `amount`: `48 / 54`, weight `700`, money displays only
 
-### 3) Typography tokens (Inter)
-Font family: **Inter**
-
-Required tokens:
-- `text-xs`: **12 / 16**, weight **500**
-- `text-sm`: **14 / 20**, weight **500**
-- `text-base`: **16 / 22**, weight **400**
-- `text-lg`: **18 / 24**, weight **600**
-- `text-xl`: **20 / 28**, weight **600**
-- `text-2xl`: **28 / 34**, weight **700**
-
-Money-only:
-- `text-amount`: **48 / 52**, weight **700** (money displays only)
-
----
-
-### 4) Color palette + semantic tokens (dark-first)
-
-Palette:
-- `black`: `#000000`
-- `app`: `#0B0F14`
-- `surface`: `#10151D`
-- `card`: `#141A23`
-- `stroke`: `#1C2430`
-- `text`: `#E7EEF8`
-- `muted`: `#93A4B7`
-- `accent`: `#00C805`
-- `accentPressed`: `#009624`
-- `danger`: `#FF4D4D`
+### Light Color System
+Core:
+- `app`: `#F8FAFC`
+- `surface`: `#FFFFFF`
+- `card`: `#FFFFFF`
+- `surfaceAlt`: `#F3F7F4`
+- `stroke`: `#E6EAF0`
+- `text`: `#0B1220`
+- `muted`: `#7A8596`
+- `accent`: `#00C313`
+- `accentPressed`: `#00A80F`
+- `danger`: `#FF4D57`
 - `warning`: `#F59E0B`
-- `success`: `#00C805` (alias of accent)
+- `success`: `#00C313`
 
-Semantic:
+Tint tokens:
+- `greenSoft`: `#EAFBEA`
+- `redSoft`: `#FFE9EA`
+- `amberSoft`: `#FFF4DD`
+- `blueSoft`: `#EEF5FF`
+- `purpleSoft`: `#F2EEFF`
+- `neutralSoft`: `#F2F4F7`
+
+Semantic aliases:
 - `bg` = app
 - `surface` = surface
-- `surfaceAlt` = card
+- `surfaceAlt` = surfaceAlt
 - `text` = text
 - `textMuted` = muted
 - `border` = stroke
 - `primary` = accent
 - `primaryPressed` = accentPressed
-- `danger` = danger
-- `warning` = warning
-- `success` = success
-- `ink` = #000000 (only for full-ink modal flows if needed)
+- `primarySoft` = greenSoft
 
-Contrast guidance (WCAG-aware):
-- Normal text must be **≥ 4.5:1**
-- Large text must be **≥ 3:1**
-- `muted` is never used for primary actions or required values.
+### Elevation
+- Cards may use the shared soft card elevation.
+- Bottom tab bar and floating action buttons use the shared tab/floating elevation.
+- Avoid heavy shadows and dark glass effects in the light theme.
 
----
+## Component Inventory
+- `Screen` - safe-area aware light screen shell with consistent padding and bottom-tab clearance
+- `ScreenHeader` - title/subtitle/right-action header
+- `HapticPressable` - unified haptic and press feedback
+- `IconButton` - circular bordered icon action
+- `Button` - primary, secondary, ghost, danger, and outline actions
+- `AppText` - tokenized typography and tones
+- `Card` - white rounded container with border and optional soft elevation
+- `Input` - label/error text input plus search/pill variants
+- `Sheet` - light modal/full-screen container with header/footer slots
+- `SegmentedControl` - pill segmented filters
+- `CategoryIcon` - tinted category/account/status icon
+- `ActionRow` - reusable settings/detail/form row
+- `SummaryStat` / `MetricCard` - reusable metric blocks
+- `TransactionRow` - unified transaction list row
+- `NumericKeypad` - light circular keypad
+- `PinDots` - square PIN cells for auth
+- `EmptyState`, `Skeleton`, `RingProgress`, `UndoToast`
 
-### 5) Elevation / shadows
-Default: **no shadows** on cards/inputs (use border for separation).
-
-Only allowed:
-- `elevation-sheet`: modal sheets only
-- `elevation-toast`: floating toast only
-
-Reference values:
-- iOS: shadowOpacity **0.35**, shadowRadius **24**, shadowOffset **0,10**
-- Android: elevation **8**
-
----
-
-### 6) Layout rules
-- Screen padding X: **24**
-- Top padding: safe-area + **12**
-- Bottom padding: safe-area + **16** (or + **24** if bottom CTA)
-
-Touch targets:
-- Minimum interactive target: **44x44**
-- Icon-only buttons: **48x48** preferred
-
----
-
-## Component inventory
-
-- `HapticPressable` — unified press feedback (haptic + scale/opacity)
-- `Button` — primary/ghost/danger with fixed sizing + states
-- `AppText` — typography token enforcement
-- `Card` — padded surface container
-- `Sheet` — safe-area padding + header/footer slots + top radius
-- `Input` — label/help/error + fixed height/radius
-- `AmountInput` — money display + keypad helper utilities
-- `SelectRow` — tappable label/value row + chevron
-- `EmptyState` — empty visuals + optional CTA
-- `Skeleton` — loading blocks (radius restricted)
-- `StreamingText` — streaming text with reserved height (no jumping)
-- `CharacterWidget` — mascot slot (happy/thinking/waiting) — no layout shift
-
----
-
-## State patterns (required)
-Every data-backed UI unit must implement:
-- Loading: skeleton placeholders
-- Streaming: stable layout (`StreamingText` w/ reserved height)
-- Error: message + retry when actionable
-- Empty: `EmptyState` with optional CTA
-- Success: inline confirmation / success screen (no complex animations yet)
-
----
-
-## Acceptance criteria (measurable)
-
-### HapticPressable — Done when
-- Disabled: no haptic, no scale, opacity locked at **0.40**
-- Press: scale to **0.98** within **80ms**, release within **120ms**
-- Min target **44x44** where applicable
-
-### Button — Done when
-- Height: **48 (md)**, **56 (lg)**
-- Padding X: **16**
-- Radius: **16**
-- Primary bg = `primary`, pressed bg = `primaryPressed`
-- Disabled opacity = **0.40**
-- Loading does not change width
-
-### Input — Done when
-- Height: **56**
-- Padding X: **16**
-- Radius: **16**
-- Label uses `text-sm` muted
-- Error uses `danger` and does not reflow the input
-
-### SelectRow — Done when
-- Height: **56**
-- Chevron target: **48x48**
-- Disabled opacity = **0.40**
-
-### Card — Done when
-- Radius: **24**
-- Padding: **16** default
-- Border: `border`, no shadows
-
-### Skeleton — Done when
-- Radius restricted to **8/16/24** only
-- Simple shimmer OK; no heavy animation
-
-### StreamingText — Done when
-- Reserved height prevents layout jump while streaming
-- Can be disabled (renders full text)
-
----
+## Acceptance Criteria
+- The app renders with a light background and dark status bar icons.
+- Cards, rows, inputs, and tab bar use white surfaces, light borders, green accents, and soft shadows consistently.
+- Repeated UI patterns use shared components instead of screen-local copies.
+- Transaction, budget, category, profile, analytics, auth, onboarding, and modal flows keep existing state behavior.
+- `tsc --noEmit` passes.

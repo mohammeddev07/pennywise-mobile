@@ -1,9 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
-import { View } from "react-native";
+import { Dimensions, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { format, parseISO } from "date-fns";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Animated, {
+  Easing,
+  interpolate,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 
 import { tokens } from "@/shared/ui/theme/tokens";
 import { Sheet } from "@/shared/ui/components/Sheet";
@@ -18,6 +26,38 @@ import { useBooksStore } from "@/features/books/store";
 import { useAddTransactionDraftStore } from "@/features/transactions/addDraftStore";
 import { useSettingsStore } from "@/features/settings/store";
 import type { CurrencyCode } from "@/shared/types/models";
+import { formatCurrency } from "@/shared/utils/formatCurrency";
+
+const COLORS = {
+  bg: tokens.colors.app,
+  surface: tokens.colors.surface,
+  card: tokens.colors.card,
+  stroke: tokens.colors.stroke,
+  text: tokens.colors.text,
+  muted: tokens.colors.muted,
+  accent: tokens.colors.accent,
+  danger: tokens.colors.danger,
+  black: tokens.colors.white,
+} as const;
+
+const SPACING = {
+  0: tokens.space[0],
+  4: tokens.space[1],
+  8: tokens.space[2],
+  12: tokens.space[3],
+  16: tokens.space[4],
+  20: tokens.space[5],
+  24: tokens.space[6],
+  32: tokens.space[7],
+  40: tokens.space[8],
+} as const;
+
+const RADIUS = {
+  pill: tokens.radii.pill,
+} as const;
+
+const TYPOGRAPHY = tokens.typography;
+const SCREEN_HEIGHT = Dimensions.get("window").height;
 
 function parseAmountToCents(raw: string) {
   const cleaned = String(raw || "0")
@@ -26,15 +66,6 @@ function parseAmountToCents(raw: string) {
   const n = Number.parseFloat(cleaned);
   if (!Number.isFinite(n)) return 0;
   return Math.round(n * 100);
-}
-
-function formatMoney2(cents: number) {
-  const sign = cents < 0 ? "-" : "";
-  const abs = Math.abs(cents);
-  const dollars = (abs / 100).toFixed(2);
-  const [i, d] = dollars.split(".");
-  const intWithSep = i.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  return `${sign}$${intWithSep}.${d}`;
 }
 
 function safeWhen(iso: string) {
@@ -64,7 +95,7 @@ function ReviewRow({
       haptic="selection"
       pressScale={0.99}
       className="min-h-14 px-4 py-3 flex-row items-center"
-      android_ripple={{ color: "#FFFFFF10" }}
+      android_ripple={{ color: "#0B122012" }}
     >
       <View className="flex-1 pr-3">
         <AppText variant="sm" tone="muted">
@@ -99,6 +130,9 @@ export default function AddTransactionReview() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showCompletion, setShowCompletion] = useState(false);
+  const completion = useSharedValue(0);
+  const swipeProgress = useSharedValue(0);
 
   const books = useBooksStore((s) => s.books);
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
@@ -146,20 +180,15 @@ export default function AddTransactionReview() {
   const selectedBook = books.find((b) => b.id === bookId) ?? null;
 
   const amountCents = useMemo(() => parseAmountToCents(amount), [amount]);
-  const feeCents = 0;
-  const totalCents = amountCents + feeCents;
 
   const primaryLabel = title.length ? title : category;
   const currency: CurrencyCode = primaryCurrency;
   const hasAmountError = amountCents <= 0;
-  const hasTitleError = title.length === 0;
 
-  const canSubmit = booksHydrated && !!selectedBook && !hasAmountError && !hasTitleError;
+  const canSubmit = booksHydrated && !!selectedBook && !hasAmountError;
   const submitDisabled = !canSubmit || isSubmitting;
 
-  const onSubmit = () => {
-    if (submitDisabled) return;
-    setIsSubmitting(true);
+  const navigateToSuccess = () => {
     try {
       router.replace({
         pathname: "/modals/add-transaction/success",
@@ -177,13 +206,35 @@ export default function AddTransactionReview() {
       });
     } catch {
       setIsSubmitting(false);
+      setShowCompletion(false);
+      completion.value = 0;
     }
   };
 
+  const onSubmit = () => {
+    if (submitDisabled) return;
+    setIsSubmitting(true);
+    setShowCompletion(true);
+    completion.value = 0;
+    // This restores the requested full-page swipe completion moment before saving on the success route.
+    completion.value = withTiming(1, { duration: 520, easing: Easing.out(Easing.cubic) }, () => {
+      runOnJS(navigateToSuccess)();
+    });
+  };
+
+  const completionStyle = useAnimatedStyle(() => ({
+    opacity: completion.value,
+    transform: [{ translateY: SCREEN_HEIGHT * (1 - completion.value) }],
+  }));
+
+  const swipeFillStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(swipeProgress.value, [0, 0.08, 1], [0, 0.28, 1]),
+  }));
+
   return (
-    <View className="flex-1 bg-ink">
+    <View className="flex-1 bg-app">
       <Sheet
-        tone="ink"
+        tone="app"
         className="flex-1"
         title="Review"
         footerVariant="fullBleed"
@@ -191,7 +242,7 @@ export default function AddTransactionReview() {
           <HapticPressable
             onPress={() => router.back()}
             className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
-            android_ripple={{ color: "#FFFFFF12", borderless: true }}
+            android_ripple={{ color: "#0B122012", borderless: true }}
           >
             <Ionicons name="chevron-back" size={20} color={tokens.colors.text} />
           </HapticPressable>
@@ -201,8 +252,10 @@ export default function AddTransactionReview() {
             label="Swipe up to submit"
             onSubmit={onSubmit}
             disabled={submitDisabled}
+            thresholdPx={160}
             variant="panel"
             panelSafeBottom={insets.bottom}
+            progressValue={swipeProgress}
           />
         }
       >
@@ -218,19 +271,9 @@ export default function AddTransactionReview() {
               Amount is required.
             </AppText>
             <AppText variant="sm" tone="muted" className="mt-2">
-              Enter an amount greater than $0.00 before saving.
+              Enter an amount greater than {formatCurrency(0, currency)} before saving.
             </AppText>
             <Button label="Back to amount" variant="ghost" size="md" onPress={() => router.back()} className="mt-4" />
-          </Card>
-        ) : hasTitleError ? (
-          <Card variant="surface" className="mt-2">
-            <AppText variant="base" tone="danger">
-              Title is required.
-            </AppText>
-            <AppText variant="sm" tone="muted" className="mt-2">
-              Add a title before submitting this transaction.
-            </AppText>
-            <Button label="Back to edit title" variant="ghost" size="md" onPress={() => router.back()} className="mt-4" />
           </Card>
         ) : !selectedBook ? (
           <View className="mt-6 py-8">
@@ -254,7 +297,7 @@ export default function AddTransactionReview() {
                 className="mt-2"
                 style={{ color: kind === "income" ? tokens.colors.accent : tokens.colors.text }}
               >
-                {formatMoney2(kind === "expense" ? -amountCents : amountCents).replace("-", "")}
+                {formatCurrency(amountCents, currency)}
               </AppText>
 
               <AppText variant="lg" className="mt-3" numberOfLines={1}>
@@ -262,7 +305,7 @@ export default function AddTransactionReview() {
               </AppText>
 
               <AppText variant="sm" tone="muted" className="mt-1" numberOfLines={1}>
-                {title ? category : "Uncategorized"}
+                {category}
               </AppText>
             </View>
 
@@ -304,12 +347,11 @@ export default function AddTransactionReview() {
 
             <Card variant="surface" className="mt-6">
               <AppText variant="sm" tone="muted">
-                Order summary
+                Summary
               </AppText>
-              <SummaryRow label="Amount" value={formatMoney2(amountCents)} />
-              <SummaryRow label="Fees" value={formatMoney2(feeCents)} />
+              <SummaryRow label="Amount" value={formatCurrency(amountCents, currency)} />
               <View className="mt-3 h-px bg-stroke" />
-              <SummaryRow label="Total" value={formatMoney2(totalCents)} strong />
+              <SummaryRow label="Saved total" value={formatCurrency(amountCents, currency)} strong />
             </Card>
 
             <AppText variant="sm" tone="muted" className="mt-4">
@@ -318,6 +360,76 @@ export default function AddTransactionReview() {
           </>
         )}
       </Sheet>
+
+      <Animated.View
+        pointerEvents="none"
+        style={[styles.swipeFill, { bottom: insets.bottom + 80 }, swipeFillStyle]}
+      />
+
+      {showCompletion ? (
+        <Animated.View pointerEvents="none" style={[styles.completionOverlay, completionStyle]}>
+          <View style={styles.completionHandle} />
+          <View style={styles.completionContent}>
+            <View style={styles.completionBadge}>
+              <Ionicons name="checkmark" size={28} color={COLORS.black} />
+            </View>
+            <AppText variant="2xl" style={styles.completionTitle}>
+              Transaction complete
+            </AppText>
+            <AppText variant="sm" style={styles.completionSubtitle}>
+              Updating your books now
+            </AppText>
+          </View>
+        </Animated.View>
+      ) : null}
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  swipeFill: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 10,
+    backgroundColor: COLORS.accent,
+  },
+  completionOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 20,
+    backgroundColor: COLORS.accent,
+    paddingTop: SPACING[40],
+    paddingHorizontal: SPACING[24],
+  },
+  completionHandle: {
+    width: 48,
+    height: 4,
+    borderRadius: RADIUS.pill,
+    alignSelf: "center",
+    backgroundColor: "#00000022",
+  },
+  completionContent: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingBottom: SPACING[40],
+  },
+  completionBadge: {
+    width: 72,
+    height: 72,
+    borderRadius: RADIUS.pill,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFFFFF55",
+  },
+  completionTitle: {
+    ...TYPOGRAPHY["2xl"],
+    marginTop: SPACING[24],
+    color: COLORS.black,
+    textAlign: "center",
+  },
+  completionSubtitle: {
+    marginTop: SPACING[8],
+    color: COLORS.black,
+    opacity: 0.72,
+    textAlign: "center",
+  },
+});

@@ -11,6 +11,8 @@ import { useUndoToastStore } from "@/shared/ui/state/useUndoToastStore";
 import { Card } from "@/shared/ui/components/Card";
 import { AppText } from "@/shared/ui/components/AppText";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
+import { CategoryIcon } from "@/shared/ui/components/CategoryIcon";
+import { formatSignedCurrency } from "@/shared/utils/formatCurrency";
 
 function safeDate(iso: string) {
   try {
@@ -37,18 +39,14 @@ function timeLabel(iso: string) {
   return format(d, "h:mm a");
 }
 
-function moneySigned(kind: Transaction["kind"], amountCents: number) {
-  const sign = kind === "income" ? "+" : "-";
-  const dollars = (Math.abs(amountCents) / 100).toFixed(2);
-  return `${sign}$${dollars}`;
-}
-
 export function TransactionRow({
   item,
   enableActions = true,
+  embedded = false,
 }: {
   item: Transaction;
   enableActions?: boolean;
+  embedded?: boolean;
 }) {
   const router = useRouter();
 
@@ -57,7 +55,7 @@ export function TransactionRow({
   const showDeleted = useUndoToastStore((s) => s.showDeleted);
 
   const isIncome = item.kind === "income";
-  const amount = moneySigned(item.kind, item.amountCents);
+  const amount = formatSignedCurrency(isIncome ? item.amountCents : -item.amountCents, item.currency);
 
   const primary = (item.title || "").trim() || (item.category || "").trim() || "Transaction";
   const category = (item.category || "Uncategorized").trim() || "Uncategorized";
@@ -83,26 +81,30 @@ export function TransactionRow({
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
   };
 
-  return (
-    <Card variant="surface" className="p-0 overflow-hidden">
-      <HapticPressable
+  const openActions = () => {
+    if (!enableActions) return;
+    Alert.alert("Transaction actions", primary, [
+      { text: "Duplicate", onPress: onDuplicate },
+      { text: "Delete", style: "destructive", onPress: onDelete },
+      { text: "Cancel", style: "cancel" },
+    ]);
+  };
+
+  const row = (
+    <HapticPressable
         onPress={() => router.push({ pathname: "/modals/transaction-details", params: { id: item.id } })}
+        onLongPress={openActions}
         className="px-4 py-3"
         haptic="selection"
         pressScale={0.99}
-        android_ripple={{ color: "#FFFFFF10" }}
+        android_ripple={{ color: "#0B12200F" }}
       >
         <View className="flex-row items-center">
-          <View
-            className="h-11 w-11 items-center justify-center rounded-full border border-stroke"
-            style={{ backgroundColor: tokens.colors.card }}
-          >
-            <Ionicons
-              name={isIncome ? "arrow-down" : "arrow-up"}
-              size={18}
-              color={isIncome ? tokens.colors.accent : tokens.colors.danger}
-            />
-          </View>
+          <CategoryIcon
+            icon={isIncome ? "arrow-down" : "arrow-up"}
+            color={isIncome ? tokens.colors.accent : tokens.colors.danger}
+            size={52}
+          />
 
           <View className="ml-3 flex-1">
             <AppText variant="base" style={{ fontFamily: "Inter_600SemiBold" }} numberOfLines={1}>
@@ -120,44 +122,17 @@ export function TransactionRow({
           >
             {amount}
           </AppText>
+
+          <Ionicons name="chevron-forward" size={18} color={tokens.colors.muted} style={{ marginLeft: 8 }} />
         </View>
       </HapticPressable>
+  );
 
-      {enableActions ? (
-        <>
-          <View className="h-px bg-stroke" />
+  if (embedded) return row;
 
-          <View className="flex-row">
-            <HapticPressable
-              onPress={onDuplicate}
-              className="flex-1 min-h-12 px-4 py-3 flex-row items-center justify-center"
-              haptic="selection"
-              pressScale={0.99}
-              android_ripple={{ color: "#FFFFFF10" }}
-            >
-              <Ionicons name="copy-outline" size={16} color={tokens.colors.accent} />
-              <AppText variant="sm" className="ml-2 text-accent">
-                Duplicate
-              </AppText>
-            </HapticPressable>
-
-            <View className="w-px bg-stroke" />
-
-            <HapticPressable
-              onPress={onDelete}
-              className="flex-1 min-h-12 px-4 py-3 flex-row items-center justify-center"
-              haptic="selection"
-              pressScale={0.99}
-              android_ripple={{ color: "#FFFFFF10" }}
-            >
-              <Ionicons name="trash-outline" size={16} color={tokens.colors.danger} />
-              <AppText variant="sm" tone="danger" className="ml-2">
-                Delete
-              </AppText>
-            </HapticPressable>
-          </View>
-        </>
-      ) : null}
+  return (
+    <Card variant="surface" padding={0} className="overflow-hidden">
+      {row}
     </Card>
   );
 }

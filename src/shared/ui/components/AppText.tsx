@@ -15,7 +15,7 @@ const toneClass: Record<TextTone, string> = {
   muted: "text-muted",
   danger: "text-danger",
   success: "text-accent",
-  warning: "text-yellow-400", // requires tailwind color; safe fallback if not present
+  warning: "text-warning",
 };
 
 export function AppText({

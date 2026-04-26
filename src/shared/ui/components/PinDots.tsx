@@ -8,13 +8,27 @@ export function PinDots({ length, filled }: { length: number; filled: number }) 
         <View
           key={`dot-${i}`}
           style={{
-            width: 10,
-            height: 10,
-            borderRadius: 999,
-            marginHorizontal: 8,
-            backgroundColor: i < filled ? tokens.colors.accent : tokens.colors.stroke
+            width: 64,
+            height: 64,
+            borderRadius: 20,
+            marginHorizontal: 6,
+            alignItems: "center",
+            justifyContent: "center",
+            borderWidth: 1,
+            borderColor: tokens.colors.stroke,
+            backgroundColor: tokens.colors.surface,
+            ...tokens.elevation.card.ios,
           }}
-        />
+        >
+          <View
+            style={{
+              width: 10,
+              height: 10,
+              borderRadius: 999,
+              backgroundColor: i < filled ? tokens.colors.accent : "transparent",
+            }}
+          />
+        </View>
       ))}
     </View>
   );

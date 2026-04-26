@@ -94,7 +94,7 @@ function DigitWheel({
       textAlign: "center",
       fontSize,
       fontWeight: "900",
-      letterSpacing: -0.6,
+      letterSpacing: 0,
       color,
       includeFontPadding: false,
       textAlignVertical: "center",
@@ -114,7 +114,7 @@ function DigitWheel({
             top: 0,
             bottom: 0,
             width: 2,
-            backgroundColor: "rgba(0,200,5,0.35)",
+            backgroundColor: `${tokens.colors.accent}59`,
           }}
         />
       ) : null}
@@ -149,7 +149,7 @@ function StaticChar({
         style={{
           fontSize,
           fontWeight: "900",
-          letterSpacing: -0.6,
+          letterSpacing: 0,
           color,
           includeFontPadding: false,
           fontVariant: ["tabular-nums"],

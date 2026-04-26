@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 
@@ -18,6 +18,38 @@ import {
 import { useAddTransactionDraftStore } from "@/features/transactions/addDraftStore";
 import type { CurrencyCode } from "@/shared/types/models";
 import { isCurrencyCode } from "@/features/transactions/store";
+import { formatSignedCurrency } from "@/shared/utils/formatCurrency";
+
+const COLORS = {
+  bg: tokens.colors.app,
+  surface: tokens.colors.surface,
+  card: tokens.colors.card,
+  stroke: tokens.colors.stroke,
+  text: tokens.colors.text,
+  muted: tokens.colors.muted,
+  accent: tokens.colors.accent,
+  danger: tokens.colors.danger,
+} as const;
+
+const SPACING = {
+  0: tokens.space[0],
+  4: tokens.space[1],
+  8: tokens.space[2],
+  12: tokens.space[3],
+  16: tokens.space[4],
+  20: tokens.space[5],
+  24: tokens.space[6],
+  32: tokens.space[7],
+  40: tokens.space[8],
+} as const;
+
+const RADIUS = {
+  input: tokens.radii.md,
+  card: tokens.radii.lg,
+  pill: tokens.radii.pill,
+} as const;
+
+const TYPOGRAPHY = tokens.typography;
 
 function parseAmountToCents(raw: string) {
   const cleaned = String(raw || "0")
@@ -28,13 +60,11 @@ function parseAmountToCents(raw: string) {
   return Math.round(n * 100);
 }
 
-function formatMoney2(cents: number) {
-  const sign = cents < 0 ? "-" : "";
-  const abs = Math.abs(cents);
-  const dollars = (abs / 100).toFixed(2);
-  const [i, d] = dollars.split(".");
-  const intWithSep = i.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  return `${sign}$${intWithSep}.${d}`;
+function normalizeOccurredAt(raw?: string) {
+  if (!raw) return new Date().toISOString();
+  const t = Date.parse(raw);
+  if (!Number.isFinite(t)) return new Date().toISOString();
+  return new Date(t).toISOString();
 }
 
 export default function AddTransactionSuccess() {
@@ -63,7 +93,7 @@ export default function AddTransactionSuccess() {
   const note = (params.note ?? "").trim() || undefined;
 
   const bookId = params.bookId ?? "personal";
-  const occurredAt = params.occurredAt ?? new Date().toISOString();
+  const occurredAt = normalizeOccurredAt(params.occurredAt);
 
   const currency: CurrencyCode = isCurrencyCode(params.currency) ? (params.currency as CurrencyCode) : "USD";
   const paymentMethod: PaymentMethod = normalizePaymentMethod(params.paymentMethod);
@@ -115,18 +145,18 @@ export default function AddTransactionSuccess() {
   }, [saveTransaction]);
 
   return (
-    <View className="flex-1 bg-ink">
+    <View style={styles.screen}>
       <Sheet
-        tone="ink"
-        className="flex-1"
-        title="Success"
+        tone="app"
+        style={styles.sheet}
+        title=""
         footer={
-          <View className="gap-3">
+          <View style={styles.footer}>
             <Button
               label="Go to home"
               onPress={() => router.replace("/(tabs)/home")}
               disabled={status !== "saved"}
-              size="md"
+              size="lg"
             />
             <Button
               label="Add another"
@@ -138,42 +168,47 @@ export default function AddTransactionSuccess() {
           </View>
         }
       >
-        <View className="flex-1 items-center justify-center">
+        <View style={styles.content}>
           {status === "saving" ? (
-            <Card variant="surface" className="w-full items-center">
-              <ActivityIndicator color={tokens.colors.accent} />
-              <AppText variant="lg" className="mt-4 text-center">
-                Saving transaction...
+            <Card variant="surface" style={styles.statusCard}>
+              <ActivityIndicator color={COLORS.accent} />
+              <AppText variant="lg" style={styles.statusTitle}>
+                Saving transaction
               </AppText>
-              <AppText variant="sm" tone="muted" className="mt-2 text-center">
-                Your data will appear across tabs immediately.
+              <AppText variant="sm" tone="muted" style={styles.centerText}>
+                Your books will update immediately.
               </AppText>
             </Card>
           ) : null}
 
           {status === "saved" ? (
-            <Card variant="surface" className="w-full items-center">
-              <AppText variant="2xl" className="text-center">
-                Transaction logged
-              </AppText>
-              <AppText
-                variant="amount"
-                className="mt-4"
-                style={{ color: kind === "income" ? tokens.colors.accent : tokens.colors.text }}
-              >
-                {formatMoney2(kind === "expense" ? -cents : cents)}
-              </AppText>
-              <AppText variant="base" className="mt-3 text-center" numberOfLines={1}>
-                {title ? title : category}
-              </AppText>
-              <AppText variant="sm" tone="muted" className="mt-1 text-center">
-                {currency} • Saved
-              </AppText>
-            </Card>
+            <View style={styles.savedWrap}>
+              {/* Low-opacity accent wash gives the success state presence without adding heavy decoration. */}
+              <View pointerEvents="none" style={styles.accentGlow} />
+              <Card variant="surface" style={styles.savedCard}>
+                <View style={styles.badge}>
+                  <AppText variant="sm" style={styles.badgeText}>
+                    Success
+                  </AppText>
+                </View>
+                <AppText
+                  variant="amount"
+                  style={[styles.amount, { color: kind === "income" ? COLORS.accent : COLORS.text }]}
+                >
+                  {formatSignedCurrency(kind === "expense" ? -cents : cents, currency)}
+                </AppText>
+                <AppText variant="lg" style={styles.transactionName} numberOfLines={1}>
+                  {title ? title : category}
+                </AppText>
+                <AppText variant="sm" tone="muted" style={styles.centerText}>
+                  {currency} · Saved to your book
+                </AppText>
+              </Card>
+            </View>
           ) : null}
 
           {status === "error" ? (
-            <View className="w-full py-8">
+            <View style={styles.errorWrap}>
               <EmptyState
                 title="Couldn’t save transaction"
                 message="Try saving again. Your draft is still intact."
@@ -189,3 +224,76 @@ export default function AddTransactionSuccess() {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: COLORS.bg,
+  },
+  sheet: {
+    flex: 1,
+    backgroundColor: COLORS.bg,
+  },
+  content: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  statusCard: {
+    width: "100%",
+    alignItems: "center",
+  },
+  statusTitle: {
+    marginTop: SPACING[16],
+    textAlign: "center",
+  },
+  centerText: {
+    marginTop: SPACING[8],
+    textAlign: "center",
+  },
+  savedWrap: {
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  accentGlow: {
+    position: "absolute",
+    width: 280,
+    height: 280,
+    borderRadius: RADIUS.pill,
+    backgroundColor: COLORS.accent,
+    opacity: 0.07,
+  },
+  savedCard: {
+    width: "100%",
+    alignItems: "center",
+    overflow: "hidden",
+  },
+  badge: {
+    minHeight: 32,
+    borderRadius: RADIUS.pill,
+    backgroundColor: `${COLORS.accent}26`,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: SPACING[16],
+  },
+  badgeText: {
+    color: COLORS.accent,
+    fontFamily: "Inter_600SemiBold",
+  },
+  amount: {
+    ...TYPOGRAPHY.amount,
+    marginTop: SPACING[24],
+  },
+  transactionName: {
+    marginTop: SPACING[16],
+    textAlign: "center",
+  },
+  errorWrap: {
+    width: "100%",
+    paddingVertical: SPACING[32],
+  },
+  footer: {
+    gap: SPACING[12],
+  },
+});
