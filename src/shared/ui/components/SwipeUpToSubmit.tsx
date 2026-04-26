@@ -1,5 +1,5 @@
 import { type ReactNode, useRef } from "react";
-import { View } from "react-native";
+import { Dimensions, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
@@ -13,6 +13,8 @@ import * as Haptics from "expo-haptics";
 
 import { tokens } from "@/shared/ui/theme/tokens";
 import { AppText } from "@/shared/ui/components/AppText";
+
+const SCREEN_HEIGHT = Dimensions.get("window").height;
 
 type Props = {
   label?: string;
@@ -91,8 +93,16 @@ export function SwipeUpToSubmit({
   const contentStyle = useAnimatedStyle(() => {
     const progress = interpolate(Math.abs(dragY.value), [0, thresholdPx], [0, 1]);
     return {
-      transform: variant === "panel" ? [{ translateY: dragY.value }] : [{ scale: 1 + progress * 0.006 }],
+      transform: variant === "panel" ? [{ translateY: 0 }] : [{ scale: 1 + progress * 0.006 }],
       opacity: disabled ? 0.4 : 1 - progress * 0.04,
+    };
+  });
+
+  const panelBackdropStyle = useAnimatedStyle(() => {
+    const progress = interpolate(Math.abs(dragY.value), [0, thresholdPx], [0, 1]);
+    return {
+      opacity: disabled ? 0 : progress,
+      transform: [{ translateY: SCREEN_HEIGHT * (1 - progress) }],
     };
   });
 
@@ -100,35 +110,54 @@ export function SwipeUpToSubmit({
     <GestureDetector gesture={gesture}>
       <Animated.View>
         {variant === "panel" ? (
-          <Animated.View
-            className="w-full items-center"
-            style={[
-              {
-                backgroundColor: tokens.colors.accent,
-                paddingTop: 8,
-                paddingBottom: panelSafeBottom + 12,
-                paddingHorizontal: 24,
-              },
-              contentStyle,
-            ]}
-          >
+          <Animated.View style={{ overflow: "visible", position: "relative" }}>
             <Animated.View
-              className="h-1 w-12 rounded-full"
-              style={[{ backgroundColor: "#00000022" }, handleStyle]}
+              pointerEvents="none"
+              style={[
+                {
+                  position: "absolute",
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  height: SCREEN_HEIGHT + panelSafeBottom + 80,
+                  backgroundColor: tokens.colors.accent,
+                  zIndex: 0,
+                },
+                panelBackdropStyle,
+              ]}
             />
 
-            <Animated.View className="mt-3 min-h-11 flex-row items-center justify-center" style={handleStyle}>
-              <Ionicons name="chevron-up" size={16} color={tokens.colors.white} />
-              <AppText
-                variant="xl"
-                className="ml-2"
-                style={{ color: tokens.colors.white, fontFamily: "Inter_600SemiBold" }}
-              >
-                {label}
-              </AppText>
-            </Animated.View>
+            <Animated.View
+              className="w-full items-center"
+              style={[
+                {
+                  backgroundColor: tokens.colors.accent,
+                  paddingTop: 8,
+                  paddingBottom: panelSafeBottom + 12,
+                  paddingHorizontal: 24,
+                  zIndex: 1,
+                },
+                contentStyle,
+              ]}
+            >
+              <Animated.View
+                className="h-1 w-12 rounded-full"
+                style={[{ backgroundColor: "#00000022" }, handleStyle]}
+              />
 
-            {children}
+              <Animated.View className="mt-3 min-h-11 flex-row items-center justify-center" style={handleStyle}>
+                <Ionicons name="chevron-up" size={16} color={tokens.colors.white} />
+                <AppText
+                  variant="xl"
+                  className="ml-2"
+                  style={{ color: tokens.colors.white, fontFamily: "Inter_600SemiBold" }}
+                >
+                  {label}
+                </AppText>
+              </Animated.View>
+
+              {children}
+            </Animated.View>
           </Animated.View>
         ) : (
           <>

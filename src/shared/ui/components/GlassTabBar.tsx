@@ -27,6 +27,8 @@ const iconFor = (name: string) => {
 
 const labelFor = (name: string) => {
   switch (name) {
+    case "transactions":
+      return "Activity";
     case "analytics":
       return "Insights";
     case "settings":
@@ -61,7 +63,7 @@ export function GlassTabBar({ state, navigation }: BottomTabBarProps) {
           borderWidth: 1,
           borderColor: tokens.colors.stroke,
           backgroundColor: tokens.colors.surface,
-          paddingHorizontal: 10,
+          paddingHorizontal: 8,
           paddingVertical: 8,
           flexDirection: "row",
           alignItems: "center",
@@ -80,9 +82,9 @@ export function GlassTabBar({ state, navigation }: BottomTabBarProps) {
                 onPress={() => router.push("/modals/add-transaction")}
                 android_ripple={{ color: "#FFFFFF22", borderless: true }}
                 style={{
-                  width: 64,
-                  height: 64,
-                  borderRadius: 32,
+                  width: 60,
+                  height: 60,
+                  borderRadius: 30,
                   backgroundColor: tokens.colors.accent,
                   alignItems: "center",
                   justifyContent: "center",
@@ -114,7 +116,7 @@ export function GlassTabBar({ state, navigation }: BottomTabBarProps) {
                 }
               }}
               style={{
-                width: 52,
+                width: 50,
                 minHeight: 58,
                 borderRadius: 24,
                 alignItems: "center",
@@ -134,7 +136,7 @@ export function GlassTabBar({ state, navigation }: BottomTabBarProps) {
                   marginTop: 3,
                   color: isFocused ? tokens.colors.accent : tokens.colors.muted,
                   fontFamily: isFocused ? "Inter_600SemiBold" : "Inter_500Medium",
-                  fontSize: 10,
+                  fontSize: 9,
                 }}
               >
                 {labelFor(route.name)}

@@ -12,7 +12,6 @@ import { EmptyState } from "@/shared/ui/components/EmptyState";
 import { Skeleton } from "@/shared/ui/components/Skeleton";
 import { TransactionRow } from "@/shared/ui/components/TransactionRow";
 import { IconButton } from "@/shared/ui/components/IconButton";
-import { Button } from "@/shared/ui/components/Button";
 import { SectionHeader } from "@/shared/ui/components/SectionHeader";
 import { SummaryStat } from "@/shared/ui/components/SummaryStat";
 import { CategoryIcon } from "@/shared/ui/components/CategoryIcon";
@@ -306,24 +305,6 @@ export default function Home() {
               <SummaryStat label="Expense" value={formatCurrency(balance.expenseCents, primaryCurrency)} tone="expense" />
             </View>
           </Card>
-
-          <View style={{ flexDirection: "row", gap: 12, marginTop: 24 }}>
-            <View style={{ flex: 1 }}>
-              <Button
-                label="Add Expense"
-                onPress={() => router.push("/modals/add-transaction")}
-                leftIcon={<Ionicons name="add" size={24} color={tokens.colors.white} />}
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Button
-                label="Transfer"
-                variant="secondary"
-                onPress={() => router.push("/modals/add-transaction")}
-                leftIcon={<Ionicons name="swap-horizontal" size={24} color={tokens.colors.accent} />}
-              />
-            </View>
-          </View>
 
           <View style={{ marginTop: 28 }}>
             <SectionHeader
