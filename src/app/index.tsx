@@ -4,8 +4,10 @@ import { Redirect } from "expo-router";
 import { useAuthStore } from "@/features/auth/store";
 
 export default function Index() {
+  const user = useAuthStore((s) => s.user);
   const unlocked = useAuthStore((s) => s.unlocked);
   const onboardingCompleted = useAuthStore((s) => s.onboardingCompleted);
+  const hydrateAccessToken = useAuthStore((s) => s.hydrateAccessToken);
 
   const persist = (useAuthStore as any).persist;
   const [hydrated, setHydrated] = useState<boolean>(() => persist?.hasHydrated?.() ?? true);
@@ -17,9 +19,14 @@ export default function Index() {
     return () => unsub?.();
   }, [persist]);
 
+  useEffect(() => {
+    if (hydrated) hydrateAccessToken().catch(() => {});
+  }, [hydrated, hydrateAccessToken]);
+
   if (!hydrated) return null;
 
+  if (!user) return <Redirect href="/(auth)/welcome" />;
+  if (!unlocked) return <Redirect href="/(auth)/pin" />;
   if (unlocked && onboardingCompleted) return <Redirect href="/(tabs)/home" />;
-  if (unlocked) return <Redirect href="/(onboarding)/books" />;
-  return <Redirect href="/(auth)/welcome" />;
+  return <Redirect href="/(onboarding)/currency" />;
 }

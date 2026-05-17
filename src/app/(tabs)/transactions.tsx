@@ -207,12 +207,11 @@ export default function TransactionsScreen() {
 
       const hay = [
         tx.title ?? "",
-        tx.category ?? "",
+        tx.categoryName ?? "",
         tx.note ?? "",
         tx.paymentMethod ?? "",
-        tx.kind ?? "",
-        tx.currency ?? "",
-        money(tx.amountCents),
+        tx.type ?? "",
+        money(tx.amountMinor),
       ]
         .join(" ")
         .toLowerCase();
@@ -226,8 +225,8 @@ export default function TransactionsScreen() {
     let expense = 0;
 
     for (const tx of rangeTransactions) {
-      if (tx.kind === "income") income += tx.amountCents;
-      else expense += tx.amountCents;
+      if (tx.type === "INCOME") income += tx.amountMinor;
+      else expense += tx.amountMinor;
     }
 
     return {

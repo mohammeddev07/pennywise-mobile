@@ -29,8 +29,8 @@ export default function BookSwitcherModal() {
   const [hydrationError, setHydrationError] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [name, setName] = useState("");
-  const [subtitle, setSubtitle] = useState("");
 
   useEffect(() => {
     if (!persist?.onFinishHydration) return;
@@ -66,7 +66,6 @@ export default function BookSwitcherModal() {
     setIsCreating(true);
     setEditingId(null);
     setName("");
-    setSubtitle("");
   };
 
   const startEdit = (bookId: string) => {
@@ -75,30 +74,33 @@ export default function BookSwitcherModal() {
     setIsCreating(false);
     setEditingId(book.id);
     setName(book.name);
-    setSubtitle(book.subtitle ?? "");
   };
 
   const resetEditor = () => {
     setIsCreating(false);
     setEditingId(null);
     setName("");
-    setSubtitle("");
   };
 
-  const saveBook = () => {
+  const saveBook = async () => {
     const finalName = name.trim();
     if (!finalName) return;
+    setIsSaving(true);
 
-    if (isCreating) {
-      const id = addBook({ name: finalName, subtitle: subtitle.trim() || undefined });
-      setSelectedBookId(id);
-      resetEditor();
-      return;
-    }
+    try {
+      if (isCreating) {
+        const id = await addBook({ name: finalName });
+        setSelectedBookId(id);
+        resetEditor();
+        return;
+      }
 
-    if (editingId) {
-      updateBook(editingId, { name: finalName, subtitle: subtitle.trim() || undefined });
-      resetEditor();
+      if (editingId) {
+        await updateBook(editingId, { name: finalName });
+        resetEditor();
+      }
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -114,8 +116,8 @@ export default function BookSwitcherModal() {
       {
         text: "Delete",
         style: "destructive",
-        onPress: () => {
-          const didRemove = removeBook(editingId);
+        onPress: async () => {
+          const didRemove = await removeBook(editingId);
           if (didRemove) resetEditor();
         },
       },
@@ -182,8 +184,12 @@ export default function BookSwitcherModal() {
                 <AppText variant="lg">{isCreating ? "New book" : "Edit book"}</AppText>
                 <View className="mt-4 gap-4">
                   <Input label="Name" value={name} onChangeText={setName} placeholder="Household" autoCapitalize="words" />
-                  <Input label="Subtitle" value={subtitle} onChangeText={setSubtitle} placeholder="Shared expenses" autoCapitalize="words" />
-                  <Button label={isCreating ? "Create book" : "Save book"} onPress={saveBook} disabled={!name.trim()} size="md" />
+                  <Button
+                    label={isSaving ? "Saving..." : isCreating ? "Create book" : "Save book"}
+                    onPress={saveBook}
+                    disabled={!name.trim() || isSaving}
+                    size="md"
+                  />
                   <Button label="Cancel" variant="ghost" onPress={resetEditor} size="md" />
                   {editingId ? <Button label="Delete book" variant="danger" onPress={deleteEditingBook} size="md" /> : null}
                 </View>
@@ -217,7 +223,7 @@ export default function BookSwitcherModal() {
                         {book.name}
                       </AppText>
                       <AppText variant="xs" tone="muted" className="mt-1" numberOfLines={1}>
-                        {book.subtitle ? book.subtitle : "Everyday spending"}
+                        {book.currencyCode} · {book.timezone}
                       </AppText>
                     </HapticPressable>
 

@@ -140,7 +140,8 @@ export default function AddTransactionEntry() {
   const occurredAt = useAddTransactionDraftStore((s) => s.occurredAt);
 
   const title = useAddTransactionDraftStore((s) => s.title);
-  const category = useAddTransactionDraftStore((s) => s.category);
+  const categoryId = useAddTransactionDraftStore((s) => s.categoryId);
+  const categoryName = useAddTransactionDraftStore((s) => s.categoryName);
   const note = useAddTransactionDraftStore((s) => s.note);
 
   const setAmount = useAddTransactionDraftStore((s) => s.setAmount);
@@ -193,7 +194,8 @@ export default function AddTransactionEntry() {
         amount,
         kind,
         title,
-        category,
+        categoryId,
+        categoryName,
         note,
         bookId: selectedBook.id,
         occurredAt,
@@ -201,8 +203,8 @@ export default function AddTransactionEntry() {
     });
   };
 
-  const createDefaultBook = () => {
-    const id = addBook({ name: "Personal" });
+  const createDefaultBook = async () => {
+    const id = await addBook({ name: "Personal", currencyCode: primaryCurrency });
     setSelectedBookId(id);
     setBookId(id);
   };
@@ -267,16 +269,16 @@ export default function AddTransactionEntry() {
               <View style={styles.amountBlock}>
                 <AmountInput
                   value={amount}
-                  type={kind}
+                  type={kind === "EXPENSE" ? "expense" : "income"}
                   currencySymbol={currencySymbol(primaryCurrency)}
-                  helperText={kind === "expense" ? "Money out" : "Money in"}
+                  helperText={kind === "EXPENSE" ? "Money out" : "Money in"}
                   error={reviewAttempted && valueNum <= 0 ? "Amount is required." : undefined}
                 />
               </View>
 
               <View style={styles.segmented}>
                 <View pointerEvents="none" style={styles.segmentTrack} />
-                {(["expense", "income"] as const).map((item) => {
+                {(["EXPENSE", "INCOME"] as const).map((item) => {
                   const active = kind === item;
                   return (
                     <HapticPressable
@@ -288,13 +290,13 @@ export default function AddTransactionEntry() {
                     >
                       <View style={[styles.segmentVisual, active ? styles.segmentActive : null]}>
                         <Ionicons
-                          name={item === "expense" ? "arrow-down" : "arrow-up"}
+                          name={item === "EXPENSE" ? "arrow-down" : "arrow-up"}
                           size={20}
                           color={active ? COLORS.accent : COLORS.muted}
                           style={{ marginRight: 8 }}
                         />
                         <AppText variant="base" style={[styles.segmentText, { color: active ? COLORS.accent : COLORS.text }]}>
-                          {item === "expense" ? "Expense" : "Income"}
+                          {item === "EXPENSE" ? "Expense" : "Income"}
                         </AppText>
                       </View>
                     </HapticPressable>
@@ -320,7 +322,7 @@ export default function AddTransactionEntry() {
               <View style={styles.divider} />
               <FormPressRow
                 label="Category"
-                value={category}
+                value={categoryName}
                 placeholder="Uncategorized"
                 onPress={() => router.push("/modals/add-transaction/category")}
               />

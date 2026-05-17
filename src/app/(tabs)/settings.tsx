@@ -60,9 +60,9 @@ export default function ProfileScreen() {
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
   const transactions = useTransactionsStore((s) => s.transactions);
   const currency = useSettingsStore((s) => s.primaryCurrency);
-  const userEmail = useAuthStore((s) => s.userEmail);
-  const lockDemo = useAuthStore((s) => s.lockDemo);
-  const restartDemo = useAuthStore((s) => s.restartDemo);
+  const user = useAuthStore((s) => s.user);
+  const setUnlocked = useAuthStore((s) => s.setUnlocked);
+  const logout = useAuthStore((s) => s.logout);
 
   const booksPersist = (useBooksStore as any).persist;
   const txPersist = (useTransactionsStore as any).persist;
@@ -124,27 +124,27 @@ export default function ProfileScreen() {
   const selectedBook = useMemo(() => books.find((b) => b.id === selectedBookId) ?? null, [books, selectedBookId]);
 
   const totalIncome = useMemo(
-    () => transactions.filter((t) => t.kind === "income").reduce((sum, t) => sum + t.amountCents, 0),
+    () => transactions.filter((t) => t.type === "INCOME").reduce((sum, t) => sum + t.amountMinor, 0),
     [transactions]
   );
   const totalExpense = useMemo(
-    () => transactions.filter((t) => t.kind === "expense").reduce((sum, t) => sum + t.amountCents, 0),
+    () => transactions.filter((t) => t.type === "EXPENSE").reduce((sum, t) => sum + t.amountMinor, 0),
     [transactions]
   );
 
   const onLock = () => {
-    lockDemo();
-    router.replace("/(auth)/welcome");
+    setUnlocked(false);
+    router.replace("/(auth)/pin");
   };
 
-  const onRestartDemo = () => {
-    Alert.alert("Restart demo setup?", "This signs out and shows onboarding again. Your local books and transactions stay on this device.", [
+  const onLogout = () => {
+    Alert.alert("Log out?", "You’ll need to sign in again to access your books.", [
       { text: "Cancel", style: "cancel" },
       {
-        text: "Restart",
+        text: "Log out",
         style: "destructive",
-        onPress: () => {
-          restartDemo();
+        onPress: async () => {
+          await logout();
           router.replace("/(auth)/welcome");
         },
       },
@@ -202,9 +202,9 @@ export default function ProfileScreen() {
               <View className="flex-row items-center">
                 <CategoryIcon icon="person" color={tokens.colors.accent} size={72} />
                 <View className="ml-4 flex-1">
-                  <AppText variant="xl">{userEmail ?? "Demo account"}</AppText>
+                  <AppText variant="xl">{user?.email ?? "Account"}</AppText>
                   <AppText variant="sm" tone="muted" className="mt-1">
-                    Local-first demo workspace
+                    Backend-synced workspace
                   </AppText>
                 </View>
                 <Ionicons name="chevron-forward" size={24} color={tokens.colors.muted} />
@@ -264,8 +264,8 @@ export default function ProfileScreen() {
             </View>
 
             <View className="mt-3 gap-3">
-              <Button label="Lock demo" variant="outline" onPress={onLock} size="md" />
-              <Button label="Restart demo setup" variant="danger" onPress={onRestartDemo} size="md" />
+              <Button label="Lock app" variant="outline" onPress={onLock} size="md" />
+              <Button label="Log out" variant="danger" onPress={onLogout} size="md" />
             </View>
           </>
         )}

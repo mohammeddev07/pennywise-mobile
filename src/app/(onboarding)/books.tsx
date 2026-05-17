@@ -11,11 +11,16 @@ import { Skeleton } from "@/shared/ui/components/Skeleton";
 import { Button } from "@/shared/ui/components/Button";
 import { tokens } from "@/shared/ui/theme/tokens";
 import { useBooksStore } from "@/features/books/store";
+import { useSettingsStore } from "@/features/settings/store";
 
 export default function BooksScreen() {
   const books = useBooksStore((s) => s.books);
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
   const setSelectedBookId = useBooksStore((s) => s.setSelectedBookId);
+  const loadBooks = useBooksStore((s) => s.loadBooks);
+  const addBook = useBooksStore((s) => s.addBook);
+  const currency = useSettingsStore((s) => s.primaryCurrency);
+  const [isCreating, setIsCreating] = useState(false);
 
   const persist = (useBooksStore as any).persist;
   const [hydrated, setHydrated] = useState<boolean>(() => persist?.hasHydrated?.() ?? true);
@@ -45,10 +50,25 @@ export default function BooksScreen() {
     };
   }, [persist]);
 
+  useEffect(() => {
+    if (!hydrated) return;
+    loadBooks().catch(() => {});
+  }, [hydrated, loadBooks]);
+
   const retryHydration = () => {
     setHydrationError(false);
     setHydrated(persist?.hasHydrated?.() ?? true);
     persist?.rehydrate?.();
+  };
+
+  const createFirstBook = async () => {
+    setIsCreating(true);
+    try {
+      await addBook({ name: "Personal", currencyCode: currency });
+      router.push("/(onboarding)/start-tracking");
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   return (
@@ -77,7 +97,9 @@ export default function BooksScreen() {
         <View className="flex-1 justify-center">
           <EmptyState
             title="No books yet"
-            message="Create a book in the app and return to onboarding."
+            message="Create your first book to start tracking."
+            actionLabel={isCreating ? "Creating..." : "Create Personal book"}
+            onAction={createFirstBook}
             className="px-0"
           />
         </View>
@@ -90,7 +112,7 @@ export default function BooksScreen() {
                 key={book.id}
                 onPress={() => {
                   setSelectedBookId(book.id);
-                  router.push("/(onboarding)/currency");
+                  router.push("/(onboarding)/start-tracking");
                 }}
                 haptic="selection"
                 pressScale={0.99}
@@ -106,7 +128,7 @@ export default function BooksScreen() {
                     <View className="flex-1 pr-3">
                       <AppText variant="lg">{book.name}</AppText>
                       <AppText variant="sm" tone="muted" className="mt-1">
-                        {book.subtitle ? book.subtitle : "Everyday spending"}
+                        {book.currencyCode} · {book.timezone}
                       </AppText>
                     </View>
 
@@ -124,7 +146,12 @@ export default function BooksScreen() {
       )}
 
       <View className="mt-auto">
-        <Button label="Next" onPress={() => router.push("/(onboarding)/currency")} size="md" />
+        <Button
+          label={books.length === 0 ? (isCreating ? "Creating..." : "Create first book") : "Next"}
+          onPress={books.length === 0 ? createFirstBook : () => router.push("/(onboarding)/start-tracking")}
+          disabled={isCreating}
+          size="md"
+        />
       </View>
     </View>
   );

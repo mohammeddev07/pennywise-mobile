@@ -8,6 +8,7 @@ import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { Button } from "@/shared/ui/components/Button";
 import { useBudgetsStore } from "@/features/budgets/store";
 import { useBooksStore } from "@/features/books/store";
+import { useCategoriesStore } from "@/features/categories/store";
 import { Sheet } from "@/shared/ui/components/Sheet";
 import { AppText } from "@/shared/ui/components/AppText";
 import { Card } from "@/shared/ui/components/Card";
@@ -30,13 +31,16 @@ function centsToText(cents: number) {
 export default function BudgetEditor() {
   const router = useRouter();
 
-  const { category } = useLocalSearchParams<{ category?: string }>();
-  const cat = (category ?? "").toString().trim();
+  const { categoryId, month: monthParam } = useLocalSearchParams<{ categoryId?: string; month?: string }>();
+  const catId = (categoryId ?? "").toString().trim();
+  const month = (monthParam ?? new Date().toISOString().slice(0, 7)).toString();
 
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
-  const getBudgetCents = useBudgetsStore((s) => s.getBudgetCents);
-  const setBudget = useBudgetsStore((s) => s.setBudget);
-  const removeBudget = useBudgetsStore((s) => s.removeBudget);
+  const getBudget = useBudgetsStore((s) => s.getBudget);
+  const upsertBudget = useBudgetsStore((s) => s.upsertBudget);
+  const deleteBudget = useBudgetsStore((s) => s.deleteBudget);
+  const loadBudgets = useBudgetsStore((s) => s.loadBudgets);
+  const categories = useCategoriesStore((s) => s.categories);
 
   const budgetsPersist = (useBudgetsStore as any).persist;
   const booksPersist = (useBooksStore as any).persist;
@@ -84,29 +88,37 @@ export default function BudgetEditor() {
 
   const hydrated = budgetsHydrated && booksHydrated;
 
-  const existing = useMemo(() => {
-    if (!cat) return null;
-    return getBudgetCents(selectedBookId, cat);
-  }, [cat, getBudgetCents, selectedBookId]);
+  useEffect(() => {
+    if (hydrated && selectedBookId && month) {
+      loadBudgets(selectedBookId, month).catch(() => {});
+    }
+  }, [hydrated, loadBudgets, month, selectedBookId]);
 
-  const [value, setValue] = useState(existing ? centsToText(existing) : "");
+  const category = useMemo(() => {
+    return categories.find((c) => c.id === catId && c.bookId === selectedBookId) ?? null;
+  }, [catId, categories, selectedBookId]);
+
+  const existing = useMemo(() => {
+    if (!catId) return null;
+    return getBudget(selectedBookId, catId, month);
+  }, [catId, getBudget, month, selectedBookId]);
+
+  const [value, setValue] = useState(existing ? centsToText(existing.amountMinor) : "");
 
   useEffect(() => {
-    setValue(existing ? centsToText(existing) : "");
+    setValue(existing ? centsToText(existing.amountMinor) : "");
   }, [existing]);
 
   const canSave = useMemo(() => toCents(value) > 0, [value]);
 
   const onSave = () => {
-    if (!cat || !canSave) return;
-    setBudget({ bookId: selectedBookId, category: cat, budgetCents: toCents(value) });
-    router.back();
+    if (!catId || !canSave) return;
+    upsertBudget(selectedBookId, catId, month, toCents(value), existing?.version).then(() => router.back());
   };
 
   const onRemove = () => {
-    if (!cat) return;
-    removeBudget(selectedBookId, cat);
-    router.back();
+    if (!catId || !existing) return;
+    deleteBudget(selectedBookId, catId, month, existing.version).then(() => router.back());
   };
 
   return (
@@ -114,7 +126,7 @@ export default function BudgetEditor() {
       <Sheet
         tone="app"
         className="flex-1"
-        title={cat ? `${cat} Budget` : "Budget"}
+        title={category ? `${category.name} Budget` : "Budget"}
         leftAction={
           <HapticPressable
             onPress={() => router.back()}
@@ -126,7 +138,7 @@ export default function BudgetEditor() {
         }
         footer={
           <View className="gap-3">
-            <Button label="Save Budget" disabled={!canSave || !cat} onPress={onSave} size="md" />
+            <Button label="Save Budget" disabled={!canSave || !catId} onPress={onSave} size="md" />
             {existing ? <Button label="Reset Budget" variant="secondary" onPress={onRemove} size="md" /> : null}
           </View>
         }
@@ -147,7 +159,7 @@ export default function BudgetEditor() {
             <Skeleton height={56} borderRadius={16} />
             <Skeleton height={56} borderRadius={16} />
           </View>
-        ) : !cat ? (
+        ) : !catId || !category ? (
           <View className="flex-1 justify-center">
             <EmptyState
               title="No category selected"
@@ -164,7 +176,7 @@ export default function BudgetEditor() {
                 </View>
                 <View className="ml-4 flex-1">
                   <AppText variant="2xl">
-                    {cat}
+                    {category.name}
                   </AppText>
                   <AppText variant="base" tone="muted" className="mt-1">
                     This Month
@@ -176,7 +188,7 @@ export default function BudgetEditor() {
                 Monthly budget
               </AppText>
               <AppText variant="xl" className="mt-2">
-                {existing ? centsToText(existing) : "No budget set"}
+                {existing ? centsToText(existing.amountMinor) : "No budget set"}
               </AppText>
             </Card>
 

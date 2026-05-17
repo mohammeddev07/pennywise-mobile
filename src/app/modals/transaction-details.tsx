@@ -9,6 +9,8 @@ import { tokens } from "@/shared/ui/theme/tokens";
 import { Button } from "@/shared/ui/components/Button";
 import { useTransactionsStore } from "@/features/transactions/store";
 import { useCategoriesStore } from "@/features/categories/store";
+import { useBooksStore } from "@/features/books/store";
+import { useSettingsStore } from "@/features/settings/store";
 import { useUndoToastStore } from "@/shared/ui/state/useUndoToastStore";
 import { Sheet } from "@/shared/ui/components/Sheet";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
@@ -67,6 +69,8 @@ export default function TransactionDetailsModal() {
   const removeTransaction = useTransactionsStore((s) => s.removeTransaction);
   const duplicateTransaction = useTransactionsStore((s) => s.duplicateTransaction);
   const categories = useCategoriesStore((s) => s.categories);
+  const books = useBooksStore((s) => s.books);
+  const fallbackCurrency = useSettingsStore((s) => s.primaryCurrency);
 
   const showDeleted = useUndoToastStore((s) => s.showDeleted);
 
@@ -104,8 +108,8 @@ export default function TransactionDetailsModal() {
   const tx = useMemo(() => transactions.find((t) => t.id === id) ?? null, [transactions, id]);
 
   const categoryMeta = useMemo(() => {
-    const name = tx?.category ?? "Uncategorized";
-    const hit = categories.find((c) => c.name === name);
+    const name = tx?.categoryName ?? "Uncategorized";
+    const hit = categories.find((c) => c.id === tx?.categoryId);
     return {
       name,
       icon: (hit?.icon as any) ?? ("pricetag-outline" as any),
@@ -125,9 +129,9 @@ export default function TransactionDetailsModal() {
       {
         text: "Delete",
         style: "destructive",
-        onPress: () => {
+        onPress: async () => {
           const idx = useTransactionsStore.getState().transactions.findIndex((t) => t.id === tx.id);
-          removeTransaction(tx.id);
+          await removeTransaction(tx.id);
           showDeleted(tx, idx >= 0 ? idx : 0);
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
           router.back();
@@ -138,11 +142,12 @@ export default function TransactionDetailsModal() {
 
   const onDuplicate = () => {
     if (!tx) return;
-    const duplicatedId = duplicateTransaction(tx.id);
+    duplicateTransaction(tx.id).then((duplicatedId) => {
     if (duplicatedId) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       router.replace({ pathname: "/modals/transaction-details", params: { id: duplicatedId } });
     }
+    });
   };
 
   const onEdit = () => {
@@ -155,6 +160,7 @@ export default function TransactionDetailsModal() {
     setHydrated(txPersist?.hasHydrated?.() ?? true);
     txPersist?.rehydrate?.();
   };
+  const currency = tx ? books.find((b) => b.id === tx.bookId)?.currencyCode ?? fallbackCurrency : fallbackCurrency;
 
   return (
     <View className="flex-1 bg-app">
@@ -228,9 +234,9 @@ export default function TransactionDetailsModal() {
                 <Ionicons name={categoryMeta.icon} size={44} color={categoryMeta.color} />
               </View>
 
-              <View className="mt-5 rounded-full px-4 py-2" style={{ backgroundColor: tx.kind === "income" ? tokens.colors.greenSoft : tokens.colors.redSoft }}>
-                <AppText variant="sm" style={{ color: tx.kind === "income" ? tokens.colors.accent : tokens.colors.danger, fontFamily: "Inter_600SemiBold" }}>
-                  {tx.kind === "income" ? "Income" : "Expense"}
+              <View className="mt-5 rounded-full px-4 py-2" style={{ backgroundColor: tx.type === "INCOME" ? tokens.colors.greenSoft : tokens.colors.redSoft }}>
+                <AppText variant="sm" style={{ color: tx.type === "INCOME" ? tokens.colors.accent : tokens.colors.danger, fontFamily: "Inter_600SemiBold" }}>
+                  {tx.type === "INCOME" ? "Income" : "Expense"}
                 </AppText>
               </View>
 
@@ -245,9 +251,9 @@ export default function TransactionDetailsModal() {
               <AppText
                 variant="amount"
                 className="mt-4"
-                style={{ color: tx.kind === "income" ? tokens.colors.accent : tokens.colors.text }}
+                style={{ color: tx.type === "INCOME" ? tokens.colors.accent : tokens.colors.text }}
               >
-                {formatSignedCurrency(tx.kind === "income" ? tx.amountCents : -tx.amountCents, tx.currency)}
+                {formatSignedCurrency(tx.type === "INCOME" ? tx.amountMinor : -tx.amountMinor, currency)}
               </AppText>
 
               <AppText variant="base" tone="muted" className="mt-2">
@@ -262,13 +268,13 @@ export default function TransactionDetailsModal() {
             <Card variant="surface" className="mt-3 p-0 overflow-hidden">
               <DetailRow label="Title" value={tx.title || "—"} icon="create-outline" muted={!tx.title} />
               <View className="h-px bg-stroke" />
-              <DetailRow label="Payment method" value={(tx.paymentMethod || "cash").toLowerCase()} icon="card-outline" />
+              <DetailRow label="Payment method" value={(tx.paymentMethod || "CASH").toLowerCase()} icon="card-outline" />
               <View className="h-px bg-stroke" />
               <DetailRow label="Date" value={dateLabel} icon="calendar-outline" />
               <View className="h-px bg-stroke" />
               <DetailRow label="Time" value={timeLabel} icon="time-outline" />
               <View className="h-px bg-stroke" />
-              <DetailRow label="Currency" value={tx.currency || "USD"} icon="cash-outline" />
+              <DetailRow label="Currency" value={currency} icon="cash-outline" />
               <View className="h-px bg-stroke" />
               <DetailRow
                 label="Note"

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Dimensions, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { format, parseISO } from "date-fns";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
@@ -24,9 +25,12 @@ import { Skeleton } from "@/shared/ui/components/Skeleton";
 import { SwipeUpToSubmit } from "@/shared/ui/components/SwipeUpToSubmit";
 import { useBooksStore } from "@/features/books/store";
 import { useAddTransactionDraftStore } from "@/features/transactions/addDraftStore";
+import { useTransactionsStore } from "@/features/transactions/store";
 import { useSettingsStore } from "@/features/settings/store";
-import type { CurrencyCode } from "@/shared/types/models";
+import type { CurrencyCode, PaymentMethod } from "@/shared/types/models";
 import { formatCurrency } from "@/shared/utils/formatCurrency";
+import * as transactionsApi from "@/shared/api/transactions";
+import { getApiErrorMessage } from "@/shared/api/errors";
 
 const COLORS = {
   bg: tokens.colors.app,
@@ -129,7 +133,9 @@ function SummaryRow({ label, value, strong }: { label: string; value: string; st
 export default function AddTransactionReview() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
   const [showCompletion, setShowCompletion] = useState(false);
   const completion = useSharedValue(0);
   const swipeProgress = useSharedValue(0);
@@ -139,15 +145,19 @@ export default function AddTransactionReview() {
   const primaryCurrency = useSettingsStore((s) => s.primaryCurrency);
 
   const draftTitle = useAddTransactionDraftStore((s) => s.title);
-  const draftCategory = useAddTransactionDraftStore((s) => s.category);
+  const draftCategoryId = useAddTransactionDraftStore((s) => s.categoryId);
+  const draftCategoryName = useAddTransactionDraftStore((s) => s.categoryName);
   const draftNote = useAddTransactionDraftStore((s) => s.note);
   const draftOccurredAt = useAddTransactionDraftStore((s) => s.occurredAt);
+  const idempotencyKey = useAddTransactionDraftStore((s) => s.idempotencyKey);
+  const resetIdempotencyKey = useAddTransactionDraftStore((s) => s.resetIdempotencyKey);
 
   const params = useLocalSearchParams<{
     amount?: string;
     kind?: string;
     title?: string;
-    category?: string;
+    categoryId?: string;
+    categoryName?: string;
     note?: string;
     bookId?: string;
     occurredAt?: string;
@@ -169,23 +179,24 @@ export default function AddTransactionReview() {
   }, [booksPersist]);
 
   const amount = params.amount ?? "0";
-  const kind = params.kind === "income" ? "income" : "expense";
+  const kind: "INCOME" | "EXPENSE" = params.kind === "INCOME" ? "INCOME" : "EXPENSE";
 
   const title = (draftTitle || params.title || "").trim();
-  const category = (draftCategory || params.category || "Uncategorized").trim() || "Uncategorized";
+  const categoryId = draftCategoryId || params.categoryId || "";
+  const categoryName = (draftCategoryName || params.categoryName || "Uncategorized").trim() || "Uncategorized";
   const note = (draftNote ?? params.note ?? "").trim();
   const occurredAt = draftOccurredAt || params.occurredAt || new Date().toISOString();
 
   const bookId = selectedBookId ?? params.bookId ?? "personal";
   const selectedBook = books.find((b) => b.id === bookId) ?? null;
 
-  const amountCents = useMemo(() => parseAmountToCents(amount), [amount]);
+  const amountMinor = useMemo(() => parseAmountToCents(amount), [amount]);
 
-  const primaryLabel = title.length ? title : category;
+  const primaryLabel = title.length ? title : categoryName;
   const currency: CurrencyCode = primaryCurrency;
-  const hasAmountError = amountCents <= 0;
+  const hasAmountError = amountMinor <= 0;
 
-  const canSubmit = booksHydrated && !!selectedBook && !hasAmountError;
+  const canSubmit = booksHydrated && !!selectedBook && !hasAmountError && !!categoryId;
   const submitDisabled = !canSubmit || isSubmitting;
 
   const navigateToSuccess = () => {
@@ -196,12 +207,13 @@ export default function AddTransactionReview() {
           amount,
           kind,
           title,
-          category,
+          categoryId,
+          categoryName,
           note,
           bookId,
           occurredAt,
           currency,
-          paymentMethod: "cash",
+          paymentMethod: "CASH",
         },
       });
     } catch {
@@ -211,15 +223,35 @@ export default function AddTransactionReview() {
     }
   };
 
-  const onSubmit = () => {
+  const onSubmit = async () => {
     if (submitDisabled) return;
     setIsSubmitting(true);
-    setShowCompletion(true);
-    completion.value = 0;
-    // This restores the requested full-page swipe completion moment before saving on the success route.
-    completion.value = withTiming(1, { duration: 520, easing: Easing.out(Easing.cubic) }, () => {
-      runOnJS(navigateToSuccess)();
-    });
+    setSubmitError("");
+    try {
+      const payload = {
+        type: kind,
+        amountMinor,
+        categoryId,
+        title: title || undefined,
+        note: note || undefined,
+        paymentMethod: "CASH" as PaymentMethod,
+        occurredAt,
+      };
+      const tx = await transactionsApi.createTransaction(bookId, idempotencyKey, payload);
+      useTransactionsStore.getState().addTransaction(tx);
+      await queryClient.invalidateQueries({ queryKey: ["balance", bookId] });
+      await queryClient.invalidateQueries({ queryKey: ["summary", bookId] });
+      setShowCompletion(true);
+      completion.value = 0;
+      completion.value = withTiming(1, { duration: 520, easing: Easing.out(Easing.cubic) }, () => {
+        runOnJS(navigateToSuccess)();
+      });
+    } catch (err) {
+      resetIdempotencyKey();
+      setSubmitError(getApiErrorMessage(err, "Could not save transaction."));
+      setIsSubmitting(false);
+      setShowCompletion(false);
+    }
   };
 
   const completionStyle = useAnimatedStyle(() => ({
@@ -289,15 +321,15 @@ export default function AddTransactionReview() {
           <>
             <View className="mt-2 items-center">
               <AppText variant="xs" tone="muted" className="uppercase">
-                {kind === "income" ? "Income" : "Expense"}
+                {kind === "INCOME" ? "Income" : "Expense"}
               </AppText>
 
               <AppText
                 variant="amount"
                 className="mt-2"
-                style={{ color: kind === "income" ? tokens.colors.accent : tokens.colors.text }}
+                style={{ color: kind === "INCOME" ? tokens.colors.accent : tokens.colors.text }}
               >
-                {formatCurrency(amountCents, currency)}
+                {formatCurrency(amountMinor, currency)}
               </AppText>
 
               <AppText variant="lg" className="mt-3" numberOfLines={1}>
@@ -305,7 +337,7 @@ export default function AddTransactionReview() {
               </AppText>
 
               <AppText variant="sm" tone="muted" className="mt-1" numberOfLines={1}>
-                {category}
+                {categoryName}
               </AppText>
             </View>
 
@@ -327,8 +359,9 @@ export default function AddTransactionReview() {
               <View className="h-px bg-stroke" />
               <ReviewRow
                 label="Category"
-                value={category}
+                value={categoryId ? categoryName : "Choose a category"}
                 onPress={() => router.push("/modals/add-transaction/category")}
+                muted={!categoryId}
               />
               <View className="h-px bg-stroke" />
               <ReviewRow
@@ -349,14 +382,20 @@ export default function AddTransactionReview() {
               <AppText variant="sm" tone="muted">
                 Summary
               </AppText>
-              <SummaryRow label="Amount" value={formatCurrency(amountCents, currency)} />
+              <SummaryRow label="Amount" value={formatCurrency(amountMinor, currency)} />
               <View className="mt-3 h-px bg-stroke" />
-              <SummaryRow label="Saved total" value={formatCurrency(amountCents, currency)} strong />
+              <SummaryRow label="Saved total" value={formatCurrency(amountMinor, currency)} strong />
             </Card>
 
-            <AppText variant="sm" tone="muted" className="mt-4">
-              This is saved instantly and updates Home, Transactions, and Analytics.
-            </AppText>
+            {submitError ? (
+              <AppText variant="sm" tone="danger" className="mt-4">
+                {submitError}
+              </AppText>
+            ) : (
+              <AppText variant="sm" tone="muted" className="mt-4">
+                This is saved instantly and updates Home, Transactions, and Analytics.
+              </AppText>
+            )}
           </>
         )}
       </Sheet>

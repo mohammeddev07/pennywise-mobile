@@ -139,12 +139,12 @@ export default function AddTransactionCategory() {
   const router = useRouter();
 
   const categories = useCategoriesStore((s) => s.categories);
-  const consumeLastCreatedCategoryName = useCategoriesStore((s) => s.consumeLastCreatedCategoryName);
+  const consumeLastCreatedCategoryId = useCategoriesStore((s) => s.consumeLastCreatedCategoryId);
 
   const transactions = useTransactionsStore((s) => s.transactions);
   const primaryCurrency = useSettingsStore((s) => s.primaryCurrency);
 
-  const selected = useAddTransactionDraftStore((s) => s.category);
+  const selected = useAddTransactionDraftStore((s) => s.categoryId);
   const setCategory = useAddTransactionDraftStore((s) => s.setCategory);
   const bookId = useAddTransactionDraftStore((s) => s.bookId);
   const kind = useAddTransactionDraftStore((s) => s.kind);
@@ -183,29 +183,22 @@ export default function AddTransactionCategory() {
 
   const hydrated = hydratedCats && hydratedTx;
 
-  const choose = (name: string) => {
-    setCategory(name);
+  const choose = (id: string, name: string) => {
+    setCategory(id, name);
     router.back();
   };
 
-  // ✅ Create → auto-select bridge
+  // Create -> auto-select bridge.
   useFocusEffect(() => {
-    const name = consumeLastCreatedCategoryName();
-    if (name) choose(name);
+    const id = consumeLastCreatedCategoryId();
+    const category = id ? categories.find((c) => c.id === id) : null;
+    if (category) choose(category.id, category.name);
   });
 
   const allCats = useMemo(() => {
-    const base: CatMeta[] = [
-      {
-        id: "uncat",
-        name: "Uncategorized",
-        icon: "pricetag-outline",
-        color: tokens.colors.muted,
-        count: 0,
-        cents: 0,
-        lastAt: 0,
-      },
-      ...categories.map((c: any) => ({
+    const base: CatMeta[] = categories
+      .filter((c) => c.bookId === bookId && c.type === kind && !c.isDisabled)
+      .map((c: any) => ({
         id: c.id,
         name: c.name,
         icon: c.icon,
@@ -213,34 +206,20 @@ export default function AddTransactionCategory() {
         count: 0,
         cents: 0,
         lastAt: 0,
-      })),
-    ];
+      }));
 
     const map = new Map<string, CatMeta>();
-    for (const c of base) map.set(c.name, c);
+    for (const c of base) map.set(c.id, c);
 
     for (const tx of transactions) {
       if (tx.bookId !== bookId) continue;
-      if (tx.kind !== kind) continue;
+      if (tx.type !== kind) continue;
 
-      const name = tx.category || "Uncategorized";
-      let row = map.get(name);
-
-      if (!row) {
-        row = {
-          id: `ghost_${name}`,
-          name,
-          icon: "pricetag-outline",
-          color: tokens.colors.muted,
-          count: 0,
-          cents: 0,
-          lastAt: 0,
-        };
-        map.set(name, row);
-      }
+      const row = map.get(tx.categoryId);
+      if (!row) continue;
 
       row.count += 1;
-      row.cents += tx.amountCents;
+      row.cents += tx.amountMinor;
       row.lastAt = Math.max(row.lastAt, safeTime(tx.occurredAt));
     }
 
@@ -311,7 +290,7 @@ export default function AddTransactionCategory() {
       >
         <View className="mt-2">
           <AppText variant="xs" tone="muted" className="text-center">
-            {kind === "expense" ? "Expense" : "Income"} • Book-aware
+            {kind === "EXPENSE" ? "Expense" : "Income"} • Book-aware
           </AppText>
         </View>
 
@@ -367,8 +346,8 @@ export default function AddTransactionCategory() {
                       <CatPill
                         key={`recent_${c.id}_${c.name}`}
                         item={c}
-                        active={c.name === selected}
-                        onPress={() => choose(c.name)}
+                        active={c.id === selected}
+                        onPress={() => choose(c.id, c.name)}
                       />
                     ))}
                   </View>
@@ -440,7 +419,7 @@ export default function AddTransactionCategory() {
                       paddingTop: 8,
                     }}
                   >
-                    <CatCard item={item} active={item.name === selected} onPress={() => choose(item.name)} currency={primaryCurrency} />
+                    <CatCard item={item} active={item.id === selected} onPress={() => choose(item.id, item.name)} currency={primaryCurrency} />
                   </View>
                 );
               }}

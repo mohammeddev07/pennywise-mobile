@@ -1,6 +1,8 @@
 import type { CurrencyCode } from "@/shared/types/models";
 
-const SYMBOLS: Record<CurrencyCode, string> = {
+export type CurrencyInput = CurrencyCode | string;
+
+const SYMBOLS: Record<string, string> = {
   USD: "$",
   EUR: "€",
   GBP: "£",
@@ -8,12 +10,12 @@ const SYMBOLS: Record<CurrencyCode, string> = {
   INR: "₹",
 };
 
-export function currencySymbol(currency: CurrencyCode) {
+export function currencySymbol(currency: CurrencyInput) {
   return SYMBOLS[currency] ?? currency;
 }
 
-export function formatCurrency(amountCents: number, currency: CurrencyCode, maximumFractionDigits = 2) {
-  const amount = amountCents / 100;
+export function formatCurrency(amountMinor: number, currency: CurrencyInput, maximumFractionDigits = 2) {
+  const amount = amountMinor / 100;
 
   try {
     return new Intl.NumberFormat(undefined, {
@@ -30,8 +32,8 @@ export function formatCurrency(amountCents: number, currency: CurrencyCode, maxi
   }
 }
 
-export function formatSignedCurrency(amountCents: number, currency: CurrencyCode, maximumFractionDigits = 2) {
-  const formatted = formatCurrency(Math.abs(amountCents), currency, maximumFractionDigits);
-  if (amountCents === 0) return formatted;
-  return `${amountCents > 0 ? "+" : "-"}${formatted}`;
+export function formatSignedCurrency(amountMinor: number, currency: CurrencyInput, maximumFractionDigits = 2) {
+  const formatted = formatCurrency(Math.abs(amountMinor), currency, maximumFractionDigits);
+  if (amountMinor === 0) return formatted;
+  return `${amountMinor > 0 ? "+" : "-"}${formatted}`;
 }

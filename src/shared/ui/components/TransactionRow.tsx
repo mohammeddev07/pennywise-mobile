@@ -7,6 +7,8 @@ import * as Haptics from "expo-haptics";
 import { tokens } from "@/shared/ui/theme/tokens";
 import type { Transaction } from "@/features/transactions/store";
 import { useTransactionsStore } from "@/features/transactions/store";
+import { useBooksStore } from "@/features/books/store";
+import { useSettingsStore } from "@/features/settings/store";
 import { useUndoToastStore } from "@/shared/ui/state/useUndoToastStore";
 import { Card } from "@/shared/ui/components/Card";
 import { AppText } from "@/shared/ui/components/AppText";
@@ -53,12 +55,15 @@ export function TransactionRow({
   const duplicateTransaction = useTransactionsStore((s) => s.duplicateTransaction);
   const removeTransaction = useTransactionsStore((s) => s.removeTransaction);
   const showDeleted = useUndoToastStore((s) => s.showDeleted);
+  const books = useBooksStore((s) => s.books);
+  const fallbackCurrency = useSettingsStore((s) => s.primaryCurrency);
 
-  const isIncome = item.kind === "income";
-  const amount = formatSignedCurrency(isIncome ? item.amountCents : -item.amountCents, item.currency);
+  const currency = books.find((b) => b.id === item.bookId)?.currencyCode ?? fallbackCurrency;
+  const isIncome = item.type === "INCOME";
+  const amount = formatSignedCurrency(isIncome ? item.amountMinor : -item.amountMinor, currency);
 
-  const primary = (item.title || "").trim() || (item.category || "").trim() || "Transaction";
-  const category = (item.category || "Uncategorized").trim() || "Uncategorized";
+  const primary = (item.title || "").trim() || (item.categoryName || "").trim() || "Transaction";
+  const category = (item.categoryName || "Uncategorized").trim() || "Uncategorized";
 
   const onDelete = () => {
     Alert.alert("Delete transaction?", "You can undo this action for a few seconds.", [
@@ -66,19 +71,24 @@ export function TransactionRow({
       {
         text: "Delete",
         style: "destructive",
-        onPress: () => {
+        onPress: async () => {
           const idx = useTransactionsStore.getState().transactions.findIndex((t) => t.id === item.id);
-          removeTransaction(item.id);
-          showDeleted(item, idx >= 0 ? idx : 0);
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+          try {
+            await removeTransaction(item.id);
+            showDeleted(item, idx >= 0 ? idx : 0);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+          } catch {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+          }
         },
       },
     ]);
   };
 
   const onDuplicate = () => {
-    duplicateTransaction(item.id);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    duplicateTransaction(item.id)
+      .then(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}))
+      .catch(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {}));
   };
 
   const openActions = () => {
@@ -111,7 +121,7 @@ export function TransactionRow({
               {primary}
             </AppText>
             <AppText variant="xs" tone="muted" className="mt-1" numberOfLines={1}>
-              {category} • {(item.paymentMethod || "cash").toLowerCase()} • {whenLabel(item.occurredAt)} •{" "}
+              {category} • {(item.paymentMethod || "CASH").toLowerCase()} • {whenLabel(item.occurredAt)} •{" "}
               {timeLabel(item.occurredAt)}
             </AppText>
           </View>

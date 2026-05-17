@@ -7,8 +7,8 @@ import { tokens } from "@/shared/ui/theme/tokens";
 import { Button } from "@/shared/ui/components/Button";
 import { useCategoriesStore } from "@/features/categories/store";
 import { useTransactionsStore } from "@/features/transactions/store";
-import { useBudgetsStore } from "@/features/budgets/store";
 import { useBooksStore } from "@/features/books/store";
+import { SegmentedControl } from "@/shared/ui/components/SegmentedControl";
 import { Sheet } from "@/shared/ui/components/Sheet";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { AppText } from "@/shared/ui/components/AppText";
@@ -46,11 +46,9 @@ export default function CategoryEditorModal() {
   const addCategory = useCategoriesStore((s) => s.addCategory);
   const updateCategory = useCategoriesStore((s) => s.updateCategory);
   const removeCategory = useCategoriesStore((s) => s.removeCategory);
-  const markLastCreatedCategoryName = useCategoriesStore((s) => s.markLastCreatedCategoryName);
+  const markLastCreatedCategoryId = useCategoriesStore((s) => s.markLastCreatedCategoryId);
   const renameTransactionCategory = useTransactionsStore((s) => s.renameTransactionCategory);
-  const books = useBooksStore((s) => s.books);
-  const renameBudgetCategory = useBudgetsStore((s) => s.renameBudgetCategory);
-  const removeBudgetForCategory = useBudgetsStore((s) => s.removeBudgetForCategory);
+  const selectedBookId = useBooksStore((s) => s.selectedBookId);
 
   const persist = (useCategoriesStore as any).persist;
   const [hydrated, setHydrated] = useState<boolean>(() => persist?.hasHydrated?.() ?? true);
@@ -93,44 +91,54 @@ export default function CategoryEditorModal() {
   }, [categories, params.id]);
 
   const [name, setName] = useState("");
+  const [type, setType] = useState<"EXPENSE" | "INCOME">("EXPENSE");
   const [icon, setIcon] = useState<(typeof ICONS)[number]>("pricetag-outline");
   const [color, setColor] = useState(COLORS[0]);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (!editing) {
       setName("");
+      setType("EXPENSE");
       setIcon("pricetag-outline");
       setColor(COLORS[0]);
       return;
     }
     setName(editing.name);
+    setType(editing.type);
     setIcon((editing.icon as any) ?? "pricetag-outline");
     setColor(editing.color ?? COLORS[0]);
   }, [editing]);
 
   const title = editing ? "Edit category" : "New category";
 
-  const onSave = () => {
+  const nameTooLong = name.trim().length > 60;
+  const canSave = Boolean(name.trim()) && !nameTooLong && Boolean(selectedBookId || editing?.bookId) && !isSaving;
+
+  const onSave = async () => {
     const finalName = name.trim() || "Untitled";
+    if (!canSave) return;
+    setIsSaving(true);
 
-    if (editing) {
-      const previousName = editing.name;
-      updateCategory(editing.id, { name: finalName, icon, color });
-      renameTransactionCategory(previousName, finalName);
-      for (const book of books) {
-        renameBudgetCategory(book.id, previousName, finalName);
+    try {
+      if (editing) {
+        const previousName = editing.name;
+        await updateCategory(editing.bookId, editing.id, { name: finalName, icon, color });
+        renameTransactionCategory(previousName, finalName);
+        router.back();
+        return;
       }
+
+      const id = await addCategory(selectedBookId, { type, name: finalName, icon, color });
+
+      if (origin === "add-transaction") {
+        markLastCreatedCategoryId(id);
+      }
+
       router.back();
-      return;
+    } finally {
+      setIsSaving(false);
     }
-
-    addCategory({ name: finalName, icon, color });
-
-    if (origin === "add-transaction") {
-      markLastCreatedCategoryName(finalName);
-    }
-
-    router.back();
   };
 
   const onDelete = () => {
@@ -141,11 +149,8 @@ export default function CategoryEditorModal() {
       {
         text: "Delete",
         style: "destructive",
-        onPress: () => {
-          for (const book of books) {
-            removeBudgetForCategory(book.id, editing.name);
-          }
-          removeCategory(editing.id);
+        onPress: async () => {
+          await removeCategory(editing.bookId, editing.id);
           router.back();
         },
       },
@@ -180,7 +185,12 @@ export default function CategoryEditorModal() {
         }
         footer={
           <View className="gap-3">
-            <Button label={editing ? "Save changes" : "Create category"} onPress={onSave} size="md" />
+            <Button
+              label={isSaving ? "Saving..." : editing ? "Save changes" : "Create category"}
+              onPress={onSave}
+              disabled={!canSave}
+              size="md"
+            />
             {editing ? <Button label="Delete" variant="danger" onPress={onDelete} size="md" /> : null}
           </View>
         }
@@ -214,7 +224,28 @@ export default function CategoryEditorModal() {
         ) : (
           <>
             <View className="mt-2">
+              <SegmentedControl
+                items={[
+                  { label: "Expense", value: "EXPENSE" },
+                  { label: "Income", value: "INCOME" },
+                ]}
+                value={type}
+                onChange={editing ? () => {} : setType}
+              />
+              {editing ? (
+                <AppText variant="xs" tone="muted" className="mt-2">
+                  Category type is fixed after creation.
+                </AppText>
+              ) : null}
+            </View>
+
+            <View className="mt-5">
               <Input label="Name" value={name} onChangeText={setName} placeholder="e.g. Groceries" />
+              {nameTooLong ? (
+                <AppText variant="xs" tone="danger" className="mt-2">
+                  Category name must be 60 characters or fewer.
+                </AppText>
+              ) : null}
             </View>
 
             <Card variant="surface" className="mt-6">

@@ -9,6 +9,7 @@ import { AppText } from "@/shared/ui/components/AppText";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { tokens } from "@/shared/ui/theme/tokens";
 import { useAuthStore } from "@/features/auth/store";
+import { getAuthErrorMessage } from "@/shared/api/errors";
 
 function isEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
@@ -18,10 +19,13 @@ export default function SignupScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitted, setSubmitted] = useState(false);
-  const setPendingEmail = useAuthStore((s) => s.setPendingEmail);
+  const [apiError, setApiError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const signup = useAuthStore((s) => s.signup);
+  const onboardingCompleted = useAuthStore((s) => s.onboardingCompleted);
 
   const emailError = submitted && !isEmail(email) ? "Enter a valid email." : undefined;
-  const passwordError = submitted && password.trim().length < 6 ? "Use at least 6 characters." : undefined;
+  const passwordError = submitted && password.trim().length < 8 ? "Use at least 8 characters." : undefined;
 
   const handleBack = () => {
     const canGoBack = typeof (router as any).canGoBack === "function" ? (router as any).canGoBack() : false;
@@ -29,11 +33,19 @@ export default function SignupScreen() {
     else router.replace("/(auth)/welcome");
   };
 
-  const onContinue = () => {
+  const onContinue = async () => {
     setSubmitted(true);
-    if (!isEmail(email) || password.trim().length < 6) return;
-    setPendingEmail(email);
-    router.push("/(auth)/pin");
+    setApiError("");
+    if (!isEmail(email) || password.trim().length < 8) return;
+    setIsSubmitting(true);
+    try {
+      await signup(email, password);
+      router.replace(onboardingCompleted ? "/(tabs)/home" : "/(onboarding)/currency");
+    } catch (err) {
+      setApiError(getAuthErrorMessage(err));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -78,10 +90,16 @@ export default function SignupScreen() {
           autoCapitalize="none"
           error={passwordError}
         />
+
+        {apiError ? (
+          <AppText variant="sm" tone="danger">
+            {apiError}
+          </AppText>
+        ) : null}
       </View>
 
       <View className="mt-auto gap-4">
-        <Button label="Continue" onPress={onContinue} />
+        <Button label={isSubmitting ? "Creating..." : "Continue"} onPress={onContinue} disabled={isSubmitting} />
 
         <View className="flex-row justify-center gap-2 items-center">
           <AppText variant="sm" tone="muted">
