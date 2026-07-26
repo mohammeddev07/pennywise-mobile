@@ -95,7 +95,7 @@ export default function NoteModal() {
 
   const recentNotes = useMemo(() => {
     const scoped = transactions
-      .filter((tx) => tx.bookId === bookId && tx.kind === kind)
+      .filter((tx) => tx.bookId === bookId && tx.type === kind)
       .map((tx) => tx.note ?? "");
 
     return toRecentNotes(scoped);

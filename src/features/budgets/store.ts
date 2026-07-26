@@ -2,84 +2,101 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
-export type Budget = {
-  bookId: string;
-  category: string; // matches transaction.category string
-  budgetCents: number;
-};
+import * as budgetsApi from "@/shared/api/budgets";
+import type { Budget } from "@/shared/types/models";
+
+export type { Budget };
 
 type State = {
   budgets: Budget[];
-  setBudget: (b: Budget) => void;
-  removeBudget: (bookId: string, category: string) => void;
-  removeBudgetForCategory: (bookId: string, category: string) => void;
-  renameBudgetCategory: (bookId: string, oldName: string, newName: string) => void;
-  getBudgetCents: (bookId: string, category: string) => number | null;
+  isLoading: boolean;
+  error: string | null;
+
+  loadBudgets: (bookId: string, month: string) => Promise<void>;
+  upsertBudget: (bookId: string, categoryId: string, month: string, amountMinor: number, version?: number) => Promise<Budget>;
+  deleteBudget: (bookId: string, categoryId: string, month: string, version: number) => Promise<void>;
+  getBudget: (bookId: string, categoryId: string, month: string) => Budget | null;
 };
 
-function normalizeCategory(category: string) {
-  return category.trim() || "Uncategorized";
+function normalizeBudget(input: any): Budget {
+  return {
+    id: String(input.id),
+    bookId: String(input.bookId),
+    categoryId: String(input.categoryId),
+    categoryName: String(input.categoryName ?? "Uncategorized"),
+    month: String(input.month),
+    amountMinor: Number(input.amountMinor ?? 0) || 0,
+    spentMinor: Number(input.spentMinor ?? 0) || 0,
+    remainingMinor: Number(input.remainingMinor ?? 0) || 0,
+    currencyCode: String(input.currencyCode ?? "USD"),
+    version: Number(input.version ?? 0) || 0,
+  };
 }
 
-function normalizeBudgetCents(value: number) {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return 0;
-  return Math.max(0, Math.round(n));
-}
-
-function collapseDuplicates(budgets: Budget[]) {
-  const byKey = new Map<string, Budget>();
-  for (const budget of budgets) {
-    byKey.set(`${budget.bookId}::${budget.category}`, budget);
-  }
-  return Array.from(byKey.values());
+function keyOf(bookId: string, categoryId: string, month: string) {
+  return `${bookId}::${categoryId}::${month}`;
 }
 
 export const useBudgetsStore = create<State>()(
   persist(
     (set, get) => ({
       budgets: [],
+      isLoading: false,
+      error: null,
 
-      setBudget: (b) =>
-        set((s) => {
-          const category = normalizeCategory(b.category);
-          const next = s.budgets.filter((x) => !(x.bookId === b.bookId && x.category === category));
-          next.unshift({ ...b, category, budgetCents: normalizeBudgetCents(b.budgetCents) });
-          return { budgets: next };
-        }),
+      loadBudgets: async (bookId, month) => {
+        if (!bookId || !month) return;
+        set({ isLoading: true, error: null });
+        try {
+          const res = await budgetsApi.listBudgets(bookId, month);
+          const next = res.items.map(normalizeBudget);
+          set((s) => ({
+            budgets: [...s.budgets.filter((b) => !(b.bookId === bookId && b.month === month)), ...next],
+            isLoading: false,
+            error: null,
+          }));
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "Could not load budgets";
+          set({ isLoading: false, error: message });
+          throw err;
+        }
+      },
 
-      removeBudget: (bookId, category) =>
+      upsertBudget: async (bookId, categoryId, month, amountMinor, version) => {
+        const budget = normalizeBudget(await budgetsApi.upsertBudget(bookId, categoryId, month, amountMinor, version));
         set((s) => ({
-          budgets: s.budgets.filter((x) => !(x.bookId === bookId && x.category === category)),
-        })),
+          budgets: [
+            budget,
+            ...s.budgets.filter((b) => keyOf(b.bookId, b.categoryId, b.month) !== keyOf(bookId, categoryId, month)),
+          ],
+        }));
+        return budget;
+      },
 
-      removeBudgetForCategory: (bookId, category) =>
+      deleteBudget: async (bookId, categoryId, month, version) => {
+        await budgetsApi.deleteBudget(bookId, categoryId, month, version);
         set((s) => ({
-          budgets: s.budgets.filter((x) => !(x.bookId === bookId && x.category === category)),
-        })),
-
-      renameBudgetCategory: (bookId, oldName, newName) => {
-        const from = normalizeCategory(oldName);
-        const to = normalizeCategory(newName);
-        if (!from || from === to) return;
-
-        set((s) => ({
-          budgets: collapseDuplicates(
-            s.budgets.map((b) => (b.bookId === bookId && b.category === from ? { ...b, category: to } : b))
-          ),
+          budgets: s.budgets.filter((b) => keyOf(b.bookId, b.categoryId, b.month) !== keyOf(bookId, categoryId, month)),
         }));
       },
 
-      getBudgetCents: (bookId, category) => {
-        const found = get().budgets.find((b) => b.bookId === bookId && b.category === category);
-        return found ? found.budgetCents : null;
+      getBudget: (bookId, categoryId, month) => {
+        return get().budgets.find((b) => b.bookId === bookId && b.categoryId === categoryId && b.month === month) ?? null;
       },
     }),
     {
       name: "pennywise_budgets_v1",
       storage: createJSONStorage(() => AsyncStorage),
-      version: 1,
+      version: 2,
       partialize: (s) => ({ budgets: s.budgets }),
+      migrate: async (persisted: any) => {
+        const budgets = Array.isArray(persisted?.budgets)
+          ? persisted.budgets
+              .filter((b: any) => typeof b?.categoryId === "string" && typeof b?.month === "string")
+              .map(normalizeBudget)
+          : [];
+        return { budgets };
+      },
     }
   )
 );

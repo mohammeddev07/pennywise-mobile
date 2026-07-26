@@ -59,7 +59,7 @@ export default function TitleModal() {
   const recentTitles = useMemo(() => {
     const seen = new Set<string>();
     return [...transactions]
-      .filter((t) => t.bookId === bookId && t.kind === kind)
+      .filter((t) => t.bookId === bookId && t.type === kind)
       .sort((a, b) => safeTime(b.occurredAt) - safeTime(a.occurredAt))
       .map((t) => (t.title || "").trim())
       .filter((t) => t.length > 0)

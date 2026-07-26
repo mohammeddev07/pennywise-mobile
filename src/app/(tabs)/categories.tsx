@@ -108,7 +108,7 @@ function Tile({ item, currency }: { item: CategoryTile; currency: CurrencyCode }
       </HapticPressable>
 
       <HapticPressable
-        onPress={() => router.push({ pathname: "/modals/budget-editor", params: { category: item.name } })}
+        onPress={() => router.push({ pathname: "/modals/budget-editor", params: { categoryId: item.categoryId } })}
         haptic="selection"
         pressScale={0.98}
         className="mt-2 -ml-3 min-h-11 px-3 rounded-full flex-row items-center self-start"
@@ -208,8 +208,8 @@ export default function CategoriesScreen() {
     const budgetByCat = new Map<string, number>();
     for (const b of budgets) {
       if ((b.bookId ?? "personal") !== bookId) continue;
-      const cat = String(b.category ?? "");
-      const cents = Number(b.budgetCents ?? 0) || 0;
+      const cat = String(b.categoryId ?? "");
+      const cents = Number(b.amountMinor ?? 0) || 0;
       if (!cat) continue;
       budgetByCat.set(cat, cents);
     }
@@ -217,11 +217,11 @@ export default function CategoriesScreen() {
     const spentByCat = new Map<string, number>();
     for (const tx of transactions as any[]) {
       if (tx.bookId && tx.bookId !== bookId) continue;
-      if (tx.kind !== "expense") continue;
+      if (tx.type !== "EXPENSE") continue;
       if (monthKey(tx.occurredAt) !== month) continue;
 
-      const cat = String(tx.category ?? "Uncategorized");
-      const cents = Math.abs(Number(tx.amountCents ?? 0) || 0);
+      const cat = String(tx.categoryId ?? "");
+      const cents = Math.abs(Number(tx.amountMinor ?? 0) || 0);
       spentByCat.set(cat, (spentByCat.get(cat) ?? 0) + cents);
     }
 
@@ -231,25 +231,28 @@ export default function CategoriesScreen() {
       name: c.name,
       icon: c.icon,
       color: c.color,
-      spentCents: spentByCat.get(c.name) ?? 0,
-      budgetCents: budgetByCat.get(c.name) ?? 0,
+      spentCents: spentByCat.get(c.id) ?? 0,
+      budgetCents: budgetByCat.get(c.id) ?? 0,
     }));
 
-    const addGhost = (name: string, color = tokens.colors.muted) => {
+    const addGhost = (categoryId: string, name: string, color = tokens.colors.muted) => {
       if (out.some((x) => x.name === name)) return;
       out.unshift({
-        id: `ghost_${name}`,
-        categoryId: `ghost_${name}`,
+        id: `ghost_${categoryId}`,
+        categoryId,
         name,
         icon: "pricetag-outline",
         color,
-        spentCents: spentByCat.get(name) ?? 0,
-        budgetCents: budgetByCat.get(name) ?? 0,
+        spentCents: spentByCat.get(categoryId) ?? 0,
+        budgetCents: budgetByCat.get(categoryId) ?? 0,
         isGhost: true,
       });
     };
 
-    for (const name of new Set([...spentByCat.keys(), ...budgetByCat.keys()])) addGhost(name);
+    for (const categoryId of new Set([...spentByCat.keys(), ...budgetByCat.keys()])) {
+      const budget = budgets.find((b) => b.categoryId === categoryId);
+      addGhost(categoryId, budget?.categoryName ?? "Uncategorized");
+    }
 
     const q = query.trim().toLowerCase();
     const filtered = q ? out.filter((t) => t.name.toLowerCase().includes(q)) : out;

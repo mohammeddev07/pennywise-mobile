@@ -9,15 +9,8 @@ import { Button } from "@/shared/ui/components/Button";
 import { Card } from "@/shared/ui/components/Card";
 import { EmptyState } from "@/shared/ui/components/EmptyState";
 import { Sheet } from "@/shared/ui/components/Sheet";
-import {
-  normalizePaymentMethod,
-  useTransactionsStore,
-  type PaymentMethod,
-  type TransactionKind,
-} from "@/features/transactions/store";
+import { normalizePaymentMethod, type PaymentMethod, type TransactionKind } from "@/features/transactions/store";
 import { useAddTransactionDraftStore } from "@/features/transactions/addDraftStore";
-import type { CurrencyCode } from "@/shared/types/models";
-import { isCurrencyCode } from "@/features/transactions/store";
 import { formatSignedCurrency } from "@/shared/utils/formatCurrency";
 
 const COLORS = {
@@ -70,14 +63,13 @@ function normalizeOccurredAt(raw?: string) {
 export default function AddTransactionSuccess() {
   const router = useRouter();
 
-  const addTransaction = useTransactionsStore((s) => s.addTransaction);
   const resetDraft = useAddTransactionDraftStore((s) => s.reset);
 
   const params = useLocalSearchParams<{
     amount?: string;
     kind?: string;
     title?: string;
-    category?: string;
+    categoryName?: string;
     note?: string;
     bookId?: string;
     occurredAt?: string;
@@ -86,16 +78,16 @@ export default function AddTransactionSuccess() {
   }>();
 
   const amount = params.amount ?? "0";
-  const kind: TransactionKind = params.kind === "income" ? "income" : "expense";
+  const kind: TransactionKind = params.kind === "INCOME" ? "INCOME" : "EXPENSE";
 
   const title = (params.title ?? "").trim();
-  const category = (params.category ?? "Uncategorized").trim() || "Uncategorized";
+  const category = (params.categoryName ?? "Uncategorized").trim() || "Uncategorized";
   const note = (params.note ?? "").trim() || undefined;
 
   const bookId = params.bookId ?? "personal";
   const occurredAt = normalizeOccurredAt(params.occurredAt);
 
-  const currency: CurrencyCode = isCurrencyCode(params.currency) ? (params.currency as CurrencyCode) : "USD";
+  const currency = params.currency ?? "USD";
   const paymentMethod: PaymentMethod = normalizePaymentMethod(params.paymentMethod);
 
   const cents = useMemo(() => parseAmountToCents(amount), [amount]);
@@ -105,18 +97,6 @@ export default function AddTransactionSuccess() {
 
   const saveTransaction = useCallback(() => {
     try {
-      addTransaction({
-        bookId,
-        kind,
-        amountCents: cents,
-        currency,
-        title: title.length ? title : category,
-        category,
-        note,
-        paymentMethod,
-        occurredAt,
-      });
-
       resetDraft();
       setStatus("saved");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
@@ -125,7 +105,6 @@ export default function AddTransactionSuccess() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
     }
   }, [
-    addTransaction,
     bookId,
     category,
     cents,
@@ -193,9 +172,9 @@ export default function AddTransactionSuccess() {
                 </View>
                 <AppText
                   variant="amount"
-                  style={[styles.amount, { color: kind === "income" ? COLORS.accent : COLORS.text }]}
+                  style={[styles.amount, { color: kind === "INCOME" ? COLORS.accent : COLORS.text }]}
                 >
-                  {formatSignedCurrency(kind === "expense" ? -cents : cents, currency)}
+                  {formatSignedCurrency(kind === "EXPENSE" ? -cents : cents, currency)}
                 </AppText>
                 <AppText variant="lg" style={styles.transactionName} numberOfLines={1}>
                   {title ? title : category}

@@ -2,193 +2,213 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
-import { useBooksStore } from "@/features/books/store";
-import { useSettingsStore } from "@/features/settings/store";
-import type { CurrencyCode, PaymentMethod, Transaction, TransactionKind } from "@/shared/types/models";
+import * as transactionsApi from "@/shared/api/transactions";
+import type {
+  PaymentMethod,
+  TransactionCreatePayload,
+  TransactionListParams,
+  TransactionResponse,
+  TransactionType,
+  TransactionUpdatePayload,
+} from "@/shared/types/api";
+import type { Transaction } from "@/shared/types/models";
 
-export type { Transaction, TransactionKind, PaymentMethod };
+export type { Transaction, TransactionType, PaymentMethod };
 
-export type NewTransaction = {
+export type TransactionKind = TransactionType;
+
+export type NewTransaction = TransactionCreatePayload & {
   id?: string;
-  bookId?: string;
-
-  kind: TransactionKind;
-  amountCents: number;
-
-  currency?: CurrencyCode;
-
-  title?: string;
-  category?: string;
-  note?: string;
-  paymentMethod?: PaymentMethod;
-
-  occurredAt?: string;
+  bookId: string;
+  version?: number;
   createdAt?: string;
+  updatedAt?: string;
+  occurredOn?: string;
+  categoryName?: string;
 };
 
-export type TransactionPatch = Partial<
-  Pick<Transaction, "bookId" | "kind" | "amountCents" | "currency" | "title" | "category" | "note" | "paymentMethod" | "occurredAt">
->;
+export type TransactionPatch = TransactionUpdatePayload;
 
-type PersistedShapeV3 = {
+type PersistedShapeV5 = {
   transactions: Transaction[];
 };
 
 type State = {
   transactions: Transaction[];
+  isLoading: boolean;
+  error: string | null;
 
-  addTransaction: (tx: NewTransaction) => string;
-  updateTransaction: (id: string, patch: TransactionPatch) => boolean;
-  removeTransaction: (id: string) => void;
+  loadTransactions: (bookId: string, params?: TransactionListParams) => Promise<void>;
+  addTransaction: (tx: Transaction | TransactionResponse) => string;
+  updateTransaction: (id: string, patch: TransactionPatch) => Promise<boolean>;
+  removeTransaction: (id: string) => Promise<void>;
   clearTransactions: () => void;
 
   insertTransaction: (tx: Transaction, index?: number) => void;
-  duplicateTransaction: (id: string) => string | null;
+  duplicateTransaction: (id: string) => Promise<string | null>;
   renameTransactionCategory: (oldName: string, newName: string) => void;
 };
 
-function makeId() {
-  return `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 9)}`;
-}
+const PAYMENT_SET: PaymentMethod[] = ["CASH", "CARD", "BANK_TRANSFER", "WALLET", "OTHER"];
 
-function clampIndex(i: number, len: number) {
-  return Math.max(0, Math.min(len, i));
-}
-
-function currentBookIdFallback() {
-  const fromBooks = useBooksStore.getState().selectedBookId;
-  return fromBooks || "personal";
-}
-
-function defaultCurrencyFallback(): CurrencyCode {
-  const c = useSettingsStore.getState().primaryCurrency;
-  return c || "USD";
-}
-
-const CURRENCY_SET: CurrencyCode[] = ["USD", "EUR", "GBP", "JPY", "INR"];
-export function isCurrencyCode(x: any): x is CurrencyCode {
-  return typeof x === "string" && (CURRENCY_SET as string[]).includes(x);
-}
-
-const PAYMENT_SET: PaymentMethod[] = ["cash", "card", "bank_transfer", "wallet", "other"];
 export function isPaymentMethod(x: any): x is PaymentMethod {
   return typeof x === "string" && (PAYMENT_SET as string[]).includes(x);
 }
 
 export function normalizePaymentMethod(input: any): PaymentMethod {
   if (isPaymentMethod(input)) return input;
-  // allow common UI labels
-  const s = String(input ?? "").toLowerCase();
-  if (s === "bank transfer" || s === "bank_transfer" || s === "bank") return "bank_transfer";
-  if (s === "wallet") return "wallet";
-  if (s === "card" || s === "credit" || s === "debit") return "card";
-  if (s === "other") return "other";
-  return "cash";
+  const s = String(input ?? "").toUpperCase().replace(/[\s-]+/g, "_");
+  if (s === "BANK") return "BANK_TRANSFER";
+  if (s === "CREDIT" || s === "DEBIT") return "CARD";
+  if (isPaymentMethod(s)) return s;
+  return "CASH";
 }
 
-function normalizeAmountCents(input: any, fallback = 0) {
+export function normalizeTransactionType(input: any): TransactionType {
+  const s = String(input ?? "").toUpperCase();
+  return s === "INCOME" ? "INCOME" : "EXPENSE";
+}
+
+export function normalizeAmountMinor(input: any, fallback = 0) {
   const n = Number(input);
   if (!Number.isFinite(n)) return fallback;
   return Math.max(0, Math.round(Math.abs(n)));
 }
 
-function normalizeTransaction(input: NewTransaction, existing?: Transaction): Transaction {
-  const now = new Date().toISOString();
+function occurredOnFrom(occurredAt?: string) {
+  const d = occurredAt ? new Date(occurredAt) : new Date();
+  if (Number.isNaN(d.getTime())) return new Date().toISOString().slice(0, 10);
+  return d.toISOString().slice(0, 10);
+}
 
-  const category = (input.category ?? existing?.category ?? "Uncategorized").trim() || "Uncategorized";
-  const title = (input.title ?? existing?.title ?? "").trim();
-  const note = input.note !== undefined ? (input.note.trim() ? input.note.trim() : undefined) : existing?.note;
-  const currency = isCurrencyCode(input.currency) ? input.currency : isCurrencyCode(existing?.currency) ? existing.currency : defaultCurrencyFallback();
+function makeLegacyId() {
+  return `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 9)}`;
+}
+
+export function mapTransactionResponse(input: TransactionResponse | any): Transaction {
+  const now = new Date().toISOString();
+  const occurredAt = String(input.occurredAt ?? input.createdAt ?? now);
+  const categoryName = String(input.categoryName ?? input.category?.name ?? input.category ?? "Uncategorized").trim() || "Uncategorized";
 
   return {
-    id: input.id ?? existing?.id ?? makeId(),
-    createdAt: input.createdAt ?? existing?.createdAt ?? now,
-    occurredAt: input.occurredAt ?? existing?.occurredAt ?? now,
-
-    bookId: input.bookId ?? existing?.bookId ?? currentBookIdFallback(),
-
-    kind: input.kind ?? existing?.kind ?? "expense",
-    amountCents: normalizeAmountCents(input.amountCents, existing?.amountCents ?? 0),
-    currency,
-
-    title: title.length ? title : category,
-    category,
-    note,
-
-    paymentMethod: normalizePaymentMethod(input.paymentMethod ?? existing?.paymentMethod),
+    id: String(input.id ?? makeLegacyId()),
+    bookId: String(input.bookId ?? ""),
+    type: normalizeTransactionType(input.type ?? input.kind),
+    amountMinor: normalizeAmountMinor(input.amountMinor ?? input.amountCents),
+    categoryId: String(input.categoryId ?? input.category?.id ?? `legacy:${categoryName}`),
+    categoryName,
+    title: String(input.title ?? input.name ?? "").trim() || categoryName,
+    note: typeof input.note === "string" && input.note.trim() ? input.note.trim() : undefined,
+    paymentMethod: normalizePaymentMethod(input.paymentMethod),
+    occurredAt,
+    occurredOn: String(input.occurredOn ?? occurredOnFrom(occurredAt)),
+    version: Number(input.version ?? 0) || 0,
+    createdAt: String(input.createdAt ?? occurredAt),
+    updatedAt: String(input.updatedAt ?? input.createdAt ?? occurredAt),
   };
+}
+
+function toCreatePayload(tx: Transaction): TransactionCreatePayload {
+  return {
+    type: tx.type,
+    amountMinor: tx.amountMinor,
+    categoryId: tx.categoryId,
+    title: tx.title,
+    note: tx.note,
+    paymentMethod: tx.paymentMethod,
+    occurredAt: tx.occurredAt,
+  };
+}
+
+function randomIdempotencyKey() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
 }
 
 export const useTransactionsStore = create<State>()(
   persist(
     (set, get) => ({
       transactions: [],
+      isLoading: false,
+      error: null,
+
+      loadTransactions: async (bookId, params) => {
+        if (!bookId) return;
+        set({ isLoading: true, error: null });
+        try {
+          const res = await transactionsApi.listTransactions(bookId, params);
+          const next = res.page.items.map(mapTransactionResponse);
+          set((s) => ({
+            transactions: [...s.transactions.filter((tx) => tx.bookId !== bookId), ...next],
+            isLoading: false,
+            error: null,
+          }));
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "Could not load transactions";
+          set({ isLoading: false, error: message });
+          throw err;
+        }
+      },
 
       addTransaction: (input) => {
-        const tx = normalizeTransaction(input);
-
-        set((s) => ({ transactions: [tx, ...s.transactions] }));
+        const tx = mapTransactionResponse(input);
+        set((s) => ({ transactions: [tx, ...s.transactions.filter((item) => item.id !== tx.id)] }));
         return tx.id;
       },
 
-      updateTransaction: (id, patch) => {
-        let updated = false;
-        set((s) => ({
-          transactions: s.transactions.map((tx) => {
-            if (tx.id !== id) return tx;
-            updated = true;
-            return normalizeTransaction({ ...tx, ...patch, id: tx.id, createdAt: tx.createdAt }, tx);
-          }),
-        }));
-        return updated;
+      updateTransaction: async (id, patch) => {
+        const current = get().transactions.find((tx) => tx.id === id);
+        if (!current) return false;
+        const next = mapTransactionResponse(
+          await transactionsApi.patchTransaction(current.bookId, current.id, current.version, patch)
+        );
+        set((s) => ({ transactions: s.transactions.map((tx) => (tx.id === id ? next : tx)) }));
+        return true;
       },
 
-      removeTransaction: (id) =>
-        set((s) => ({
-          transactions: s.transactions.filter((t) => t.id !== id),
-        })),
+      removeTransaction: async (id) => {
+        const current = get().transactions.find((tx) => tx.id === id);
+        if (!current) return;
+        await transactionsApi.deleteTransaction(current.bookId, current.id, current.version);
+        set((s) => ({ transactions: s.transactions.filter((t) => t.id !== id) }));
+      },
 
       clearTransactions: () => set({ transactions: [] }),
 
       insertTransaction: (tx, index = 0) => {
         set((s) => {
-          const next = [...s.transactions];
-          const i = clampIndex(index, next.length);
+          const next = s.transactions.filter((item) => item.id !== tx.id);
+          const i = Math.max(0, Math.min(next.length, index));
           next.splice(i, 0, tx);
           return { transactions: next };
         });
       },
 
-      duplicateTransaction: (id) => {
+      duplicateTransaction: async (id) => {
         const found = get().transactions.find((t) => t.id === id);
         if (!found) return null;
-
-        const now = new Date().toISOString();
-        const next: Transaction = {
-          ...found,
-          id: makeId(),
-          createdAt: now,
-          occurredAt: now,
-          bookId: found.bookId ?? currentBookIdFallback(),
-          currency: isCurrencyCode(found.currency) ? found.currency : defaultCurrencyFallback(),
-          paymentMethod: normalizePaymentMethod(found.paymentMethod),
-        };
-
-        set((s) => ({ transactions: [next, ...s.transactions] }));
-        return next.id;
+        const tx = mapTransactionResponse(
+          await transactionsApi.createTransaction(found.bookId, randomIdempotencyKey(), {
+            ...toCreatePayload(found),
+            occurredAt: new Date().toISOString(),
+          })
+        );
+        set((s) => ({ transactions: [tx, ...s.transactions] }));
+        return tx.id;
       },
 
       renameTransactionCategory: (oldName, newName) => {
         const from = oldName.trim();
         const to = newName.trim() || "Uncategorized";
         if (!from || from === to) return;
-
         set((s) => ({
           transactions: s.transactions.map((tx) =>
-            tx.category === from
+            tx.categoryName === from
               ? {
                   ...tx,
-                  category: to,
+                  categoryName: to,
                   title: tx.title === from ? to : tx.title,
                 }
               : tx
@@ -198,51 +218,14 @@ export const useTransactionsStore = create<State>()(
     }),
     {
       name: "pennywise_transactions_v1",
-      version: 4,
+      version: 5,
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (s) => ({ transactions: s.transactions }),
       migrate: async (persisted: any) => {
-        if (!persisted) return { transactions: [] } as PersistedShapeV3;
-
+        if (!persisted) return { transactions: [] } as PersistedShapeV5;
         const txs: any[] = Array.isArray(persisted.transactions) ? persisted.transactions : [];
-        const now = new Date().toISOString();
-
-        const migrated: Transaction[] = txs.map((t) => {
-          const kind: TransactionKind = t.kind === "income" ? "income" : "expense";
-
-          const currency: CurrencyCode = isCurrencyCode(t.currency)
-            ? t.currency
-            : isCurrencyCode(t.currencyCode)
-              ? t.currencyCode
-              : defaultCurrencyFallback();
-
-          const category = String(t.category ?? t.categoryName ?? "Uncategorized").trim() || "Uncategorized";
-          const title = String(t.title ?? t.name ?? "").trim() || category;
-
-          return {
-            id: String(t.id ?? makeId()),
-            bookId: String(t.bookId ?? "personal"),
-
-            kind,
-            amountCents: Number.isFinite(t.amountCents)
-              ? Number(t.amountCents)
-              : Number.isFinite(t.amountMinor)
-                ? Number(t.amountMinor)
-                : 0,
-            currency,
-
-            title,
-            category,
-            note: typeof t.note === "string" && t.note.trim() ? t.note.trim() : undefined,
-
-            paymentMethod: normalizePaymentMethod(t.paymentMethod),
-
-            occurredAt: String(t.occurredAt ?? t.transactionDateISO ?? t.createdAt ?? now),
-            createdAt: String(t.createdAt ?? t.occurredAt ?? now),
-          };
-        });
-
-        return { transactions: migrated } as PersistedShapeV3;
+        const migrated = txs.map(mapTransactionResponse);
+        return { transactions: migrated } as PersistedShapeV5;
       },
     }
   )

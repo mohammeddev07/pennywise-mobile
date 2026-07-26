@@ -2,90 +2,137 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
-export type Book = {
-  id: string;
+import * as booksApi from "@/shared/api/books";
+import type { Book } from "@/shared/types/models";
+import { useSettingsStore } from "@/features/settings/store";
+
+export type { Book };
+
+type AddBookInput = {
   name: string;
-  subtitle?: string;
-  lastSyncedAt?: string; // ISO (optional)
+  currencyCode?: string;
+  timezone?: string;
+  openingBalanceMinor?: number;
 };
 
 type State = {
   books: Book[];
   selectedBookId: string;
+  isLoading: boolean;
+  error: string | null;
 
+  loadBooks: () => Promise<void>;
   setSelectedBookId: (id: string) => void;
 
-  addBook: (input: Omit<Book, "id"> & { id?: string }) => string;
-  updateBook: (id: string, patch: Partial<Omit<Book, "id">>) => void;
-  removeBook: (id: string) => boolean;
+  addBook: (input: AddBookInput) => Promise<string>;
+  updateBook: (id: string, patch: Partial<Pick<Book, "name">>) => Promise<void>;
+  removeBook: (id: string) => Promise<boolean>;
 };
 
-function makeId() {
-  return `book_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+function deviceTimezone() {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  } catch {
+    return "UTC";
+  }
 }
 
-const DEFAULT_BOOKS: Book[] = [
-  { id: "personal", name: "Personal", subtitle: "Everyday spending", lastSyncedAt: new Date().toISOString() },
-  { id: "business", name: "Business", subtitle: "Work expenses", lastSyncedAt: new Date().toISOString() },
-];
+function normalizeBook(input: any): Book {
+  const now = new Date().toISOString();
+  return {
+    id: String(input.id),
+    name: String(input.name ?? "Untitled"),
+    currencyCode: String(input.currencyCode ?? "USD").toUpperCase(),
+    timezone: String(input.timezone ?? deviceTimezone()),
+    openingBalanceMinor: Number(input.openingBalanceMinor ?? 0) || 0,
+    version: Number(input.version ?? 0) || 0,
+    createdAt: String(input.createdAt ?? now),
+    updatedAt: String(input.updatedAt ?? input.createdAt ?? now),
+  };
+}
+
+function selectedOrFirst(books: Book[], selectedBookId?: string) {
+  if (selectedBookId && books.some((b) => b.id === selectedBookId)) return selectedBookId;
+  return books[0]?.id ?? "";
+}
 
 export const useBooksStore = create<State>()(
   persist(
     (set, get) => ({
-      books: DEFAULT_BOOKS,
-      selectedBookId: "personal",
+      books: [],
+      selectedBookId: "",
+      isLoading: false,
+      error: null,
+
+      loadBooks: async () => {
+        set({ isLoading: true, error: null });
+        try {
+          const res = await booksApi.listBooks();
+          const books = res.items.map(normalizeBook);
+          set((s) => ({
+            books,
+            selectedBookId: selectedOrFirst(books, s.selectedBookId),
+            isLoading: false,
+            error: null,
+          }));
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "Could not load books";
+          set({ isLoading: false, error: message });
+          throw err;
+        }
+      },
 
       setSelectedBookId: (id) => {
         const exists = get().books.some((b) => b.id === id);
-        set({ selectedBookId: exists ? id : (get().books[0]?.id ?? "personal") });
+        set((s) => ({ selectedBookId: exists ? id : (s.books[0]?.id ?? "") }));
       },
 
-      addBook: (input) => {
-        const id = input.id ?? makeId();
-        const next: Book = {
-          id,
-          name: input.name.trim() || "Untitled",
-          subtitle: input.subtitle?.trim() ? input.subtitle.trim() : undefined,
-          lastSyncedAt: input.lastSyncedAt ?? new Date().toISOString(),
-        };
-        set((s) => ({ books: [next, ...s.books] }));
-        return id;
+      addBook: async (input) => {
+        const currencyCode = input.currencyCode ?? useSettingsStore.getState().primaryCurrency ?? "USD";
+        const book = normalizeBook(
+          await booksApi.createBook(
+            input.name.trim() || "Untitled",
+            currencyCode,
+            input.timezone ?? deviceTimezone(),
+            input.openingBalanceMinor ?? 0
+          )
+        );
+        set((s) => ({ books: [book, ...s.books.filter((b) => b.id !== book.id)], selectedBookId: book.id }));
+        return book.id;
       },
 
-      updateBook: (id, patch) => {
-        set((s) => ({
-          books: s.books.map((b) =>
-            b.id === id
-              ? {
-                  ...b,
-                  ...patch,
-                  name: patch.name !== undefined ? patch.name.trim() || "Untitled" : b.name,
-                  subtitle: patch.subtitle !== undefined ? (patch.subtitle?.trim() || undefined) : b.subtitle,
-                }
-              : b
-          ),
-        }));
+      updateBook: async (id, patch) => {
+        const current = get().books.find((b) => b.id === id);
+        if (!current) return;
+        const name = patch.name?.trim() || current.name;
+        const book = normalizeBook(await booksApi.patchBook(id, current.version, name));
+        set((s) => ({ books: s.books.map((b) => (b.id === id ? book : b)) }));
       },
 
-      removeBook: (id) => {
-        let didRemove = false;
+      removeBook: async (id) => {
+        const current = get().books.find((b) => b.id === id);
+        if (!current || get().books.length <= 1) return false;
+        await booksApi.deleteBook(id, current.version);
         set((s) => {
-          if (s.books.length <= 1) return s;
-          if (!s.books.some((b) => b.id === id)) return s;
-
           const books = s.books.filter((b) => b.id !== id);
-          const selectedBookId = s.selectedBookId === id ? (books[0]?.id ?? "personal") : s.selectedBookId;
-          didRemove = true;
-          return { books, selectedBookId };
+          return { books, selectedBookId: selectedOrFirst(books, s.selectedBookId === id ? undefined : s.selectedBookId) };
         });
-        return didRemove;
+        return true;
       },
     }),
     {
       name: "pennywise_books_v1",
-      version: 1,
+      version: 2,
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (s) => ({ books: s.books, selectedBookId: s.selectedBookId }),
+      migrate: async (persisted: any) => {
+        const books = Array.isArray(persisted?.books)
+          ? persisted.books
+              .filter((b: any) => typeof b?.currencyCode === "string" && typeof b?.version === "number")
+              .map(normalizeBook)
+          : [];
+        return { books, selectedBookId: selectedOrFirst(books, persisted?.selectedBookId) };
+      },
     }
   )
 );

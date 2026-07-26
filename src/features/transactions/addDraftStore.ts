@@ -1,28 +1,27 @@
 import { create } from "zustand";
 
-export type DraftKind = "expense" | "income";
+export type DraftKind = "EXPENSE" | "INCOME";
 
 type State = {
-  // core
-  amount: string; // "10.00" style string for keypad
+  amount: string;
   kind: DraftKind;
   bookId: string;
+  idempotencyKey: string;
 
-  // fields
   title: string;
-  category: string;
+  categoryId?: string;
+  categoryName: string;
   note: string;
 
-  // ✅ new
-  occurredAt: string; // ISO
+  occurredAt: string;
 
-  // actions
   setAmount: (amount: string) => void;
   setKind: (kind: DraftKind) => void;
   setBookId: (bookId: string) => void;
+  resetIdempotencyKey: () => void;
 
   setTitle: (title: string) => void;
-  setCategory: (category: string) => void;
+  setCategory: (categoryId: string | undefined, categoryName: string) => void;
   setNote: (note: string) => void;
 
   setOccurredAt: (iso: string) => void;
@@ -30,11 +29,19 @@ type State = {
   reset: () => void;
 };
 
+function randomIdempotencyKey() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
+}
+
 function freshDraft(): Omit<
   State,
   | "setAmount"
   | "setKind"
   | "setBookId"
+  | "resetIdempotencyKey"
   | "setTitle"
   | "setCategory"
   | "setNote"
@@ -43,10 +50,12 @@ function freshDraft(): Omit<
 > {
   return {
     amount: "0",
-    kind: "expense",
-    bookId: "personal",
+    kind: "EXPENSE",
+    bookId: "",
+    idempotencyKey: randomIdempotencyKey(),
     title: "",
-    category: "Uncategorized",
+    categoryId: undefined,
+    categoryName: "Uncategorized",
     note: "",
     occurredAt: new Date().toISOString(),
   };
@@ -56,11 +65,12 @@ export const useAddTransactionDraftStore = create<State>((set) => ({
   ...freshDraft(),
 
   setAmount: (amount) => set({ amount }),
-  setKind: (kind) => set({ kind }),
+  setKind: (kind) => set({ kind, categoryId: undefined, categoryName: "Uncategorized" }),
   setBookId: (bookId) => set({ bookId }),
+  resetIdempotencyKey: () => set({ idempotencyKey: randomIdempotencyKey() }),
 
   setTitle: (title) => set({ title }),
-  setCategory: (category) => set({ category }),
+  setCategory: (categoryId, categoryName) => set({ categoryId, categoryName: categoryName.trim() || "Uncategorized" }),
   setNote: (note) => set({ note }),
 
   setOccurredAt: (iso) => set({ occurredAt: iso }),

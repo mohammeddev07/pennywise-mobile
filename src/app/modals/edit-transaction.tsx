@@ -20,6 +20,8 @@ import { EmptyState } from "@/shared/ui/components/EmptyState";
 import { Skeleton } from "@/shared/ui/components/Skeleton";
 import { useTransactionsStore, type TransactionKind } from "@/features/transactions/store";
 import { useCategoriesStore } from "@/features/categories/store";
+import { useBooksStore } from "@/features/books/store";
+import { useSettingsStore } from "@/features/settings/store";
 import { currencySymbol, formatCurrency } from "@/shared/utils/formatCurrency";
 
 function centsToAmount(cents: number) {
@@ -73,6 +75,8 @@ export default function EditTransactionModal() {
   const transactions = useTransactionsStore((s) => s.transactions);
   const updateTransaction = useTransactionsStore((s) => s.updateTransaction);
   const categories = useCategoriesStore((s) => s.categories);
+  const books = useBooksStore((s) => s.books);
+  const fallbackCurrency = useSettingsStore((s) => s.primaryCurrency);
 
   const txPersist = (useTransactionsStore as any).persist;
   const [hydrated, setHydrated] = useState<boolean>(() => txPersist?.hasHydrated?.() ?? true);
@@ -97,9 +101,10 @@ export default function EditTransactionModal() {
   const tx = useMemo(() => transactions.find((item) => item.id === id) ?? null, [id, transactions]);
 
   const [amount, setAmount] = useState("0");
-  const [kind, setKind] = useState<TransactionKind>("expense");
+  const [kind, setKind] = useState<TransactionKind>("EXPENSE");
   const [title, setTitle] = useState("");
-  const [category, setCategory] = useState("Uncategorized");
+  const [categoryId, setCategoryId] = useState("");
+  const [categoryName, setCategoryName] = useState("Uncategorized");
   const [note, setNote] = useState("");
   const [occurredAt, setOccurredAt] = useState(new Date());
   const [showMode, setShowMode] = useState<"date" | "time" | null>(null);
@@ -107,10 +112,11 @@ export default function EditTransactionModal() {
 
   useEffect(() => {
     if (!tx) return;
-    setAmount(centsToAmount(tx.amountCents));
-    setKind(tx.kind);
-    setTitle(tx.title === tx.category ? "" : tx.title);
-    setCategory(tx.category || "Uncategorized");
+    setAmount(centsToAmount(tx.amountMinor));
+    setKind(tx.type);
+    setTitle(tx.title === tx.categoryName ? "" : tx.title);
+    setCategoryId(tx.categoryId);
+    setCategoryName(tx.categoryName || "Uncategorized");
     setNote(tx.note ?? "");
     setOccurredAt(parseWhen(tx.occurredAt));
   }, [tx]);
@@ -119,13 +125,15 @@ export default function EditTransactionModal() {
   const canSave = !!tx && amountCents > 0;
 
   const categoryOptions = useMemo(() => {
-    const names = new Set<string>(["Uncategorized", category]);
-    for (const c of categories) names.add(c.name);
-    for (const item of transactions) {
-      if (tx && item.bookId === tx.bookId && item.category) names.add(item.category);
+    if (!tx) return [];
+    const options = categories
+      .filter((c) => c.bookId === tx.bookId && c.type === kind && !c.isDisabled)
+      .map((c) => ({ id: c.id, name: c.name }));
+    if (categoryId && !options.some((c) => c.id === categoryId)) {
+      options.unshift({ id: categoryId, name: categoryName });
     }
-    return Array.from(names).filter(Boolean);
-  }, [categories, category, transactions, tx]);
+    return options;
+  }, [categories, categoryId, categoryName, kind, tx]);
 
   const onKey = (k: Key) => setAmount((prev) => applyAmountKey(prev, k));
 
@@ -135,15 +143,15 @@ export default function EditTransactionModal() {
     setOccurredAt(selected);
   };
 
-  const onSave = () => {
+  const onSave = async () => {
     setAttemptedSave(true);
-    if (!tx || amountCents <= 0) return;
+    if (!tx || amountCents <= 0 || !categoryId) return;
 
-    const ok = updateTransaction(tx.id, {
-      kind,
-      amountCents,
+    const ok = await updateTransaction(tx.id, {
+      type: kind,
+      amountMinor: amountCents,
       title: title.trim(),
-      category: category.trim() || "Uncategorized",
+      categoryId,
       note: note.trim(),
       occurredAt: occurredAt.toISOString(),
     });
@@ -213,22 +221,22 @@ export default function EditTransactionModal() {
             <View className="items-center mt-2">
               <View className="flex-row rounded-full border border-stroke bg-surface overflow-hidden">
                 <HapticPressable
-                  onPress={() => setKind("expense")}
+                  onPress={() => setKind("EXPENSE")}
                   haptic="selection"
                   pressScale={0.99}
-                  className={`px-6 h-12 items-center justify-center ${kind === "expense" ? "bg-card" : ""}`}
+                  className={`px-6 h-12 items-center justify-center ${kind === "EXPENSE" ? "bg-card" : ""}`}
                 >
-                  <AppText variant="sm" className={kind === "expense" ? "text-text" : "text-muted"}>
+                  <AppText variant="sm" className={kind === "EXPENSE" ? "text-text" : "text-muted"}>
                     Expense
                   </AppText>
                 </HapticPressable>
                 <HapticPressable
-                  onPress={() => setKind("income")}
+                  onPress={() => setKind("INCOME")}
                   haptic="selection"
                   pressScale={0.99}
-                  className={`px-6 h-12 items-center justify-center ${kind === "income" ? "bg-card" : ""}`}
+                  className={`px-6 h-12 items-center justify-center ${kind === "INCOME" ? "bg-card" : ""}`}
                 >
-                  <AppText variant="sm" className={kind === "income" ? "text-text" : "text-muted"}>
+                  <AppText variant="sm" className={kind === "INCOME" ? "text-text" : "text-muted"}>
                     Income
                   </AppText>
                 </HapticPressable>
@@ -237,9 +245,9 @@ export default function EditTransactionModal() {
               <View className="mt-7 w-full">
                 <AmountInput
                   value={amount}
-                  kind={kind}
-                  currencySymbol={currencySymbol(tx.currency)}
-                  helperText={formatCurrency(amountCents, tx.currency)}
+                  kind={kind === "EXPENSE" ? "expense" : "income"}
+                  currencySymbol={currencySymbol(books.find((b) => b.id === tx.bookId)?.currencyCode ?? fallbackCurrency)}
+                  helperText={formatCurrency(amountCents, books.find((b) => b.id === tx.bookId)?.currencyCode ?? fallbackCurrency)}
                   error={attemptedSave && amountCents <= 0 ? "Amount must be greater than zero." : undefined}
                 />
               </View>
@@ -250,7 +258,7 @@ export default function EditTransactionModal() {
                 label="Title"
                 value={title}
                 onChangeText={setTitle}
-                placeholder={category || "Transaction"}
+                placeholder={categoryName || "Transaction"}
                 autoCapitalize="words"
                 returnKeyType="done"
               />
@@ -260,8 +268,16 @@ export default function EditTransactionModal() {
                   Category
                 </AppText>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-                  {categoryOptions.map((name) => (
-                    <CategoryChip key={name} label={name} active={name === category} onPress={() => setCategory(name)} />
+                  {categoryOptions.map((item) => (
+                    <CategoryChip
+                      key={item.id}
+                      label={item.name}
+                      active={item.id === categoryId}
+                      onPress={() => {
+                        setCategoryId(item.id);
+                        setCategoryName(item.name);
+                      }}
+                    />
                   ))}
                 </ScrollView>
               </View>

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { View, ScrollView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { useQuery } from "@tanstack/react-query";
 import Svg, { Circle, Defs, LinearGradient, Path, Stop } from "react-native-svg";
 
 import { tokens } from "@/shared/ui/theme/tokens";
@@ -22,8 +23,8 @@ import { useBooksStore } from "@/features/books/store";
 import { useTransactionsStore } from "@/features/transactions/store";
 import { useBudgetsStore } from "@/features/budgets/store";
 import { useSettingsStore } from "@/features/settings/store";
+import * as summaryApi from "@/shared/api/summary";
 import { formatCurrency } from "@/shared/utils/formatCurrency";
-import type { CurrencyCode } from "@/shared/types/models";
 
 function monthKey(iso?: string) {
   const t = iso ? Date.parse(iso) : NaN;
@@ -38,9 +39,10 @@ function nowMonthKey() {
 }
 
 type BudgetItem = {
-  category: string;
-  spentCents: number;
-  budgetCents: number;
+  categoryId: string;
+  categoryName: string;
+  spentMinor: number;
+  budgetMinor: number;
 };
 
 function TrendLine() {
@@ -68,9 +70,9 @@ function TrendLine() {
   );
 }
 
-function BudgetPreview({ item, currency }: { item: BudgetItem; currency: CurrencyCode }) {
-  const remaining = item.budgetCents - item.spentCents;
-  const progress = Math.min(1, item.spentCents / Math.max(1, item.budgetCents));
+function BudgetPreview({ item, currency }: { item: BudgetItem; currency: string }) {
+  const remaining = item.budgetMinor - item.spentMinor;
+  const progress = Math.min(1, item.spentMinor / Math.max(1, item.budgetMinor));
   const over = remaining < 0;
 
   return (
@@ -79,10 +81,10 @@ function BudgetPreview({ item, currency }: { item: BudgetItem; currency: Currenc
         <CategoryIcon icon="pie-chart-outline" color={over ? tokens.colors.danger : tokens.colors.accent} />
         <View style={{ flex: 1, marginLeft: 12 }}>
           <AppText variant="base" style={{ fontFamily: "Inter_700Bold" }} numberOfLines={1}>
-            {item.category}
+            {item.categoryName}
           </AppText>
           <AppText variant="sm" tone="muted" numberOfLines={1}>
-            {formatCurrency(item.spentCents, currency, 0)} spent
+            {formatCurrency(item.spentMinor, currency, 0)} spent
           </AppText>
         </View>
       </View>
@@ -117,7 +119,7 @@ function BudgetPreview({ item, currency }: { item: BudgetItem; currency: Currenc
 export default function Home() {
   const router = useRouter();
 
-  const userEmail = useAuthStore((s) => s.userEmail);
+  const user = useAuthStore((s) => s.user);
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
   const books = useBooksStore((s) => s.books);
   const transactions = useTransactionsStore((s) => s.transactions);
@@ -164,37 +166,54 @@ export default function Home() {
 
   const isHydrated = booksHydrated && txHydrated && budgetsHydrated;
   const selectedBookName = useMemo(() => books.find((b) => b.id === selectedBookId)?.name ?? "Personal", [books, selectedBookId]);
+  const selectedBook = useMemo(() => books.find((b) => b.id === selectedBookId) ?? null, [books, selectedBookId]);
+  const currentMonth = useMemo(() => nowMonthKey(), []);
   const displayName = useMemo(() => {
-    const name = userEmail?.split("@")[0]?.trim();
+    const name = user?.email?.split("@")[0]?.trim();
     return name ? name.slice(0, 1).toUpperCase() + name.slice(1) : selectedBookName;
-  }, [selectedBookName, userEmail]);
+  }, [selectedBookName, user?.email]);
+
+  const balanceQuery = useQuery({
+    queryKey: ["balance", selectedBookId],
+    queryFn: () => summaryApi.getBalance(selectedBookId),
+    enabled: Boolean(selectedBookId),
+  });
+
+  const summaryQuery = useQuery({
+    queryKey: ["summary", selectedBookId, currentMonth],
+    queryFn: () => summaryApi.getMonthlySummary(selectedBookId, currentMonth),
+    enabled: Boolean(selectedBookId),
+  });
 
   const bookTransactions = useMemo(() => transactions.filter((t) => t.bookId === selectedBookId), [transactions, selectedBookId]);
 
-  const balance = useMemo(() => {
+  const fallbackBalance = useMemo(() => {
     let income = 0;
     let expense = 0;
     for (const tx of bookTransactions) {
-      if (tx.kind === "income") income += tx.amountCents;
-      else expense += tx.amountCents;
+      if (tx.type === "INCOME") income += tx.amountMinor;
+      else expense += tx.amountMinor;
     }
-    return { incomeCents: income, expenseCents: expense, netCents: income - expense };
+    return { incomeMinor: income, expenseMinor: expense, netMinor: income - expense };
   }, [bookTransactions]);
 
   const budgetItems = useMemo(() => {
-    const currentMonth = nowMonthKey();
-    const spentByCategory = new Map<string, number>();
-    for (const tx of bookTransactions) {
-      if (tx.kind !== "expense") continue;
-      if (monthKey(tx.occurredAt) !== currentMonth) continue;
-      const key = (tx.category || "Uncategorized").trim() || "Uncategorized";
-      spentByCategory.set(key, (spentByCategory.get(key) ?? 0) + tx.amountCents);
-    }
+    const apiItems =
+      summaryQuery.data?.byCategory
+        .filter((item) => item.type === "EXPENSE" && (item.budgetMinor ?? 0) > 0)
+        .map((item) => ({
+          categoryId: item.categoryId,
+          categoryName: item.categoryName,
+          budgetMinor: item.budgetMinor ?? 0,
+          spentMinor: item.totalMinor,
+        })) ?? [];
+    if (apiItems.length > 0) return apiItems.sort((a, b) => b.spentMinor / Math.max(1, b.budgetMinor) - a.spentMinor / Math.max(1, a.budgetMinor));
+
     return budgets
       .filter((b) => b.bookId === selectedBookId)
-      .map((b) => ({ category: b.category, budgetCents: b.budgetCents, spentCents: spentByCategory.get(b.category) ?? 0 }))
-      .sort((a, b) => b.spentCents / Math.max(1, b.budgetCents) - a.spentCents / Math.max(1, a.budgetCents));
-  }, [bookTransactions, budgets, selectedBookId]);
+      .map((b) => ({ categoryId: b.categoryId, categoryName: b.categoryName, budgetMinor: b.amountMinor, spentMinor: b.spentMinor }))
+      .sort((a, b) => b.spentMinor / Math.max(1, b.budgetMinor) - a.spentMinor / Math.max(1, a.budgetMinor));
+  }, [budgets, selectedBookId, summaryQuery.data?.byCategory]);
 
   const recentTransactions = useMemo(() => {
     return [...bookTransactions].sort((a, b) => (Date.parse(b.occurredAt) || 0) - (Date.parse(a.occurredAt) || 0)).slice(0, 4);
@@ -209,6 +228,11 @@ export default function Home() {
     txPersist?.rehydrate?.();
     budgetsPersist?.rehydrate?.();
   };
+
+  const dashboardCurrency = balanceQuery.data?.currencyCode ?? summaryQuery.data?.currencyCode ?? selectedBook?.currencyCode ?? primaryCurrency;
+  const incomeMinor = summaryQuery.data?.incomeTotalMinor ?? fallbackBalance.incomeMinor;
+  const expenseMinor = summaryQuery.data?.expenseTotalMinor ?? fallbackBalance.expenseMinor;
+  const netMinor = balanceQuery.data?.balanceMinor ?? incomeMinor - expenseMinor;
 
   return (
     <Screen scroll bottom="tab">
@@ -264,9 +288,9 @@ export default function Home() {
                 </AppText>
                 <AppText
                   variant="amount"
-                  style={{ marginTop: 14, color: balance.netCents < 0 ? tokens.colors.danger : tokens.colors.text }}
+                  style={{ marginTop: 14, color: netMinor < 0 ? tokens.colors.danger : tokens.colors.text }}
                 >
-                  {formatCurrency(balance.netCents, primaryCurrency)}
+                  {formatCurrency(netMinor, dashboardCurrency)}
                 </AppText>
                 <View style={{ marginTop: 12, flexDirection: "row", alignItems: "center" }}>
                   <Ionicons name="trending-up" size={24} color={tokens.colors.accent} />
@@ -292,7 +316,7 @@ export default function Home() {
                 }}
               >
                 <AppText variant="sm" style={{ fontFamily: "Inter_600SemiBold" }}>
-                  {primaryCurrency}
+                  {dashboardCurrency}
                 </AppText>
                 <Ionicons name="chevron-down" size={16} color={tokens.colors.muted} style={{ marginLeft: 8 }} />
               </HapticPressable>
@@ -301,8 +325,8 @@ export default function Home() {
               <TrendLine />
             </View>
             <View style={{ flexDirection: "row", gap: 12, marginTop: -6 }}>
-              <SummaryStat label="Income" value={formatCurrency(balance.incomeCents, primaryCurrency)} tone="income" />
-              <SummaryStat label="Expense" value={formatCurrency(balance.expenseCents, primaryCurrency)} tone="expense" />
+              <SummaryStat label="Income" value={formatCurrency(incomeMinor, dashboardCurrency)} tone="income" />
+              <SummaryStat label="Expense" value={formatCurrency(expenseMinor, dashboardCurrency)} tone="expense" />
             </View>
           </Card>
 
@@ -355,7 +379,7 @@ export default function Home() {
               />
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingTop: 12, paddingRight: 24 }}>
                 {budgetItems.slice(0, 6).map((item) => (
-                  <BudgetPreview key={item.category} item={item} currency={primaryCurrency} />
+                  <BudgetPreview key={item.categoryId} item={item} currency={dashboardCurrency} />
                 ))}
               </ScrollView>
             </View>

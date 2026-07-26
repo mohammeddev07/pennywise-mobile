@@ -135,7 +135,7 @@ export default function CurrencyScreen() {
       )}
 
       <View className="mt-auto">
-        <Button label="Continue" onPress={() => router.replace("/(onboarding)/start-tracking")} />
+        <Button label="Continue" onPress={() => router.replace("/(onboarding)/books")} />
       </View>
     </View>
   );

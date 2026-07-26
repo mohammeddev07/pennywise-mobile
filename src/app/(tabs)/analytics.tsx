@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { format, isSameDay, parseISO, startOfDay, subDays } from "date-fns";
 import { useRouter } from "expo-router";
+import { useQuery } from "@tanstack/react-query";
 
 import { tokens } from "@/shared/ui/theme/tokens";
 import { BookPill } from "@/shared/ui/components/BookPill";
@@ -17,6 +18,7 @@ import { EmptyState } from "@/shared/ui/components/EmptyState";
 import { Skeleton } from "@/shared/ui/components/Skeleton";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { formatCurrency } from "@/shared/utils/formatCurrency";
+import * as summaryApi from "@/shared/api/summary";
 
 type RangeKey = "week" | "month" | "all";
 
@@ -38,6 +40,11 @@ function inRange(tx: Transaction, range: RangeKey) {
   const now = new Date();
   const since = range === "week" ? startOfDay(subDays(now, 6)) : startOfDay(subDays(now, 29));
   return d >= since;
+}
+
+function currentMonthKey() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
 function RangeChip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
@@ -132,6 +139,13 @@ export default function AnalyticsScreen() {
   }, [books, selectedBookId]);
 
   const [range, setRange] = useState<RangeKey>("week");
+  const month = useMemo(() => currentMonthKey(), []);
+
+  const summaryQuery = useQuery({
+    queryKey: ["summary", selectedBookId, month],
+    queryFn: () => summaryApi.getMonthlySummary(selectedBookId, month),
+    enabled: Boolean(selectedBookId),
+  });
 
   const filtered = useMemo(() => {
     return transactions.filter((tx) => tx.bookId === selectedBookId && inRange(tx, range));
@@ -142,19 +156,45 @@ export default function AnalyticsScreen() {
     let expense = 0;
 
     for (const tx of filtered) {
-      if (tx.kind === "income") income += tx.amountCents;
-      else expense += tx.amountCents;
+      if (tx.type === "INCOME") income += tx.amountMinor;
+      else expense += tx.amountMinor;
+    }
+
+    const summary = summaryQuery.data;
+    if (summary) {
+      return {
+        incomeCents: summary.incomeTotalMinor,
+        expenseCents: summary.expenseTotalMinor,
+        netCents: summary.incomeTotalMinor - summary.expenseTotalMinor,
+      };
     }
 
     return { incomeCents: income, expenseCents: expense, netCents: income - expense };
-  }, [filtered]);
+  }, [filtered, summaryQuery.data]);
 
   const topCategories = useMemo(() => {
+    if (summaryQuery.data) {
+      const rows = summaryQuery.data.byCategory
+        .filter((item) => item.type === "EXPENSE")
+        .map((item) => {
+          const hit = categories.find((c) => c.id === item.categoryId);
+          return {
+            name: item.categoryName,
+            cents: item.totalMinor,
+            icon: (hit?.icon as any) ?? ("pricetag-outline" as any),
+            color: hit?.color ?? tokens.colors.muted,
+          };
+        })
+        .sort((a, b) => b.cents - a.cents);
+      const total = rows.reduce((sum, r) => sum + r.cents, 0);
+      return { rows: rows.slice(0, 6), totalExpenseCents: total };
+    }
+
     const map = new Map<string, number>();
     for (const tx of filtered) {
-      if (tx.kind !== "expense") continue;
-      const name = tx.category || "Uncategorized";
-      map.set(name, (map.get(name) ?? 0) + tx.amountCents);
+      if (tx.type !== "EXPENSE") continue;
+      const name = tx.categoryName || "Uncategorized";
+      map.set(name, (map.get(name) ?? 0) + tx.amountMinor);
     }
 
     const rows = [...map.entries()]
@@ -171,7 +211,7 @@ export default function AnalyticsScreen() {
 
     const total = rows.reduce((sum, r) => sum + r.cents, 0);
     return { rows: rows.slice(0, 6), totalExpenseCents: total };
-  }, [filtered, categories]);
+  }, [filtered, categories, summaryQuery.data]);
 
   const last7 = useMemo(() => {
     const now = new Date();
@@ -180,9 +220,9 @@ export default function AnalyticsScreen() {
     const perDay = days.map((day) => {
       let cents = 0;
       for (const tx of filtered) {
-        if (tx.kind !== "expense") continue;
+        if (tx.type !== "EXPENSE") continue;
         const d = safeDate(tx.occurredAt);
-        if (d && isSameDay(d, day)) cents += tx.amountCents;
+        if (d && isSameDay(d, day)) cents += tx.amountMinor;
       }
       return { day, cents };
     });

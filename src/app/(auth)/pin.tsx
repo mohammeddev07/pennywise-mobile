@@ -9,7 +9,7 @@ import { NumericKeypad } from "@/shared/ui/NumericKeypad";
 import { PinDots } from "@/shared/ui/components/PinDots";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { AppText } from "@/shared/ui/components/AppText";
-import { DEMO_PIN, useAuthStore } from "@/features/auth/store";
+import { useAuthStore } from "@/features/auth/store";
 
 const COLORS = {
   bg: tokens.colors.app,
@@ -38,14 +38,16 @@ const RADIUS = {
 } as const;
 
 const TYPOGRAPHY = tokens.typography;
+const LOCAL_UNLOCK_PIN = "1234";
 
 export default function PinScreen() {
   const router = useRouter();
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
   const didNavigateRef = useRef(false);
-  const unlockDemo = useAuthStore((s) => s.unlockDemo);
+  const setUnlocked = useAuthStore((s) => s.setUnlocked);
   const onboardingCompleted = useAuthStore((s) => s.onboardingCompleted);
+  const user = useAuthStore((s) => s.user);
 
   const handleBack = () => {
     const canGoBack = typeof (router as any).canGoBack === "function" ? (router as any).canGoBack() : false;
@@ -72,19 +74,19 @@ export default function PinScreen() {
     if (pin.length !== 4) return;
     if (didNavigateRef.current) return;
 
-    if (pin === DEMO_PIN) {
+    if (pin === LOCAL_UNLOCK_PIN && user) {
       didNavigateRef.current = true;
-      unlockDemo();
+      setUnlocked(true);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      router.replace(onboardingCompleted ? "/(tabs)/home" : "/(onboarding)/books");
+      router.replace(onboardingCompleted ? "/(tabs)/home" : "/(onboarding)/currency");
       return;
     }
 
-    setError("That PIN did not match. Try 1234 for this demo.");
+    setError("That PIN did not match.");
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
     const t = setTimeout(() => setPin(""), 250);
     return () => clearTimeout(t);
-  }, [onboardingCompleted, pin, router, unlockDemo]);
+  }, [onboardingCompleted, pin, router, setUnlocked, user]);
 
   return (
     <View style={styles.screen}>
@@ -113,7 +115,7 @@ export default function PinScreen() {
         <View style={styles.pinCluster}>
           <PinDots length={4} filled={pin.length} />
           <AppText variant="xs" tone="muted" style={styles.demoText}>
-            Demo access PIN: 1234
+            Local unlock PIN: 1234
           </AppText>
 
           {error ? (
@@ -136,7 +138,7 @@ export default function PinScreen() {
             <View style={styles.orLine} />
           </View>
           <HapticPressable
-            onPress={() => setPin(DEMO_PIN)}
+            onPress={() => setPin(LOCAL_UNLOCK_PIN)}
             haptic="selection"
             pressScale={0.98}
             style={styles.biometricButton}
