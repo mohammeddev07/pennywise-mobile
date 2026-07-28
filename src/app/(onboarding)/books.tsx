@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { Redirect, router } from "expo-router";
 
 import { AppText } from "@/shared/ui/components/AppText";
 import { Card } from "@/shared/ui/components/Card";
@@ -13,7 +13,11 @@ import { tokens } from "@/shared/ui/theme/tokens";
 import { useBooksStore } from "@/features/books/store";
 import { useSettingsStore } from "@/features/settings/store";
 
-export default function BooksScreen() {
+export default function BooksRoute() {
+  return <Redirect href="/(onboarding)/currency" />;
+}
+
+function LegacyBooksScreen() {
   const books = useBooksStore((s) => s.books);
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
   const setSelectedBookId = useBooksStore((s) => s.setSelectedBookId);

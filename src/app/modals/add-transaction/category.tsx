@@ -8,7 +8,6 @@ import { tokens } from "@/shared/ui/theme/tokens";
 import { useCategoriesStore } from "@/features/categories/store";
 import { useTransactionsStore } from "@/features/transactions/store";
 import { useAddTransactionDraftStore } from "@/features/transactions/addDraftStore";
-import { useSettingsStore } from "@/features/settings/store";
 
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { Sheet } from "@/shared/ui/components/Sheet";
@@ -17,8 +16,6 @@ import { Card } from "@/shared/ui/components/Card";
 import { EmptyState } from "@/shared/ui/components/EmptyState";
 import { Skeleton } from "@/shared/ui/components/Skeleton";
 import { Input } from "@/shared/ui/components/Input";
-import { formatCurrency } from "@/shared/utils/formatCurrency";
-import type { CurrencyCode } from "@/shared/types/models";
 
 type CatMeta = {
   id: string;
@@ -80,15 +77,11 @@ function CatCard({
   item,
   active,
   onPress,
-  currency,
 }: {
   item: CatMeta;
   active: boolean;
   onPress: () => void;
-  currency: CurrencyCode;
 }) {
-  const activity = item.count > 0 ? `${item.count} tx • ${formatCurrency(item.cents, currency, 0)}` : "No activity yet";
-
   return (
     <HapticPressable onPress={onPress} haptic="selection" pressScale={0.99} pressOpacity={0.92}>
       <Card
@@ -128,7 +121,7 @@ function CatCard({
         </AppText>
 
         <AppText variant="sm" tone="muted" className="mt-1" numberOfLines={1}>
-          {activity}
+          Tap to select
         </AppText>
       </Card>
     </HapticPressable>
@@ -142,7 +135,6 @@ export default function AddTransactionCategory() {
   const consumeLastCreatedCategoryId = useCategoriesStore((s) => s.consumeLastCreatedCategoryId);
 
   const transactions = useTransactionsStore((s) => s.transactions);
-  const primaryCurrency = useSettingsStore((s) => s.primaryCurrency);
 
   const selected = useAddTransactionDraftStore((s) => s.categoryId);
   const setCategory = useAddTransactionDraftStore((s) => s.setCategory);
@@ -419,7 +411,7 @@ export default function AddTransactionCategory() {
                       paddingTop: 8,
                     }}
                   >
-                    <CatCard item={item} active={item.id === selected} onPress={() => choose(item.id, item.name)} currency={primaryCurrency} />
+                    <CatCard item={item} active={item.id === selected} onPress={() => choose(item.id, item.name)} />
                   </View>
                 );
               }}

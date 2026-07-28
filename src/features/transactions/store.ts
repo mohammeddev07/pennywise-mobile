@@ -12,6 +12,7 @@ import type {
   TransactionUpdatePayload,
 } from "@/shared/types/api";
 import type { Transaction } from "@/shared/types/models";
+import { getAccountEpoch, isCurrentAccountEpoch } from "@/shared/session/accountEpoch";
 
 export type { Transaction, TransactionType, PaymentMethod };
 
@@ -136,16 +137,19 @@ export const useTransactionsStore = create<State>()(
 
       loadTransactions: async (bookId, params) => {
         if (!bookId) return;
+        const accountEpoch = getAccountEpoch();
         set({ isLoading: true, error: null });
         try {
           const res = await transactionsApi.listTransactions(bookId, params);
           const next = res.page.items.map(mapTransactionResponse);
+          if (!isCurrentAccountEpoch(accountEpoch)) return;
           set((s) => ({
             transactions: [...s.transactions.filter((tx) => tx.bookId !== bookId), ...next],
             isLoading: false,
             error: null,
           }));
         } catch (err) {
+          if (!isCurrentAccountEpoch(accountEpoch)) return;
           const message = err instanceof Error ? err.message : "Could not load transactions";
           set({ isLoading: false, error: message });
           throw err;
@@ -159,19 +163,23 @@ export const useTransactionsStore = create<State>()(
       },
 
       updateTransaction: async (id, patch) => {
+        const accountEpoch = getAccountEpoch();
         const current = get().transactions.find((tx) => tx.id === id);
         if (!current) return false;
         const next = mapTransactionResponse(
           await transactionsApi.patchTransaction(current.bookId, current.id, current.version, patch)
         );
+        if (!isCurrentAccountEpoch(accountEpoch)) return false;
         set((s) => ({ transactions: s.transactions.map((tx) => (tx.id === id ? next : tx)) }));
         return true;
       },
 
       removeTransaction: async (id) => {
+        const accountEpoch = getAccountEpoch();
         const current = get().transactions.find((tx) => tx.id === id);
         if (!current) return;
         await transactionsApi.deleteTransaction(current.bookId, current.id, current.version);
+        if (!isCurrentAccountEpoch(accountEpoch)) return;
         set((s) => ({ transactions: s.transactions.filter((t) => t.id !== id) }));
       },
 
@@ -187,6 +195,7 @@ export const useTransactionsStore = create<State>()(
       },
 
       duplicateTransaction: async (id) => {
+        const accountEpoch = getAccountEpoch();
         const found = get().transactions.find((t) => t.id === id);
         if (!found) return null;
         const tx = mapTransactionResponse(
@@ -195,6 +204,7 @@ export const useTransactionsStore = create<State>()(
             occurredAt: new Date().toISOString(),
           })
         );
+        if (!isCurrentAccountEpoch(accountEpoch)) return null;
         set((s) => ({ transactions: [tx, ...s.transactions] }));
         return tx.id;
       },

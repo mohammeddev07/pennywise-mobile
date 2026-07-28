@@ -2,6 +2,7 @@ import { Alert, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { format, isSameDay, parseISO, subDays } from "date-fns";
 import { useRouter } from "expo-router";
+import { useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 
 import { tokens } from "@/shared/ui/theme/tokens";
@@ -51,10 +52,11 @@ export function TransactionRow({
   embedded?: boolean;
 }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   const duplicateTransaction = useTransactionsStore((s) => s.duplicateTransaction);
   const removeTransaction = useTransactionsStore((s) => s.removeTransaction);
-  const showDeleted = useUndoToastStore((s) => s.showDeleted);
+  const showError = useUndoToastStore((s) => s.showError);
   const books = useBooksStore((s) => s.books);
   const fallbackCurrency = useSettingsStore((s) => s.primaryCurrency);
 
@@ -66,19 +68,21 @@ export function TransactionRow({
   const category = (item.categoryName || "Uncategorized").trim() || "Uncategorized";
 
   const onDelete = () => {
-    Alert.alert("Delete transaction?", "You can undo this action for a few seconds.", [
+    Alert.alert("Delete transaction?", "This action cannot be undone.", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Delete",
         style: "destructive",
         onPress: async () => {
-          const idx = useTransactionsStore.getState().transactions.findIndex((t) => t.id === item.id);
           try {
             await removeTransaction(item.id);
-            showDeleted(item, idx >= 0 ? idx : 0);
+            await Promise.all([
+              queryClient.invalidateQueries({ queryKey: ["balance", item.bookId] }),
+              queryClient.invalidateQueries({ queryKey: ["summary", item.bookId] }),
+            ]);
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
-          } catch {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+          } catch (error) {
+            showError(error, "Could not delete transaction.");
           }
         },
       },
@@ -87,8 +91,18 @@ export function TransactionRow({
 
   const onDuplicate = () => {
     duplicateTransaction(item.id)
-      .then(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}))
-      .catch(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {}));
+      .then(async (duplicatedId) => {
+        if (duplicatedId) {
+          await Promise.all([
+            queryClient.invalidateQueries({ queryKey: ["balance", item.bookId] }),
+            queryClient.invalidateQueries({ queryKey: ["summary", item.bookId] }),
+          ]);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+        } else {
+          showError(undefined, "Transaction is no longer available.");
+        }
+      })
+      .catch((error) => showError(error, "Could not duplicate transaction."));
   };
 
   const openActions = () => {
@@ -121,8 +135,7 @@ export function TransactionRow({
               {primary}
             </AppText>
             <AppText variant="xs" tone="muted" className="mt-1" numberOfLines={1}>
-              {category} • {(item.paymentMethod || "CASH").toLowerCase()} • {whenLabel(item.occurredAt)} •{" "}
-              {timeLabel(item.occurredAt)}
+              {category} • {whenLabel(item.occurredOn || item.occurredAt)} • {timeLabel(item.occurredAt)}
             </AppText>
           </View>
 

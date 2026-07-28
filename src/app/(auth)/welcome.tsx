@@ -26,7 +26,7 @@ export default function WelcomeScreen() {
       <View className="mt-6">
         <AppText variant="2xl">PennyWise</AppText>
         <AppText variant="base" tone="muted" className="mt-2">
-          Track cashflow across books with a consistent, fast budgeting workflow.
+          Track income, expenses, and budgets in one simple cash book.
         </AppText>
       </View>
 
@@ -34,7 +34,7 @@ export default function WelcomeScreen() {
         <View className="items-center">
           <CharacterWidget state="happy" size={86} />
           <AppText variant="xl" className="mt-6 text-center">
-            Every book, clear at a glance
+            Your money, clear at a glance
           </AppText>
           <AppText variant="sm" tone="muted" className="mt-2 text-center">
             Log income and expenses quickly, then review budgets before spending gets away from you.
@@ -45,7 +45,7 @@ export default function WelcomeScreen() {
           {[
             ["add-circle-outline", "Add money in or out"],
             ["pricetags-outline", "Track categories and budgets"],
-            ["bar-chart-outline", "Review weekly trends"],
+            ["bar-chart-outline", "Review monthly summaries"],
           ].map(([icon, label]) => (
             <View key={label} className="flex-row items-center rounded-lg border border-stroke bg-card px-4 py-3">
               <Ionicons name={icon as any} size={18} color={tokens.colors.accent} />
@@ -60,9 +60,6 @@ export default function WelcomeScreen() {
       <View className="mt-8 gap-3">
         <Button label="Log in" onPress={() => router.push("/(auth)/login")} />
         <Button variant="ghost" label="Create account" onPress={() => router.push("/(auth)/signup")} />
-        <AppText variant="xs" tone="muted" className="mt-1 text-center">
-          By continuing you agree to our Terms and Privacy Policy.
-        </AppText>
       </View>
     </View>
   );

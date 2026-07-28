@@ -1,63 +1,44 @@
 import { create } from "zustand";
 import * as Haptics from "expo-haptics";
 
-import type { Transaction } from "@/features/transactions/store";
-import { useTransactionsStore } from "@/features/transactions/store";
+import { getApiErrorMessage } from "@/shared/api/errors";
 
 let hideTimer: ReturnType<typeof setTimeout> | null = null;
 
 type State = {
   visible: boolean;
   title: string;
+  message: string;
 
-  tx: Transaction | null;
-  index: number;
-
-  showDeleted: (tx: Transaction, index: number) => void;
+  showError: (error: unknown, fallback?: string) => void;
   hide: () => void;
-  undo: () => void;
 };
 
-export const useUndoToastStore = create<State>((set, get) => ({
+export const useUndoToastStore = create<State>((set) => ({
   visible: false,
-  title: "Transaction deleted",
+  title: "Action failed",
+  message: "",
 
-  tx: null,
-  index: 0,
-
-  showDeleted: (tx, index) => {
+  showError: (error, fallback) => {
     if (hideTimer) clearTimeout(hideTimer);
 
     set({
       visible: true,
-      title: "Transaction deleted",
-      tx,
-      index: Math.max(0, index),
+      title: "Action failed",
+      message: getApiErrorMessage(error, fallback),
     });
 
     hideTimer = setTimeout(() => {
-      set({ visible: false, tx: null });
+      set({ visible: false });
       hideTimer = null;
-    }, 5000);
+    }, 6000);
+
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
   },
 
   hide: () => {
     if (hideTimer) clearTimeout(hideTimer);
     hideTimer = null;
-    set({ visible: false, tx: null });
-  },
-
-  undo: () => {
-    const { tx, index } = get();
-    if (!tx) return;
-
-    if (hideTimer) clearTimeout(hideTimer);
-    hideTimer = null;
-
-    useTransactionsStore.getState().insertTransaction(tx, index);
-
-    set({ visible: false, tx: null });
-
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    set({ visible: false });
   },
 }));

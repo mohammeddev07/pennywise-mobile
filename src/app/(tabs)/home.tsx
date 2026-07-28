@@ -3,7 +3,6 @@ import { View, ScrollView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
-import Svg, { Circle, Defs, LinearGradient, Path, Stop } from "react-native-svg";
 
 import { tokens } from "@/shared/ui/theme/tokens";
 import { Screen } from "@/shared/ui/components/Screen";
@@ -25,13 +24,7 @@ import { useBudgetsStore } from "@/features/budgets/store";
 import { useSettingsStore } from "@/features/settings/store";
 import * as summaryApi from "@/shared/api/summary";
 import { formatCurrency } from "@/shared/utils/formatCurrency";
-
-function monthKey(iso?: string) {
-  const t = iso ? Date.parse(iso) : NaN;
-  if (!Number.isFinite(t)) return "";
-  const d = new Date(t);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
+import { useUndoToastStore } from "@/shared/ui/state/useUndoToastStore";
 
 function nowMonthKey() {
   const d = new Date();
@@ -44,31 +37,6 @@ type BudgetItem = {
   spentMinor: number;
   budgetMinor: number;
 };
-
-function TrendLine() {
-  return (
-    <Svg width="100%" height={132} viewBox="0 0 320 132">
-      <Defs>
-        <LinearGradient id="balanceFill" x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0" stopColor={tokens.colors.accent} stopOpacity="0.22" />
-          <Stop offset="1" stopColor={tokens.colors.accent} stopOpacity="0.02" />
-        </LinearGradient>
-      </Defs>
-      <Path
-        d="M0 104 C30 84 46 96 70 74 C98 48 118 64 144 48 C174 28 190 52 218 36 C248 18 270 30 320 4 L320 132 L0 132 Z"
-        fill="url(#balanceFill)"
-      />
-      <Path
-        d="M0 104 C30 84 46 96 70 74 C98 48 118 64 144 48 C174 28 190 52 218 36 C248 18 270 30 320 4"
-        fill="none"
-        stroke={tokens.colors.accent}
-        strokeWidth="4"
-        strokeLinecap="round"
-      />
-      <Circle cx="316" cy="6" r="9" fill={tokens.colors.accent} stroke={tokens.colors.white} strokeWidth="5" />
-    </Svg>
-  );
-}
 
 function BudgetPreview({ item, currency }: { item: BudgetItem; currency: string }) {
   const remaining = item.budgetMinor - item.spentMinor;
@@ -122,9 +90,12 @@ export default function Home() {
   const user = useAuthStore((s) => s.user);
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
   const books = useBooksStore((s) => s.books);
+  const ensureBook = useBooksStore((s) => s.ensureBook);
   const transactions = useTransactionsStore((s) => s.transactions);
   const budgets = useBudgetsStore((s) => s.budgets);
   const primaryCurrency = useSettingsStore((s) => s.primaryCurrency);
+  const showError = useUndoToastStore((s) => s.showError);
+  const [isRestoringBook, setIsRestoringBook] = useState(false);
 
   const booksPersist = (useBooksStore as any).persist;
   const txPersist = (useTransactionsStore as any).persist;
@@ -187,16 +158,6 @@ export default function Home() {
 
   const bookTransactions = useMemo(() => transactions.filter((t) => t.bookId === selectedBookId), [transactions, selectedBookId]);
 
-  const fallbackBalance = useMemo(() => {
-    let income = 0;
-    let expense = 0;
-    for (const tx of bookTransactions) {
-      if (tx.type === "INCOME") income += tx.amountMinor;
-      else expense += tx.amountMinor;
-    }
-    return { incomeMinor: income, expenseMinor: expense, netMinor: income - expense };
-  }, [bookTransactions]);
-
   const budgetItems = useMemo(() => {
     const apiItems =
       summaryQuery.data?.byCategory
@@ -210,10 +171,10 @@ export default function Home() {
     if (apiItems.length > 0) return apiItems.sort((a, b) => b.spentMinor / Math.max(1, b.budgetMinor) - a.spentMinor / Math.max(1, a.budgetMinor));
 
     return budgets
-      .filter((b) => b.bookId === selectedBookId)
+      .filter((b) => b.bookId === selectedBookId && b.month === currentMonth)
       .map((b) => ({ categoryId: b.categoryId, categoryName: b.categoryName, budgetMinor: b.amountMinor, spentMinor: b.spentMinor }))
       .sort((a, b) => b.spentMinor / Math.max(1, b.budgetMinor) - a.spentMinor / Math.max(1, a.budgetMinor));
-  }, [budgets, selectedBookId, summaryQuery.data?.byCategory]);
+  }, [budgets, currentMonth, selectedBookId, summaryQuery.data?.byCategory]);
 
   const recentTransactions = useMemo(() => {
     return [...bookTransactions].sort((a, b) => (Date.parse(b.occurredAt) || 0) - (Date.parse(a.occurredAt) || 0)).slice(0, 4);
@@ -229,10 +190,26 @@ export default function Home() {
     budgetsPersist?.rehydrate?.();
   };
 
+  const restoreBook = async () => {
+    if (isRestoringBook) return;
+    setIsRestoringBook(true);
+    try {
+      await ensureBook({
+        name: "Personal",
+        currencyCode: primaryCurrency,
+        openingBalanceMinor: 0,
+      });
+    } catch (error) {
+      showError(error, "Couldn’t restore your cash book.");
+    } finally {
+      setIsRestoringBook(false);
+    }
+  };
+
   const dashboardCurrency = balanceQuery.data?.currencyCode ?? summaryQuery.data?.currencyCode ?? selectedBook?.currencyCode ?? primaryCurrency;
-  const incomeMinor = summaryQuery.data?.incomeTotalMinor ?? fallbackBalance.incomeMinor;
-  const expenseMinor = summaryQuery.data?.expenseTotalMinor ?? fallbackBalance.expenseMinor;
-  const netMinor = balanceQuery.data?.balanceMinor ?? incomeMinor - expenseMinor;
+  const incomeMinor = summaryQuery.data?.incomeTotalMinor;
+  const expenseMinor = summaryQuery.data?.expenseTotalMinor;
+  const balanceMinor = balanceQuery.data?.balanceMinor;
 
   return (
     <Screen scroll bottom="tab">
@@ -259,7 +236,7 @@ export default function Home() {
           </AppText>
           <AppText variant="2xl">{displayName}</AppText>
         </View>
-        <IconButton icon="notifications-outline" onPress={() => router.push("/(tabs)/settings")} />
+        <IconButton icon="settings-outline" onPress={() => router.push("/(tabs)/settings")} />
       </View>
 
       {hydrationError ? (
@@ -278,56 +255,76 @@ export default function Home() {
           <Skeleton height={68} borderRadius={24} />
           <Skeleton height={260} borderRadius={24} />
         </View>
+      ) : !selectedBookId ? (
+        <Card style={{ marginTop: 28 }}>
+          <EmptyState
+            title="Cash book unavailable"
+            message="Your account is signed in, but its cash book could not be restored."
+            actionLabel={isRestoringBook ? "Retrying..." : "Retry setup"}
+            onAction={() => {
+              void restoreBook();
+            }}
+            className="px-0"
+          />
+        </Card>
       ) : (
         <>
           <Card style={{ marginTop: 28, overflow: "hidden" }}>
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
-              <View>
-                <AppText variant="lg" tone="muted">
-                  Total Balance
-                </AppText>
-                <AppText
-                  variant="amount"
-                  style={{ marginTop: 14, color: netMinor < 0 ? tokens.colors.danger : tokens.colors.text }}
-                >
-                  {formatCurrency(netMinor, dashboardCurrency)}
-                </AppText>
-                <View style={{ marginTop: 12, flexDirection: "row", alignItems: "center" }}>
-                  <Ionicons name="trending-up" size={24} color={tokens.colors.accent} />
-                  <AppText variant="lg" style={{ marginLeft: 8, color: tokens.colors.accent, fontFamily: "Inter_700Bold" }}>
-                    +12.5%
-                  </AppText>
-                  <AppText variant="sm" tone="muted" style={{ marginLeft: 8 }}>
-                    vs last month
-                  </AppText>
-                </View>
-              </View>
-              <HapticPressable
-                onPress={() => router.push("/modals/book-switcher")}
-                haptic="selection"
-                style={{
-                  minHeight: 44,
-                  borderRadius: tokens.radii.pill,
-                  borderWidth: 1,
-                  borderColor: tokens.colors.stroke,
-                  paddingHorizontal: 16,
-                  flexDirection: "row",
-                  alignItems: "center",
+            {balanceQuery.isPending ? (
+              <Skeleton height={96} borderRadius={16} />
+            ) : balanceMinor === undefined ? (
+              <EmptyState
+                title="Couldn’t load balance"
+                message="The balance is hidden until it can be verified with the server."
+                actionLabel="Retry"
+                onAction={() => {
+                  void balanceQuery.refetch();
+                  void summaryQuery.refetch();
                 }}
-              >
-                <AppText variant="sm" style={{ fontFamily: "Inter_600SemiBold" }}>
-                  {dashboardCurrency}
-                </AppText>
-                <Ionicons name="chevron-down" size={16} color={tokens.colors.muted} style={{ marginLeft: 8 }} />
-              </HapticPressable>
-            </View>
-            <View style={{ marginTop: 10 }}>
-              <TrendLine />
-            </View>
-            <View style={{ flexDirection: "row", gap: 12, marginTop: -6 }}>
-              <SummaryStat label="Income" value={formatCurrency(incomeMinor, dashboardCurrency)} tone="income" />
-              <SummaryStat label="Expense" value={formatCurrency(expenseMinor, dashboardCurrency)} tone="expense" />
-            </View>
+                className="px-0"
+              />
+            ) : (
+              <>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <View>
+                    <AppText variant="lg" tone="muted">
+                      Total Balance
+                    </AppText>
+                    <AppText
+                      variant="amount"
+                      style={{ marginTop: 14, color: balanceMinor < 0 ? tokens.colors.danger : tokens.colors.text }}
+                    >
+                      {formatCurrency(balanceMinor, dashboardCurrency)}
+                    </AppText>
+                  </View>
+                  <View
+                    style={{
+                      minHeight: 44,
+                      borderRadius: tokens.radii.pill,
+                      borderWidth: 1,
+                      borderColor: tokens.colors.stroke,
+                      paddingHorizontal: 16,
+                      flexDirection: "row",
+                      alignItems: "center",
+                    }}
+                  >
+                    <AppText variant="sm" style={{ fontFamily: "Inter_600SemiBold" }}>
+                      {dashboardCurrency}
+                    </AppText>
+                  </View>
+                </View>
+                {incomeMinor === undefined || expenseMinor === undefined ? (
+                  <View style={{ marginTop: 20 }}>
+                    <Skeleton height={68} borderRadius={16} />
+                  </View>
+                ) : (
+                  <View style={{ flexDirection: "row", gap: 12, marginTop: 20 }}>
+                    <SummaryStat label="Income this month" value={formatCurrency(incomeMinor, dashboardCurrency)} tone="income" />
+                    <SummaryStat label="Expense this month" value={formatCurrency(expenseMinor, dashboardCurrency)} tone="expense" />
+                  </View>
+                )}
+              </>
+            )}
           </Card>
 
           <View style={{ marginTop: 28 }}>

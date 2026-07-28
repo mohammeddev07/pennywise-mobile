@@ -4,13 +4,15 @@ import type { ApiErrorResponse } from "@/shared/types/api";
 
 export function getApiErrorCode(error: unknown) {
   if (!axios.isAxiosError<ApiErrorResponse>(error)) return undefined;
-  return error.response?.data?.error;
+  const body = error.response?.data;
+  return typeof body?.error === "string" ? body.error : body?.error?.code;
 }
 
 export function getApiErrorMessage(error: unknown, fallback = "Something went wrong. Please try again.") {
   if (axios.isAxiosError<ApiErrorResponse>(error)) {
     if (!error.response) return "Can't connect to server. Check your internet connection.";
-    return error.response.data?.message || fallback;
+    const body = error.response.data;
+    return (typeof body?.error === "object" ? body.error?.message : undefined) || body?.message || fallback;
   }
   return fallback;
 }

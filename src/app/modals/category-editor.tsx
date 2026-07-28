@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Alert, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { tokens } from "@/shared/ui/theme/tokens";
 import { Button } from "@/shared/ui/components/Button";
@@ -16,6 +17,7 @@ import { Card } from "@/shared/ui/components/Card";
 import { EmptyState } from "@/shared/ui/components/EmptyState";
 import { Input } from "@/shared/ui/components/Input";
 import { Skeleton } from "@/shared/ui/components/Skeleton";
+import { useUndoToastStore } from "@/shared/ui/state/useUndoToastStore";
 
 const ICONS = [
   "pricetag-outline",
@@ -38,6 +40,7 @@ const COLORS = ["#22C55E", "#60A5FA", "#A78BFA", "#F472B6", "#FFB020", "#34D399"
 
 export default function CategoryEditorModal() {
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   const params = useLocalSearchParams<{ id?: string; origin?: string }>();
   const origin = params.origin === "add-transaction" ? "add-transaction" : "other";
@@ -49,6 +52,7 @@ export default function CategoryEditorModal() {
   const markLastCreatedCategoryId = useCategoriesStore((s) => s.markLastCreatedCategoryId);
   const renameTransactionCategory = useTransactionsStore((s) => s.renameTransactionCategory);
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
+  const showError = useUndoToastStore((s) => s.showError);
 
   const persist = (useCategoriesStore as any).persist;
   const [hydrated, setHydrated] = useState<boolean>(() => persist?.hasHydrated?.() ?? true);
@@ -125,33 +129,45 @@ export default function CategoryEditorModal() {
         const previousName = editing.name;
         await updateCategory(editing.bookId, editing.id, { name: finalName, icon, color });
         renameTransactionCategory(previousName, finalName);
+        await queryClient.invalidateQueries({ queryKey: ["summary", editing.bookId] });
         router.back();
         return;
       }
 
       const id = await addCategory(selectedBookId, { type, name: finalName, icon, color });
+      await queryClient.invalidateQueries({ queryKey: ["summary", selectedBookId] });
 
       if (origin === "add-transaction") {
         markLastCreatedCategoryId(id);
       }
 
       router.back();
+    } catch (error) {
+      showError(error, editing ? "Could not update category." : "Could not create category.");
     } finally {
       setIsSaving(false);
     }
   };
 
   const onDelete = () => {
-    if (!editing) return;
+    if (!editing || isSaving) return;
 
-    Alert.alert("Delete category?", "Existing transactions will keep their category label.", [
+    Alert.alert("Delete category?", "Categories used by active transactions cannot be deleted.", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Delete",
         style: "destructive",
         onPress: async () => {
-          await removeCategory(editing.bookId, editing.id);
-          router.back();
+          setIsSaving(true);
+          try {
+            await removeCategory(editing.bookId, editing.id);
+            await queryClient.invalidateQueries({ queryKey: ["summary", editing.bookId] });
+            router.back();
+          } catch (error) {
+            showError(error, "Could not delete category.");
+          } finally {
+            setIsSaving(false);
+          }
         },
       },
     ]);
@@ -191,7 +207,9 @@ export default function CategoryEditorModal() {
               disabled={!canSave}
               size="md"
             />
-            {editing ? <Button label="Delete" variant="danger" onPress={onDelete} size="md" /> : null}
+            {editing ? (
+              <Button label="Delete" variant="danger" onPress={onDelete} disabled={isSaving} size="md" />
+            ) : null}
           </View>
         }
       >

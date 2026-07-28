@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { ScrollView, View } from "react-native";
+import { View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { FlashList } from "@shopify/flash-list";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
-import { addMonths, endOfDay, endOfMonth, format, isSameDay, parseISO, startOfDay, startOfMonth, subDays } from "date-fns";
+import { addMonths, format, isSameDay, parseISO, startOfMonth, subDays } from "date-fns";
 
 import { tokens } from "@/shared/ui/theme/tokens";
-import { BookPill } from "@/shared/ui/components/BookPill";
 import { useTransactionsStore, type Transaction } from "@/features/transactions/store";
 import { TransactionRow } from "@/shared/ui/components/TransactionRow";
 import { useBooksStore } from "@/features/books/store";
@@ -29,16 +28,14 @@ type Row =
 function inRange(tx: Transaction, range: RangeKey, month: Date) {
   if (range === "all") return true;
 
-  const d = safeDate(tx.occurredAt);
-  if (!d) return false;
-
-  const now = new Date();
+  const dayKey = transactionDayKey(tx);
+  if (!dayKey) return false;
 
   if (range === "today") {
-    return d >= startOfDay(now) && d <= endOfDay(now);
+    return dayKey === format(new Date(), "yyyy-MM-dd");
   }
 
-  return d >= startOfMonth(month) && d <= endOfMonth(month);
+  return dayKey.startsWith(format(month, "yyyy-MM"));
 }
 
 function safeDate(iso: string) {
@@ -58,9 +55,10 @@ function dayTitle(d: Date) {
   return format(d, "MMM d");
 }
 
-function money(amountCents: number) {
-  const abs = Math.abs(amountCents);
-  return (abs / 100).toFixed(2);
+function transactionDayKey(tx: Transaction) {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(tx.occurredOn)) return tx.occurredOn;
+  const date = safeDate(tx.occurredAt);
+  return date ? format(date, "yyyy-MM-dd") : "";
 }
 
 function RangeChip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
@@ -183,9 +181,7 @@ export default function TransactionsScreen() {
 
   const isHydrated = txHydrated && booksHydrated;
 
-  const selectedBookName = useMemo(() => {
-    return books.find((b) => b.id === selectedBookId)?.name ?? "Personal";
-  }, [books, selectedBookId]);
+  const currency = books.find((book) => book.id === selectedBookId)?.currencyCode ?? primaryCurrency;
 
   const [range, setRange] = useState<RangeKey>("today");
   const [selectedMonth, setSelectedMonth] = useState(() => startOfMonth(new Date()));
@@ -209,9 +205,7 @@ export default function TransactionsScreen() {
         tx.title ?? "",
         tx.categoryName ?? "",
         tx.note ?? "",
-        tx.paymentMethod ?? "",
         tx.type ?? "",
-        money(tx.amountMinor),
       ]
         .join(" ")
         .toLowerCase();
@@ -248,12 +242,12 @@ export default function TransactionsScreen() {
     let lastKey = "";
 
     for (const tx of sorted) {
-      const d = safeDate(tx.occurredAt) ?? new Date();
-      const key = format(d, "yyyy-MM-dd");
+      const key = transactionDayKey(tx) || "unknown";
+      const d = key === "unknown" ? null : safeDate(key);
 
       if (key !== lastKey) {
         lastKey = key;
-        out.push({ type: "header", id: `h_${key}`, title: dayTitle(d) });
+        out.push({ type: "header", id: `h_${key}`, title: d ? dayTitle(d) : "Unknown date" });
       }
 
       out.push({ type: "tx", id: tx.id, tx });
@@ -264,55 +258,53 @@ export default function TransactionsScreen() {
 
   const rangeLabel =
     range === "today"
-      ? "Today"
+      ? "Today · loaded activity"
       : range === "month"
-        ? format(selectedMonth, "MMMM yyyy")
-        : "All activity";
+        ? `${format(selectedMonth, "MMMM yyyy")} · loaded activity`
+        : "Latest loaded activity";
 
   const emptyTitle = query.trim()
     ? "No matches"
     : bookTransactions.length === 0
       ? "No transactions yet"
       : range === "today"
-        ? "Nothing logged today"
+        ? "No loaded activity today"
         : range === "month"
-          ? `No activity in ${format(selectedMonth, "MMMM")}`
-          : "No transactions";
+          ? `No loaded activity in ${format(selectedMonth, "MMMM")}`
+          : "No loaded transactions";
 
   const emptyMessage = query.trim()
     ? "Try a different search or clear the filter."
     : bookTransactions.length === 0
       ? "Log your first expense or income and it will appear here."
       : range === "today"
-        ? "New transactions dated today will appear here immediately."
-        : "Pick another month or switch to All.";
+        ? "No transaction dated today is present in the latest loaded records."
+        : "Only the latest loaded records are available in this version.";
 
   return (
     <View className="flex-1 bg-app" style={{ paddingTop: insets.top + 12 }}>
       <View className="px-6">
         <View className="flex-row items-start justify-between">
-          <View className="flex-1 pr-3">
+          <View className="flex-1">
             <AppText variant="2xl">Transactions</AppText>
             <AppText variant="sm" tone="muted" className="mt-1">
               {rangeLabel}
             </AppText>
           </View>
-
-          <BookPill label={selectedBookName} onPress={() => router.push("/modals/book-switcher")} />
         </View>
 
         <Card variant="surface" className="mt-5">
           <View className="flex-row items-center justify-between">
             <View>
               <AppText variant="xs" tone="muted" className="uppercase">
-                Net total
+                Net of loaded items
               </AppText>
               <AppText
                 variant="2xl"
                 className="mt-1"
                 style={{ color: totals.netCents < 0 ? tokens.colors.danger : tokens.colors.text }}
               >
-                {formatCurrency(totals.netCents, primaryCurrency)}
+                {formatCurrency(totals.netCents, currency)}
               </AppText>
             </View>
 
@@ -328,15 +320,15 @@ export default function TransactionsScreen() {
         </Card>
 
         <View className="mt-3 flex-row" style={{ gap: 8 }}>
-          <SummaryStat label="Income" value={formatCurrency(totals.incomeCents, primaryCurrency)} tone="income" />
-          <SummaryStat label="Expense" value={formatCurrency(totals.expenseCents, primaryCurrency)} tone="expense" />
+          <SummaryStat label="Income" value={formatCurrency(totals.incomeCents, currency)} tone="income" />
+          <SummaryStat label="Expense" value={formatCurrency(totals.expenseCents, currency)} tone="expense" />
           <SummaryStat label="Items" value={String(totals.count)} />
         </View>
 
         <View className="mt-4 flex-row items-center" style={{ gap: 8 }}>
           <RangeChip label="Today" active={range === "today"} onPress={() => setRange("today")} />
           <RangeChip label="Month" active={range === "month"} onPress={() => setRange("month")} />
-          <RangeChip label="All" active={range === "all"} onPress={() => setRange("all")} />
+          <RangeChip label="Recent" active={range === "all"} onPress={() => setRange("all")} />
         </View>
 
         {range === "month" ? (

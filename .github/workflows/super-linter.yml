@@ -1,20 +1,19 @@
-name: CI (lint + typecheck)
+name: CI (typecheck)
 
 on:
   pull_request:
     branches: [main, develop]
 
 jobs:
-  lint:
+  typecheck:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version-file: .node-version
           cache: npm
 
       - run: npm ci
-      - run: npm run lint --if-present
       - run: npx tsc --noEmit

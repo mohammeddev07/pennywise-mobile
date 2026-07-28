@@ -5,6 +5,7 @@ import { createJSONStorage, persist } from "zustand/middleware";
 import * as categoriesApi from "@/shared/api/categories";
 import type { CategoryUpdateRequest, TransactionType } from "@/shared/types/api";
 import type { Category } from "@/shared/types/models";
+import { getAccountEpoch, isCurrentAccountEpoch } from "@/shared/session/accountEpoch";
 
 export type { Category };
 
@@ -61,16 +62,19 @@ export const useCategoriesStore = create<CategoriesState>()(
 
       loadCategories: async (bookId) => {
         if (!bookId) return;
+        const accountEpoch = getAccountEpoch();
         set({ isLoading: true, error: null });
         try {
           const res = await categoriesApi.listCategories(bookId);
           const next = res.items.map(normalizeCategory);
+          if (!isCurrentAccountEpoch(accountEpoch)) return;
           set((s) => ({
             categories: [...s.categories.filter((c) => c.bookId !== bookId), ...next],
             isLoading: false,
             error: null,
           }));
         } catch (err) {
+          if (!isCurrentAccountEpoch(accountEpoch)) return;
           const message = err instanceof Error ? err.message : "Could not load categories";
           set({ isLoading: false, error: message });
           throw err;
@@ -78,6 +82,7 @@ export const useCategoriesStore = create<CategoriesState>()(
       },
 
       addCategory: async (bookId, input) => {
+        const accountEpoch = getAccountEpoch();
         const category = normalizeCategory(
           await categoriesApi.createCategory(
             bookId,
@@ -87,21 +92,26 @@ export const useCategoriesStore = create<CategoriesState>()(
             input.color || "#22C55E"
           )
         );
+        if (!isCurrentAccountEpoch(accountEpoch)) return category.id;
         set((s) => ({ categories: [category, ...s.categories.filter((c) => c.id !== category.id)] }));
         return category.id;
       },
 
       updateCategory: async (bookId, id, patch) => {
+        const accountEpoch = getAccountEpoch();
         const current = get().categories.find((c) => c.id === id && c.bookId === bookId);
         if (!current) return;
         const category = normalizeCategory(await categoriesApi.patchCategory(bookId, id, current.version, patch));
+        if (!isCurrentAccountEpoch(accountEpoch)) return;
         set((s) => ({ categories: s.categories.map((c) => (c.id === id ? category : c)) }));
       },
 
       removeCategory: async (bookId, id) => {
+        const accountEpoch = getAccountEpoch();
         const current = get().categories.find((c) => c.id === id && c.bookId === bookId);
         if (!current) return;
         await categoriesApi.deleteCategory(bookId, id, current.version);
+        if (!isCurrentAccountEpoch(accountEpoch)) return;
         set((s) => ({ categories: s.categories.filter((c) => c.id !== id) }));
       },
     }),

@@ -6,16 +6,27 @@ export type PaymentMethod = "CASH" | "CARD" | "BANK_TRANSFER" | "WALLET" | "OTHE
 
 export type ApiErrorResponse = {
   status?: number;
-  error?: string;
+  error?:
+    | string
+    | {
+        code?: string;
+        message?: string;
+        details?: unknown;
+        requestId?: string;
+      };
   message?: string;
   requestId?: string;
 };
 
 export type MeResponse = {
   id: string;
-  email: string;
-  defaultCurrencyCode: string;
+  email: string | null;
+  defaultCurrencyCode: string | null;
   createdAt: string;
+};
+
+export type MeUpdateRequest = {
+  defaultCurrencyCode?: string;
 };
 
 export type AuthResponse = {
@@ -71,11 +82,11 @@ export type TransactionResponse = {
   amountMinor: number;
   occurredOn: string;
   occurredAt: string;
-  title: string;
+  title: string | null;
   categoryId: string;
   category?: TransactionCategoryResponse | null;
   categoryName?: string;
-  paymentMethod: PaymentMethod;
+  paymentMethod: PaymentMethod | null;
   note?: string | null;
   version: number;
   createdAt: string;

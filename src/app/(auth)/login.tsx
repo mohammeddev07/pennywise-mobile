@@ -9,6 +9,7 @@ import { AppText } from "@/shared/ui/components/AppText";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { tokens } from "@/shared/ui/theme/tokens";
 import { useAuthStore } from "@/features/auth/store";
+import { useBooksStore } from "@/features/books/store";
 import { getAuthErrorMessage } from "@/shared/api/errors";
 
 function isEmail(value: string) {
@@ -22,7 +23,8 @@ export default function LoginScreen() {
   const [apiError, setApiError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const login = useAuthStore((s) => s.login);
-  const onboardingCompleted = useAuthStore((s) => s.onboardingCompleted);
+  const completeOnboarding = useAuthStore((s) => s.completeOnboarding);
+  const loadBooks = useBooksStore((s) => s.loadBooks);
 
   const emailError = submitted && !isEmail(email) ? "Enter a valid email." : undefined;
   const passwordError = submitted && password.trim().length < 8 ? "Enter at least 8 characters." : undefined;
@@ -40,7 +42,13 @@ export default function LoginScreen() {
     setIsSubmitting(true);
     try {
       await login(email, password);
-      router.replace(onboardingCompleted ? "/(tabs)/home" : "/(onboarding)/currency");
+      const books = await loadBooks();
+      if (books.length > 0) {
+        completeOnboarding();
+        router.replace("/(tabs)/home");
+      } else {
+        router.replace("/(onboarding)/currency");
+      }
     } catch (err) {
       setApiError(getAuthErrorMessage(err));
     } finally {
@@ -78,6 +86,7 @@ export default function LoginScreen() {
           keyboardType="email-address"
           autoCapitalize="none"
           autoCorrect={false}
+          maxLength={320}
           error={emailError}
         />
 
@@ -88,6 +97,7 @@ export default function LoginScreen() {
           placeholder="••••••••"
           secureTextEntry
           autoCapitalize="none"
+          maxLength={128}
           error={passwordError}
         />
 

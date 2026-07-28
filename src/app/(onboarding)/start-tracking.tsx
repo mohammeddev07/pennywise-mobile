@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { View } from "react-native";
-import { router } from "expo-router";
+import { Redirect, router } from "expo-router";
 
 import { Button } from "@/shared/ui/components/Button";
 import { AppText } from "@/shared/ui/components/AppText";
@@ -11,7 +11,11 @@ import { useBooksStore } from "@/features/books/store";
 import { useSettingsStore } from "@/features/settings/store";
 import { useAuthStore } from "@/features/auth/store";
 
-export default function StartTrackingScreen() {
+export default function StartTrackingRoute() {
+  return <Redirect href="/(onboarding)/currency" />;
+}
+
+function LegacyStartTrackingScreen() {
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
   const books = useBooksStore((s) => s.books);
   const currency = useSettingsStore((s) => s.primaryCurrency);

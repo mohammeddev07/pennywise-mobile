@@ -14,7 +14,7 @@ import { Card } from "@/shared/ui/components/Card";
 import { useAddTransactionDraftStore } from "@/features/transactions/addDraftStore";
 import { useTransactionsStore } from "@/features/transactions/store";
 
-const NOTE_MAX = 400;
+const NOTE_MAX = 280;
 
 function clampNote(value: string) {
   return value.slice(0, NOTE_MAX);

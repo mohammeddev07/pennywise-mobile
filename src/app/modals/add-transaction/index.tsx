@@ -10,7 +10,7 @@ import { tokens } from "@/shared/ui/theme/tokens";
 import { useBooksStore } from "@/features/books/store";
 import { useAddTransactionDraftStore } from "@/features/transactions/addDraftStore";
 import { useSettingsStore } from "@/features/settings/store";
-import { currencySymbol } from "@/shared/utils/formatCurrency";
+import { currencyMinorUnitDigits, currencySymbol } from "@/shared/utils/formatCurrency";
 
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { Sheet } from "@/shared/ui/components/Sheet";
@@ -129,8 +129,6 @@ export default function AddTransactionEntry() {
 
   const books = useBooksStore((s) => s.books);
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
-  const addBook = useBooksStore((s) => s.addBook);
-  const setSelectedBookId = useBooksStore((s) => s.setSelectedBookId);
   const primaryCurrency = useSettingsStore((s) => s.primaryCurrency);
 
   const resetDraft = useAddTransactionDraftStore((s) => s.reset);
@@ -163,6 +161,8 @@ export default function AddTransactionEntry() {
     if (!hasBooks) return undefined;
     return books.find((b) => b.id === selectedBookId) ?? books[0];
   }, [books, selectedBookId, hasBooks]);
+  const currency = selectedBook?.currencyCode ?? primaryCurrency;
+  const fractionDigits = currencyMinorUnitDigits(currency);
 
   useEffect(() => {
     if (!selectedBook) return;
@@ -170,7 +170,7 @@ export default function AddTransactionEntry() {
   }, [selectedBook?.id, setBookId, selectedBook]);
 
   const valueNum = useMemo(() => Number(amount || "0") || 0, [amount]);
-  const canReview = valueNum > 0;
+  const canReview = valueNum > 0 && Boolean(categoryId);
 
   const close = () => {
     resetDraft();
@@ -180,7 +180,7 @@ export default function AddTransactionEntry() {
   };
 
   const applyKey = (k: Key) => {
-    setAmount(applyAmountKey(amount, k));
+    setAmount(applyAmountKey(amount, k, fractionDigits));
   };
 
   const goReview = () => {
@@ -201,12 +201,6 @@ export default function AddTransactionEntry() {
         occurredAt,
       },
     });
-  };
-
-  const createDefaultBook = async () => {
-    const id = await addBook({ name: "Personal", currencyCode: primaryCurrency });
-    setSelectedBookId(id);
-    setBookId(id);
   };
 
   return (
@@ -232,7 +226,7 @@ export default function AddTransactionEntry() {
               <NumericKeypad
                 onPress={(key) => applyKey(key as Key)}
                 onDelete={() => applyKey("back")}
-                decimalAllowed
+                decimalAllowed={fractionDigits > 0}
                 disabled={!selectedBook}
               />
             </View>
@@ -241,10 +235,10 @@ export default function AddTransactionEntry() {
       >
         {!hasBooks ? (
           <EmptyState
-            title="No books yet"
-            message="Create a book to start tracking transactions."
-            actionLabel="Create a book"
-            onAction={createDefaultBook}
+            title="Cash book unavailable"
+            message="Return home and retry once your account data has loaded."
+            actionLabel="Return home"
+            onAction={() => router.replace("/(tabs)/home")}
             className="px-0"
           />
         ) : (
@@ -257,9 +251,8 @@ export default function AddTransactionEntry() {
               <View style={styles.amountHeader}>
                 <View style={styles.currencyPill}>
                   <AppText variant="sm" style={styles.semibold}>
-                    {primaryCurrency}
+                    {currency}
                   </AppText>
-                  <Ionicons name="chevron-down" size={16} color={COLORS.muted} style={{ marginLeft: 8 }} />
                 </View>
                 <View style={styles.calculatorBubble}>
                   <Ionicons name="calculator-outline" size={24} color={COLORS.accent} />
@@ -270,7 +263,8 @@ export default function AddTransactionEntry() {
                 <AmountInput
                   value={amount}
                   type={kind === "EXPENSE" ? "expense" : "income"}
-                  currencySymbol={currencySymbol(primaryCurrency)}
+                  currencySymbol={currencySymbol(currency)}
+                  fractionDigits={fractionDigits}
                   helperText={kind === "EXPENSE" ? "Money out" : "Money in"}
                   error={reviewAttempted && valueNum <= 0 ? "Amount is required." : undefined}
                 />
@@ -326,6 +320,11 @@ export default function AddTransactionEntry() {
                 placeholder="Uncategorized"
                 onPress={() => router.push("/modals/add-transaction/category")}
               />
+              {reviewAttempted && !categoryId ? (
+                <AppText variant="sm" tone="danger" style={{ marginHorizontal: 16, marginBottom: 12 }}>
+                  Choose a category before reviewing.
+                </AppText>
+              ) : null}
               <View style={styles.divider} />
               <FormPressRow
                 label="Note"

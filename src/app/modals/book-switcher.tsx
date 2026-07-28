@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Alert, ScrollView, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { Redirect, useRouter } from "expo-router";
 
 import { tokens } from "@/shared/ui/theme/tokens";
 import { useBooksStore } from "@/features/books/store";
@@ -14,7 +14,11 @@ import { EmptyState } from "@/shared/ui/components/EmptyState";
 import { Button } from "@/shared/ui/components/Button";
 import { Input } from "@/shared/ui/components/Input";
 
-export default function BookSwitcherModal() {
+export default function BookSwitcherRoute() {
+  return <Redirect href="/(tabs)/settings" />;
+}
+
+function LegacyBookSwitcherModal() {
   const router = useRouter();
 
   const books = useBooksStore((s) => s.books);

@@ -1,7 +1,7 @@
 import "react-native-gesture-handler";
 import "../../global.css";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Stack } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -47,29 +47,47 @@ function currentMonthKey() {
 
 function DataBootstrap() {
   const user = useAuthStore((s) => s.user);
-  const unlocked = useAuthStore((s) => s.unlocked);
+  const sessionStatus = useAuthStore((s) => s.sessionStatus);
+  const onboardingCompleted = useAuthStore((s) => s.onboardingCompleted);
   const loadBooks = useBooksStore((s) => s.loadBooks);
+  const ensureBook = useBooksStore((s) => s.ensureBook);
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
   const loadCategories = useCategoriesStore((s) => s.loadCategories);
   const loadTransactions = useTransactionsStore((s) => s.loadTransactions);
   const loadBudgets = useBudgetsStore((s) => s.loadBudgets);
 
   useEffect(() => {
-    if (!user || !unlocked) return;
+    if (sessionStatus !== "authenticated" || !user) return;
+    if (onboardingCompleted) {
+      ensureBook({
+        name: "Personal",
+        currencyCode: user.defaultCurrencyCode ?? "USD",
+        openingBalanceMinor: 0,
+      }).catch(() => {});
+      return;
+    }
     loadBooks().catch(() => {});
-  }, [loadBooks, unlocked, user]);
+  }, [ensureBook, loadBooks, onboardingCompleted, sessionStatus, user]);
 
   useEffect(() => {
-    if (!user || !unlocked || !selectedBookId) return;
+    if (sessionStatus !== "authenticated" || !user || !selectedBookId) return;
     loadCategories(selectedBookId).catch(() => {});
     loadTransactions(selectedBookId, { limit: 100 }).catch(() => {});
     loadBudgets(selectedBookId, currentMonthKey()).catch(() => {});
-  }, [loadBudgets, loadCategories, loadTransactions, selectedBookId, unlocked, user]);
+  }, [loadBudgets, loadCategories, loadTransactions, selectedBookId, sessionStatus, user]);
 
   return null;
 }
 
 export default function RootLayout() {
+  const sessionStatus = useAuthStore((s) => s.sessionStatus);
+  const onboardingCompleted = useAuthStore((s) => s.onboardingCompleted);
+  const hydrateAccessToken = useAuthStore((s) => s.hydrateAccessToken);
+  const validateSession = useAuthStore((s) => s.validateSession);
+  const authPersist = useAuthStore.persist;
+  const [authStorageHydrated, setAuthStorageHydrated] = useState(() => authPersist.hasHydrated());
+  const sessionBootstrapStarted = useRef(false);
+
   const [fontsLoaded, fontError] = useFonts({
     Inter_300Light,
     Inter_400Regular,
@@ -90,12 +108,37 @@ export default function RootLayout() {
   );
 
   useEffect(() => {
-    if (!fontsLoaded && !fontError) return;
+    if (sessionStatus === "unauthenticated") queryClient.clear();
+  }, [queryClient, sessionStatus]);
+
+  useEffect(() => {
+    const unsubscribe = authPersist.onFinishHydration(() => setAuthStorageHydrated(true));
+    if (authPersist.hasHydrated()) setAuthStorageHydrated(true);
+    else {
+      void Promise.resolve(authPersist.rehydrate()).finally(() => setAuthStorageHydrated(true));
+    }
+    return unsubscribe;
+  }, [authPersist]);
+
+  useEffect(() => {
+    if (!authStorageHydrated || sessionBootstrapStarted.current) return;
+    sessionBootstrapStarted.current = true;
+
+    void (async () => {
+      try {
+        await hydrateAccessToken();
+        await validateSession();
+      } catch {
+        await useAuthStore.getState().logout();
+      }
+    })();
+  }, [authStorageHydrated, hydrateAccessToken, validateSession]);
+
+  useEffect(() => {
+    if ((!fontsLoaded && !fontError) || sessionStatus === "resolving") return;
     applyDefaultFont();
     SplashScreen.hideAsync().catch(() => {});
-  }, [fontsLoaded, fontError]);
-
-  if (!fontsLoaded && !fontError) return null;
+  }, [fontsLoaded, fontError, sessionStatus]);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -110,15 +153,21 @@ export default function RootLayout() {
                 contentStyle: { backgroundColor: tokens.colors.app },
               }}
             >
-              <Stack.Screen name="(auth)" />
-              <Stack.Screen name="(onboarding)" />
-              <Stack.Screen name="(tabs)" />
-              <Stack.Screen
-                name="modals"
-                options={{
-                  presentation: "modal",
-                }}
-              />
+              <Stack.Protected guard={sessionStatus === "unauthenticated"}>
+                <Stack.Screen name="(auth)" />
+              </Stack.Protected>
+              <Stack.Protected guard={sessionStatus === "authenticated" && !onboardingCompleted}>
+                <Stack.Screen name="(onboarding)" />
+              </Stack.Protected>
+              <Stack.Protected guard={sessionStatus === "authenticated" && onboardingCompleted}>
+                <Stack.Screen name="(tabs)" />
+                <Stack.Screen
+                  name="modals"
+                  options={{
+                    presentation: "modal",
+                  }}
+                />
+              </Stack.Protected>
             </Stack>
 
             <UndoToast />

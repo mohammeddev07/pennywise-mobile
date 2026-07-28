@@ -1,32 +1,16 @@
-import { useEffect, useState } from "react";
 import { Redirect } from "expo-router";
 
 import { useAuthStore } from "@/features/auth/store";
 
 export default function Index() {
   const user = useAuthStore((s) => s.user);
-  const unlocked = useAuthStore((s) => s.unlocked);
+  const accessToken = useAuthStore((s) => s.accessToken);
+  const sessionStatus = useAuthStore((s) => s.sessionStatus);
   const onboardingCompleted = useAuthStore((s) => s.onboardingCompleted);
-  const hydrateAccessToken = useAuthStore((s) => s.hydrateAccessToken);
 
-  const persist = (useAuthStore as any).persist;
-  const [hydrated, setHydrated] = useState<boolean>(() => persist?.hasHydrated?.() ?? true);
-
-  useEffect(() => {
-    if (!persist?.onFinishHydration) return;
-    const unsub = persist.onFinishHydration(() => setHydrated(true));
-    if (persist?.hasHydrated && !persist.hasHydrated()) persist?.rehydrate?.();
-    return () => unsub?.();
-  }, [persist]);
-
-  useEffect(() => {
-    if (hydrated) hydrateAccessToken().catch(() => {});
-  }, [hydrated, hydrateAccessToken]);
-
-  if (!hydrated) return null;
-
-  if (!user) return <Redirect href="/(auth)/welcome" />;
-  if (!unlocked) return <Redirect href="/(auth)/pin" />;
-  if (unlocked && onboardingCompleted) return <Redirect href="/(tabs)/home" />;
-  return <Redirect href="/(onboarding)/currency" />;
+  if (sessionStatus === "resolving") return null;
+  if (sessionStatus !== "authenticated" || !accessToken || !user) {
+    return <Redirect href="/(auth)/welcome" />;
+  }
+  return <Redirect href={onboardingCompleted ? "/(tabs)/home" : "/(onboarding)/currency"} />;
 }

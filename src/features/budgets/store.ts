@@ -4,6 +4,7 @@ import { createJSONStorage, persist } from "zustand/middleware";
 
 import * as budgetsApi from "@/shared/api/budgets";
 import type { Budget } from "@/shared/types/models";
+import { getAccountEpoch, isCurrentAccountEpoch } from "@/shared/session/accountEpoch";
 
 export type { Budget };
 
@@ -46,16 +47,19 @@ export const useBudgetsStore = create<State>()(
 
       loadBudgets: async (bookId, month) => {
         if (!bookId || !month) return;
+        const accountEpoch = getAccountEpoch();
         set({ isLoading: true, error: null });
         try {
           const res = await budgetsApi.listBudgets(bookId, month);
           const next = res.items.map(normalizeBudget);
+          if (!isCurrentAccountEpoch(accountEpoch)) return;
           set((s) => ({
             budgets: [...s.budgets.filter((b) => !(b.bookId === bookId && b.month === month)), ...next],
             isLoading: false,
             error: null,
           }));
         } catch (err) {
+          if (!isCurrentAccountEpoch(accountEpoch)) return;
           const message = err instanceof Error ? err.message : "Could not load budgets";
           set({ isLoading: false, error: message });
           throw err;
@@ -63,7 +67,9 @@ export const useBudgetsStore = create<State>()(
       },
 
       upsertBudget: async (bookId, categoryId, month, amountMinor, version) => {
+        const accountEpoch = getAccountEpoch();
         const budget = normalizeBudget(await budgetsApi.upsertBudget(bookId, categoryId, month, amountMinor, version));
+        if (!isCurrentAccountEpoch(accountEpoch)) return budget;
         set((s) => ({
           budgets: [
             budget,
@@ -74,7 +80,9 @@ export const useBudgetsStore = create<State>()(
       },
 
       deleteBudget: async (bookId, categoryId, month, version) => {
+        const accountEpoch = getAccountEpoch();
         await budgetsApi.deleteBudget(bookId, categoryId, month, version);
+        if (!isCurrentAccountEpoch(accountEpoch)) return;
         set((s) => ({
           budgets: s.budgets.filter((b) => keyOf(b.bookId, b.categoryId, b.month) !== keyOf(bookId, categoryId, month)),
         }));

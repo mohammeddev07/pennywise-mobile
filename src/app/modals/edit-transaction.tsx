@@ -3,6 +3,7 @@ import { Keyboard, Platform, ScrollView, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { format, parseISO } from "date-fns";
 import * as Haptics from "expo-haptics";
 
@@ -22,20 +23,28 @@ import { useTransactionsStore, type TransactionKind } from "@/features/transacti
 import { useCategoriesStore } from "@/features/categories/store";
 import { useBooksStore } from "@/features/books/store";
 import { useSettingsStore } from "@/features/settings/store";
-import { currencySymbol, formatCurrency } from "@/shared/utils/formatCurrency";
+import {
+  currencyMinorUnitDigits,
+  currencySymbol,
+  formatCurrency,
+  majorToMinor,
+  minorToMajor,
+} from "@/shared/utils/formatCurrency";
+import { useUndoToastStore } from "@/shared/ui/state/useUndoToastStore";
 
-function centsToAmount(cents: number) {
-  const amount = Math.abs(cents) / 100;
-  return amount % 1 === 0 ? String(amount.toFixed(0)) : amount.toFixed(2);
+function minorToAmount(amountMinor: number, currency: string) {
+  const amount = minorToMajor(Math.abs(amountMinor), currency);
+  const digits = currencyMinorUnitDigits(currency);
+  return amount % 1 === 0 ? String(amount.toFixed(0)) : amount.toFixed(digits);
 }
 
-function parseAmountToCents(raw: string) {
+function parseAmountToMinor(raw: string, currency: string) {
   const cleaned = String(raw || "0")
     .replace(/,/g, "")
     .replace(/[^\d.]/g, "");
   const n = Number.parseFloat(cleaned);
   if (!Number.isFinite(n)) return 0;
-  return Math.round(n * 100);
+  return majorToMinor(n, currency);
 }
 
 function parseWhen(iso: string) {
@@ -70,6 +79,7 @@ function CategoryChip({ label, active, onPress }: { label: string; active: boole
 
 export default function EditTransactionModal() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { id } = useLocalSearchParams<{ id?: string }>();
 
   const transactions = useTransactionsStore((s) => s.transactions);
@@ -77,6 +87,7 @@ export default function EditTransactionModal() {
   const categories = useCategoriesStore((s) => s.categories);
   const books = useBooksStore((s) => s.books);
   const fallbackCurrency = useSettingsStore((s) => s.primaryCurrency);
+  const showError = useUndoToastStore((s) => s.showError);
 
   const txPersist = (useTransactionsStore as any).persist;
   const [hydrated, setHydrated] = useState<boolean>(() => txPersist?.hasHydrated?.() ?? true);
@@ -99,6 +110,11 @@ export default function EditTransactionModal() {
   }, [txPersist]);
 
   const tx = useMemo(() => transactions.find((item) => item.id === id) ?? null, [id, transactions]);
+  const currency = useMemo(
+    () => books.find((book) => book.id === tx?.bookId)?.currencyCode ?? fallbackCurrency,
+    [books, fallbackCurrency, tx?.bookId],
+  );
+  const fractionDigits = currencyMinorUnitDigits(currency);
 
   const [amount, setAmount] = useState("0");
   const [kind, setKind] = useState<TransactionKind>("EXPENSE");
@@ -109,33 +125,34 @@ export default function EditTransactionModal() {
   const [occurredAt, setOccurredAt] = useState(new Date());
   const [showMode, setShowMode] = useState<"date" | "time" | null>(null);
   const [attemptedSave, setAttemptedSave] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (!tx) return;
-    setAmount(centsToAmount(tx.amountMinor));
+    setAmount(minorToAmount(tx.amountMinor, currency));
     setKind(tx.type);
     setTitle(tx.title === tx.categoryName ? "" : tx.title);
     setCategoryId(tx.categoryId);
     setCategoryName(tx.categoryName || "Uncategorized");
     setNote(tx.note ?? "");
     setOccurredAt(parseWhen(tx.occurredAt));
-  }, [tx]);
+  }, [currency, tx]);
 
-  const amountCents = useMemo(() => parseAmountToCents(amount), [amount]);
-  const canSave = !!tx && amountCents > 0;
+  const amountCents = useMemo(() => parseAmountToMinor(amount, currency), [amount, currency]);
+  const canSave = !!tx && Number.isSafeInteger(amountCents) && amountCents > 0;
 
   const categoryOptions = useMemo(() => {
     if (!tx) return [];
     const options = categories
       .filter((c) => c.bookId === tx.bookId && c.type === kind && !c.isDisabled)
       .map((c) => ({ id: c.id, name: c.name }));
-    if (categoryId && !options.some((c) => c.id === categoryId)) {
+    if (categoryId && tx.type === kind && !options.some((c) => c.id === categoryId)) {
       options.unshift({ id: categoryId, name: categoryName });
     }
     return options;
   }, [categories, categoryId, categoryName, kind, tx]);
 
-  const onKey = (k: Key) => setAmount((prev) => applyAmountKey(prev, k));
+  const onKey = (k: Key) => setAmount((prev) => applyAmountKey(prev, k, fractionDigits));
 
   const onDateChange = (_event: DateTimePickerEvent, selected?: Date) => {
     if (Platform.OS === "android") setShowMode(null);
@@ -145,21 +162,32 @@ export default function EditTransactionModal() {
 
   const onSave = async () => {
     setAttemptedSave(true);
-    if (!tx || amountCents <= 0 || !categoryId) return;
+    if (!tx || !Number.isSafeInteger(amountCents) || amountCents <= 0 || !categoryId || isSaving) return;
 
-    const ok = await updateTransaction(tx.id, {
-      type: kind,
-      amountMinor: amountCents,
-      title: title.trim(),
-      categoryId,
-      note: note.trim(),
-      occurredAt: occurredAt.toISOString(),
-    });
+    setIsSaving(true);
+    try {
+      const ok = await updateTransaction(tx.id, {
+        type: kind,
+        amountMinor: amountCents,
+        title: title.trim(),
+        categoryId,
+        note: note.trim(),
+        occurredAt: occurredAt.toISOString(),
+      });
 
-    if (ok) {
-      Keyboard.dismiss();
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      router.back();
+      if (ok) {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["balance", tx.bookId] }),
+          queryClient.invalidateQueries({ queryKey: ["summary", tx.bookId] }),
+        ]);
+        Keyboard.dismiss();
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+        router.back();
+      }
+    } catch (error) {
+      showError(error, "Could not update transaction.");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -187,9 +215,18 @@ export default function EditTransactionModal() {
         footer={
           tx ? (
             <View>
-              <Button label="Save changes" onPress={onSave} disabled={!canSave} size="md" />
+              <Button
+                label={isSaving ? "Saving..." : "Save changes"}
+                onPress={onSave}
+                disabled={!canSave || isSaving}
+                size="md"
+              />
               <View className="mt-2">
-                <NumericKeypad onPress={(key) => onKey(key as Key)} onDelete={() => onKey("back")} decimalAllowed />
+                <NumericKeypad
+                  onPress={(key) => onKey(key as Key)}
+                  onDelete={() => onKey("back")}
+                  decimalAllowed={fractionDigits > 0}
+                />
               </View>
             </View>
           ) : (
@@ -221,7 +258,13 @@ export default function EditTransactionModal() {
             <View className="items-center mt-2">
               <View className="flex-row rounded-full border border-stroke bg-surface overflow-hidden">
                 <HapticPressable
-                  onPress={() => setKind("EXPENSE")}
+                  onPress={() => {
+                    if (kind !== "EXPENSE") {
+                      setKind("EXPENSE");
+                      setCategoryId("");
+                      setCategoryName("Uncategorized");
+                    }
+                  }}
                   haptic="selection"
                   pressScale={0.99}
                   className={`px-6 h-12 items-center justify-center ${kind === "EXPENSE" ? "bg-card" : ""}`}
@@ -231,7 +274,13 @@ export default function EditTransactionModal() {
                   </AppText>
                 </HapticPressable>
                 <HapticPressable
-                  onPress={() => setKind("INCOME")}
+                  onPress={() => {
+                    if (kind !== "INCOME") {
+                      setKind("INCOME");
+                      setCategoryId("");
+                      setCategoryName("Uncategorized");
+                    }
+                  }}
                   haptic="selection"
                   pressScale={0.99}
                   className={`px-6 h-12 items-center justify-center ${kind === "INCOME" ? "bg-card" : ""}`}
@@ -246,9 +295,14 @@ export default function EditTransactionModal() {
                 <AmountInput
                   value={amount}
                   kind={kind === "EXPENSE" ? "expense" : "income"}
-                  currencySymbol={currencySymbol(books.find((b) => b.id === tx.bookId)?.currencyCode ?? fallbackCurrency)}
-                  helperText={formatCurrency(amountCents, books.find((b) => b.id === tx.bookId)?.currencyCode ?? fallbackCurrency)}
-                  error={attemptedSave && amountCents <= 0 ? "Amount must be greater than zero." : undefined}
+                  currencySymbol={currencySymbol(currency)}
+                  fractionDigits={fractionDigits}
+                  helperText={formatCurrency(amountCents, currency)}
+                  error={
+                    attemptedSave && (!Number.isSafeInteger(amountCents) || amountCents <= 0)
+                      ? "Enter a valid amount greater than zero."
+                      : undefined
+                  }
                 />
               </View>
             </View>
@@ -259,6 +313,7 @@ export default function EditTransactionModal() {
                 value={title}
                 onChangeText={setTitle}
                 placeholder={categoryName || "Transaction"}
+                maxLength={120}
                 autoCapitalize="words"
                 returnKeyType="done"
               />
@@ -280,6 +335,11 @@ export default function EditTransactionModal() {
                     />
                   ))}
                 </ScrollView>
+                {attemptedSave && !categoryId ? (
+                  <AppText variant="sm" tone="danger" className="mt-2">
+                    Choose a category that matches the transaction type.
+                  </AppText>
+                ) : null}
               </View>
 
               <Input
@@ -287,6 +347,7 @@ export default function EditTransactionModal() {
                 value={note}
                 onChangeText={setNote}
                 placeholder="Add details"
+                maxLength={280}
                 multiline
                 inputClassName="min-h-24 py-3"
                 textAlignVertical="top"

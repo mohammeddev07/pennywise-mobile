@@ -11,13 +11,17 @@ import { EmptyState } from "@/shared/ui/components/EmptyState";
 import { Skeleton } from "@/shared/ui/components/Skeleton";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { Button } from "@/shared/ui/components/Button";
-import { IconButton } from "@/shared/ui/components/IconButton";
+import { Input } from "@/shared/ui/components/Input";
 import { CategoryIcon } from "@/shared/ui/components/CategoryIcon";
 import { useBooksStore } from "@/features/books/store";
-import { useTransactionsStore } from "@/features/transactions/store";
-import { useSettingsStore } from "@/features/settings/store";
+import { useSettingsStore, type CurrencyCode } from "@/features/settings/store";
 import { useAuthStore } from "@/features/auth/store";
 import { formatCurrency } from "@/shared/utils/formatCurrency";
+import * as authApi from "@/shared/api/auth";
+import { useUndoToastStore } from "@/shared/ui/state/useUndoToastStore";
+import { getAccountEpoch, isCurrentAccountEpoch } from "@/shared/session/accountEpoch";
+
+const CURRENCIES: CurrencyCode[] = ["USD", "EUR", "GBP", "JPY", "INR"];
 
 function ProfileRow({
   label,
@@ -58,20 +62,24 @@ export default function ProfileScreen() {
 
   const books = useBooksStore((s) => s.books);
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
-  const transactions = useTransactionsStore((s) => s.transactions);
+  const updateBook = useBooksStore((s) => s.updateBook);
   const currency = useSettingsStore((s) => s.primaryCurrency);
+  const setPrimaryCurrency = useSettingsStore((s) => s.setPrimaryCurrency);
   const user = useAuthStore((s) => s.user);
-  const setUnlocked = useAuthStore((s) => s.setUnlocked);
+  const setUser = useAuthStore((s) => s.setUser);
   const logout = useAuthStore((s) => s.logout);
+  const showError = useUndoToastStore((s) => s.showError);
 
   const booksPersist = (useBooksStore as any).persist;
-  const txPersist = (useTransactionsStore as any).persist;
   const settingsPersist = (useSettingsStore as any).persist;
 
   const [booksHydrated, setBooksHydrated] = useState<boolean>(() => booksPersist?.hasHydrated?.() ?? true);
-  const [txHydrated, setTxHydrated] = useState<boolean>(() => txPersist?.hasHydrated?.() ?? true);
   const [settingsHydrated, setSettingsHydrated] = useState<boolean>(() => settingsPersist?.hasHydrated?.() ?? true);
   const [hydrationError, setHydrationError] = useState(false);
+  const [bookName, setBookName] = useState("");
+  const [isSavingBook, setIsSavingBook] = useState(false);
+  const [savingCurrency, setSavingCurrency] = useState<CurrencyCode | null>(null);
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
   useEffect(() => {
     const unsubs: Array<() => void> = [];
@@ -82,12 +90,6 @@ export default function ProfileScreen() {
       if (booksPersist?.hasHydrated && !booksPersist.hasHydrated()) booksPersist?.rehydrate?.();
     }
 
-    if (txPersist?.onFinishHydration) {
-      const unsub = txPersist.onFinishHydration(() => setTxHydrated(true));
-      unsubs.push(unsub);
-      if (txPersist?.hasHydrated && !txPersist.hasHydrated()) txPersist?.rehydrate?.();
-    }
-
     if (settingsPersist?.onFinishHydration) {
       const unsub = settingsPersist.onFinishHydration(() => setSettingsHydrated(true));
       unsubs.push(unsub);
@@ -96,9 +98,8 @@ export default function ProfileScreen() {
 
     const timeoutId = setTimeout(() => {
       const booksReady = booksPersist?.hasHydrated ? booksPersist.hasHydrated() : true;
-      const txReady = txPersist?.hasHydrated ? txPersist.hasHydrated() : true;
       const settingsReady = settingsPersist?.hasHydrated ? settingsPersist.hasHydrated() : true;
-      if (!booksReady || !txReady || !settingsReady) {
+      if (!booksReady || !settingsReady) {
         setHydrationError(true);
       }
     }, 3000);
@@ -107,34 +108,60 @@ export default function ProfileScreen() {
       clearTimeout(timeoutId);
       for (const unsub of unsubs) unsub?.();
     };
-  }, [booksPersist, settingsPersist, txPersist]);
+  }, [booksPersist, settingsPersist]);
 
   const retryHydration = () => {
     setHydrationError(false);
     setBooksHydrated(booksPersist?.hasHydrated?.() ?? true);
-    setTxHydrated(txPersist?.hasHydrated?.() ?? true);
     setSettingsHydrated(settingsPersist?.hasHydrated?.() ?? true);
     booksPersist?.rehydrate?.();
-    txPersist?.rehydrate?.();
     settingsPersist?.rehydrate?.();
   };
 
-  const hydrated = booksHydrated && txHydrated && settingsHydrated;
+  const hydrated = booksHydrated && settingsHydrated;
 
   const selectedBook = useMemo(() => books.find((b) => b.id === selectedBookId) ?? null, [books, selectedBookId]);
 
-  const totalIncome = useMemo(
-    () => transactions.filter((t) => t.type === "INCOME").reduce((sum, t) => sum + t.amountMinor, 0),
-    [transactions]
-  );
-  const totalExpense = useMemo(
-    () => transactions.filter((t) => t.type === "EXPENSE").reduce((sum, t) => sum + t.amountMinor, 0),
-    [transactions]
-  );
+  useEffect(() => {
+    setBookName(selectedBook?.name ?? "");
+  }, [selectedBook?.id, selectedBook?.name]);
 
-  const onLock = () => {
-    setUnlocked(false);
-    router.replace("/(auth)/pin");
+  const onSaveBook = async () => {
+    if (!selectedBook || isSavingBook) return;
+    const name = bookName.trim();
+    if (!name) {
+      showError(null, "Book name is required.");
+      return;
+    }
+
+    setIsSavingBook(true);
+    try {
+      await updateBook(selectedBook.id, { name });
+    } catch (error) {
+      showError(error, "Couldn’t rename the cash book.");
+    } finally {
+      setIsSavingBook(false);
+    }
+  };
+
+  const onChangeCurrency = async (nextCurrency: CurrencyCode) => {
+    if (savingCurrency) return;
+    const accountEpoch = getAccountEpoch();
+    setSavingCurrency(nextCurrency);
+    try {
+      const profile = await authApi.updateMe({ defaultCurrencyCode: nextCurrency });
+      if (!isCurrentAccountEpoch(accountEpoch)) return;
+      const returnedCurrency = profile.defaultCurrencyCode as CurrencyCode | null;
+      if (!returnedCurrency || !CURRENCIES.includes(returnedCurrency)) {
+        throw new Error("The server returned an unsupported currency.");
+      }
+      setUser(profile);
+      setPrimaryCurrency(returnedCurrency);
+    } catch (error) {
+      showError(error, "Couldn’t update the default currency.");
+    } finally {
+      setSavingCurrency(null);
+    }
   };
 
   const onLogout = () => {
@@ -144,8 +171,15 @@ export default function ProfileScreen() {
         text: "Log out",
         style: "destructive",
         onPress: async () => {
-          await logout();
-          router.replace("/(auth)/welcome");
+          setIsSigningOut(true);
+          try {
+            await logout();
+            router.replace("/(auth)/login");
+          } catch (error) {
+            showError(error, "Couldn’t clear all local account data. Please try again.");
+          } finally {
+            setIsSigningOut(false);
+          }
         },
       },
     ]);
@@ -154,15 +188,10 @@ export default function ProfileScreen() {
   return (
     <View className="flex-1 bg-app" style={{ paddingTop: insets.top + 12 }}>
       <View className="px-6">
-        <View className="flex-row items-center justify-between">
-          <View className="flex-1 pr-3">
-            <AppText variant="3xl">Profile & Settings</AppText>
-            <AppText variant="sm" tone="muted" className="mt-2">
-              Manage your account and app preferences
-            </AppText>
-          </View>
-          <IconButton icon="notifications-outline" onPress={() => {}} />
-        </View>
+        <AppText variant="3xl">Profile & Settings</AppText>
+        <AppText variant="sm" tone="muted" className="mt-2">
+          Manage your account and cash book
+        </AppText>
       </View>
 
       <ScrollView
@@ -189,10 +218,10 @@ export default function ProfileScreen() {
         ) : books.length === 0 ? (
           <View className="flex-1 justify-center">
             <EmptyState
-              title="No books yet"
-              message="Create a book to personalize your profile dashboard."
-              actionLabel="Create book"
-              onAction={() => router.push("/modals/book-switcher")}
+              title="Cash book unavailable"
+              message="Return home and retry while the app restores your account."
+              actionLabel="Return home"
+              onAction={() => router.replace("/(tabs)/home")}
               className="px-0"
             />
           </View>
@@ -202,73 +231,95 @@ export default function ProfileScreen() {
               <View className="flex-row items-center">
                 <CategoryIcon icon="person" color={tokens.colors.accent} size={72} />
                 <View className="ml-4 flex-1">
-                  <AppText variant="xl">{user?.email ?? "Account"}</AppText>
+                  <AppText variant="xl">{user?.email ?? "Email unavailable"}</AppText>
                   <AppText variant="sm" tone="muted" className="mt-1">
-                    Backend-synced workspace
+                    Signed-in account
                   </AppText>
                 </View>
-                <Ionicons name="chevron-forward" size={24} color={tokens.colors.muted} />
               </View>
+            </Card>
 
-              <View className="mt-4 flex-row">
-                <View className="flex-1 rounded-lg border border-stroke bg-surfaceAlt p-3 mr-2">
-                  <AppText variant="xs" tone="muted">
-                    Books
-                  </AppText>
-                  <AppText variant="base" className="mt-1" style={{ fontFamily: "Inter_600SemiBold" }}>
-                    {books.length}
-                  </AppText>
-                </View>
+            <Card variant="surface" className="mt-6">
+              <AppText variant="lg">Cash book</AppText>
+              <Input
+                label="Book name"
+                value={bookName}
+                onChangeText={setBookName}
+                maxLength={80}
+                autoCorrect={false}
+                containerClassName="mt-4"
+              />
+              <Button
+                label={isSavingBook ? "Saving..." : "Save name"}
+                onPress={onSaveBook}
+                loading={isSavingBook}
+                disabled={bookName.trim() === selectedBook?.name}
+                size="md"
+                className="mt-3"
+              />
 
-                <View className="flex-1 rounded-lg border border-stroke bg-surfaceAlt p-3 ml-2">
-                  <AppText variant="xs" tone="muted">
-                    Transactions
-                  </AppText>
-                  <AppText variant="base" className="mt-1" style={{ fontFamily: "Inter_600SemiBold" }}>
-                    {transactions.length}
-                  </AppText>
-                </View>
+              <View className="mt-5 rounded-lg border border-stroke bg-surfaceAlt p-4">
+                <AppText variant="sm" tone="muted">
+                  Opening balance
+                </AppText>
+                <AppText variant="lg" className="mt-1">
+                  {formatCurrency(selectedBook?.openingBalanceMinor ?? 0, selectedBook?.currencyCode ?? currency)}
+                </AppText>
+                <AppText variant="xs" tone="muted" className="mt-2">
+                  The deployed API does not allow an opening balance to be changed after setup.
+                </AppText>
+              </View>
+            </Card>
+
+            <Card variant="surface" className="mt-6">
+              <AppText variant="lg">Default currency</AppText>
+              <AppText variant="sm" tone="muted" className="mt-1">
+                Saved to your account. Existing book entries remain in {selectedBook?.currencyCode ?? currency}.
+              </AppText>
+
+              <View className="mt-4 flex-row flex-wrap" style={{ gap: 8 }}>
+                {CURRENCIES.map((item) => {
+                  const active = item === currency;
+                  const saving = item === savingCurrency;
+                  return (
+                    <HapticPressable
+                      key={item}
+                      onPress={() => {
+                        void onChangeCurrency(item);
+                      }}
+                      disabled={Boolean(savingCurrency)}
+                      haptic="selection"
+                      className="min-h-12 min-w-16 items-center justify-center rounded-full border px-4"
+                      style={{
+                        borderColor: active ? tokens.colors.accent : tokens.colors.stroke,
+                        backgroundColor: active ? tokens.colors.greenSoft : tokens.colors.surface,
+                        opacity: savingCurrency && !saving ? 0.5 : 1,
+                      }}
+                    >
+                      <AppText variant="sm" style={{ color: active ? tokens.colors.accent : tokens.colors.text }}>
+                        {saving ? "Saving…" : item}
+                      </AppText>
+                    </HapticPressable>
+                  );
+                })}
               </View>
             </Card>
 
             <Card variant="surface" className="mt-6 p-0 overflow-hidden">
-              <ProfileRow label="Active book" value={selectedBook?.name ?? "Personal"} onPress={() => router.push("/modals/book-switcher")} />
-              <View className="h-px bg-stroke" />
-              <ProfileRow label="Primary currency" value={currency} onPress={() => router.push("/(onboarding)/currency")} />
-              <View className="h-px bg-stroke" />
-              <ProfileRow label="Manage categories" value="Edit names, icons, and colors" onPress={() => router.push("/modals/category-editor")} />
+              <ProfileRow label="Manage categories" value="Edit names, icons, colors, and budgets" onPress={() => router.push("/modals/category-editor")} />
             </Card>
 
-            <Card variant="surface" className="mt-6">
-              <AppText variant="sm" tone="muted">
-                Lifetime totals
-              </AppText>
-
-              <View className="mt-3 flex-row items-center justify-between">
-                <AppText variant="base">Income</AppText>
-                <AppText variant="base" style={{ color: tokens.colors.accent, fontFamily: "Inter_600SemiBold" }}>
-                  {formatCurrency(totalIncome, currency)}
-                </AppText>
-              </View>
-
-              <View className="mt-3 flex-row items-center justify-between">
-                <AppText variant="base">Expense</AppText>
-                <AppText variant="base" style={{ fontFamily: "Inter_600SemiBold" }}>
-                  {formatCurrency(totalExpense, currency)}
-                </AppText>
-              </View>
-            </Card>
-
-            <View className="mt-6">
-              <Button label="Add transaction" onPress={() => router.push("/modals/add-transaction")} size="lg" />
-            </View>
-
-            <View className="mt-3 gap-3">
-              <Button label="Lock app" variant="outline" onPress={onLock} size="md" />
-              <Button label="Log out" variant="danger" onPress={onLogout} size="md" />
-            </View>
           </>
         )}
+        <View className="mt-6">
+          <Button
+            label={isSigningOut ? "Signing out..." : "Sign out"}
+            variant="danger"
+            onPress={onLogout}
+            loading={isSigningOut}
+            size="md"
+          />
+        </View>
       </ScrollView>
     </View>
   );

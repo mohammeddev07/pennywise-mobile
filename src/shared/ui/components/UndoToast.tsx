@@ -14,7 +14,7 @@ export function UndoToast() {
 
   const visible = useUndoToastStore((s) => s.visible);
   const title = useUndoToastStore((s) => s.title);
-  const undo = useUndoToastStore((s) => s.undo);
+  const message = useUndoToastStore((s) => s.message);
   const hide = useUndoToastStore((s) => s.hide);
 
   const y = useSharedValue(22);
@@ -74,7 +74,7 @@ export function UndoToast() {
             borderColor: tokens.colors.stroke,
           }}
         >
-          <Ionicons name="trash-outline" size={18} color={tokens.colors.accent} />
+          <Ionicons name="alert-circle-outline" size={18} color={tokens.colors.danger} />
         </View>
 
         <View style={{ flex: 1, marginLeft: 12 }}>
@@ -82,21 +82,9 @@ export function UndoToast() {
             {title}
           </AppText>
           <AppText variant="xs" tone="muted" className="mt-0.5">
-            Undo available for a few seconds
+            {message}
           </AppText>
         </View>
-
-        <HapticPressable
-          onPress={undo}
-          haptic="selection"
-          className="min-h-11 px-4 items-center justify-center rounded-full border"
-          style={{ borderColor: `${tokens.colors.accent}55`, backgroundColor: `${tokens.colors.accent}14` }}
-          android_ripple={{ color: `${tokens.colors.accent}22` }}
-        >
-          <AppText variant="sm" style={{ color: tokens.colors.accent, fontFamily: "Inter_600SemiBold" }}>
-            Undo
-          </AppText>
-        </HapticPressable>
 
         <HapticPressable
           onPress={hide}

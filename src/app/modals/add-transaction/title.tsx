@@ -14,6 +14,8 @@ import { Skeleton } from "@/shared/ui/components/Skeleton";
 import { useAddTransactionDraftStore } from "@/features/transactions/addDraftStore";
 import { useTransactionsStore } from "@/features/transactions/store";
 
+const TITLE_MAX = 120;
+
 function safeTime(iso?: string) {
   if (!iso) return 0;
   const t = Date.parse(iso);
@@ -121,6 +123,7 @@ export default function TitleModal() {
             value={value}
             onChangeText={setValue}
             placeholder="Coffee, Uber, Rent…"
+            maxLength={TITLE_MAX}
             autoFocus
             returnKeyType="done"
             blurOnSubmit

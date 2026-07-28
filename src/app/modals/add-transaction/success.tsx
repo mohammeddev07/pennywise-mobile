@@ -11,7 +11,7 @@ import { EmptyState } from "@/shared/ui/components/EmptyState";
 import { Sheet } from "@/shared/ui/components/Sheet";
 import { normalizePaymentMethod, type PaymentMethod, type TransactionKind } from "@/features/transactions/store";
 import { useAddTransactionDraftStore } from "@/features/transactions/addDraftStore";
-import { formatSignedCurrency } from "@/shared/utils/formatCurrency";
+import { formatSignedCurrency, majorToMinor } from "@/shared/utils/formatCurrency";
 
 const COLORS = {
   bg: tokens.colors.app,
@@ -44,13 +44,13 @@ const RADIUS = {
 
 const TYPOGRAPHY = tokens.typography;
 
-function parseAmountToCents(raw: string) {
+function parseAmountToMinor(raw: string, currency: string) {
   const cleaned = String(raw || "0")
     .replace(/,/g, "")
     .replace(/[^\d.-]/g, "");
   const n = Number.parseFloat(cleaned);
   if (!Number.isFinite(n)) return 0;
-  return Math.round(n * 100);
+  return majorToMinor(n, currency);
 }
 
 function normalizeOccurredAt(raw?: string) {
@@ -90,7 +90,7 @@ export default function AddTransactionSuccess() {
   const currency = params.currency ?? "USD";
   const paymentMethod: PaymentMethod = normalizePaymentMethod(params.paymentMethod);
 
-  const cents = useMemo(() => parseAmountToCents(amount), [amount]);
+  const cents = useMemo(() => parseAmountToMinor(amount, currency), [amount, currency]);
 
   const didAddRef = useRef(false);
   const [status, setStatus] = useState<"saving" | "saved" | "error">("saving");
@@ -155,7 +155,7 @@ export default function AddTransactionSuccess() {
                 Saving transaction
               </AppText>
               <AppText variant="sm" tone="muted" style={styles.centerText}>
-                Your books will update immediately.
+                Your cash book will update immediately.
               </AppText>
             </Card>
           ) : null}

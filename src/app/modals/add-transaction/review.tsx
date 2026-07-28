@@ -26,11 +26,11 @@ import { SwipeUpToSubmit } from "@/shared/ui/components/SwipeUpToSubmit";
 import { useBooksStore } from "@/features/books/store";
 import { useAddTransactionDraftStore } from "@/features/transactions/addDraftStore";
 import { useTransactionsStore } from "@/features/transactions/store";
-import { useSettingsStore } from "@/features/settings/store";
 import type { CurrencyCode, PaymentMethod } from "@/shared/types/models";
-import { formatCurrency } from "@/shared/utils/formatCurrency";
+import { formatCurrency, majorToMinor } from "@/shared/utils/formatCurrency";
 import * as transactionsApi from "@/shared/api/transactions";
 import { getApiErrorMessage } from "@/shared/api/errors";
+import { getAccountEpoch, isCurrentAccountEpoch } from "@/shared/session/accountEpoch";
 
 const COLORS = {
   bg: tokens.colors.app,
@@ -63,13 +63,13 @@ const RADIUS = {
 const TYPOGRAPHY = tokens.typography;
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 
-function parseAmountToCents(raw: string) {
+function parseAmountToMinor(raw: string, currency: CurrencyCode) {
   const cleaned = String(raw || "0")
     .replace(/,/g, "")
     .replace(/[^\d.-]/g, "");
   const n = Number.parseFloat(cleaned);
   if (!Number.isFinite(n)) return 0;
-  return Math.round(n * 100);
+  return majorToMinor(n, currency);
 }
 
 function safeWhen(iso: string) {
@@ -142,7 +142,6 @@ export default function AddTransactionReview() {
 
   const books = useBooksStore((s) => s.books);
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
-  const primaryCurrency = useSettingsStore((s) => s.primaryCurrency);
 
   const draftTitle = useAddTransactionDraftStore((s) => s.title);
   const draftCategoryId = useAddTransactionDraftStore((s) => s.categoryId);
@@ -150,7 +149,6 @@ export default function AddTransactionReview() {
   const draftNote = useAddTransactionDraftStore((s) => s.note);
   const draftOccurredAt = useAddTransactionDraftStore((s) => s.occurredAt);
   const idempotencyKey = useAddTransactionDraftStore((s) => s.idempotencyKey);
-  const resetIdempotencyKey = useAddTransactionDraftStore((s) => s.resetIdempotencyKey);
 
   const params = useLocalSearchParams<{
     amount?: string;
@@ -187,14 +185,13 @@ export default function AddTransactionReview() {
   const note = (draftNote ?? params.note ?? "").trim();
   const occurredAt = draftOccurredAt || params.occurredAt || new Date().toISOString();
 
-  const bookId = selectedBookId ?? params.bookId ?? "personal";
+  const bookId = selectedBookId || params.bookId || "personal";
   const selectedBook = books.find((b) => b.id === bookId) ?? null;
 
-  const amountMinor = useMemo(() => parseAmountToCents(amount), [amount]);
-
   const primaryLabel = title.length ? title : categoryName;
-  const currency: CurrencyCode = primaryCurrency;
-  const hasAmountError = amountMinor <= 0;
+  const currency = (selectedBook?.currencyCode ?? "USD") as CurrencyCode;
+  const amountMinor = useMemo(() => parseAmountToMinor(amount, currency), [amount, currency]);
+  const hasAmountError = amountMinor <= 0 || !Number.isSafeInteger(amountMinor);
 
   const canSubmit = booksHydrated && !!selectedBook && !hasAmountError && !!categoryId;
   const submitDisabled = !canSubmit || isSubmitting;
@@ -225,6 +222,7 @@ export default function AddTransactionReview() {
 
   const onSubmit = async () => {
     if (submitDisabled) return;
+    const accountEpoch = getAccountEpoch();
     setIsSubmitting(true);
     setSubmitError("");
     try {
@@ -238,6 +236,7 @@ export default function AddTransactionReview() {
         occurredAt,
       };
       const tx = await transactionsApi.createTransaction(bookId, idempotencyKey, payload);
+      if (!isCurrentAccountEpoch(accountEpoch)) return;
       useTransactionsStore.getState().addTransaction(tx);
       await queryClient.invalidateQueries({ queryKey: ["balance", bookId] });
       await queryClient.invalidateQueries({ queryKey: ["summary", bookId] });
@@ -247,7 +246,6 @@ export default function AddTransactionReview() {
         runOnJS(navigateToSuccess)();
       });
     } catch (err) {
-      resetIdempotencyKey();
       setSubmitError(getApiErrorMessage(err, "Could not save transaction."));
       setIsSubmitting(false);
       setShowCompletion(false);
@@ -300,7 +298,7 @@ export default function AddTransactionReview() {
         ) : hasAmountError ? (
           <Card variant="surface" className="mt-2">
             <AppText variant="base" tone="danger">
-              Amount is required.
+              Enter a valid amount greater than zero.
             </AppText>
             <AppText variant="sm" tone="muted" className="mt-2">
               Enter an amount greater than {formatCurrency(0, currency)} before saving.
@@ -310,10 +308,10 @@ export default function AddTransactionReview() {
         ) : !selectedBook ? (
           <View className="mt-6 py-8">
             <EmptyState
-              title="Book not found"
-              message="Pick an active book to save this transaction."
-              actionLabel="Choose book"
-              onAction={() => router.push("/modals/book-switcher")}
+              title="Cash book unavailable"
+              message="Return home and retry once your account data has loaded."
+              actionLabel="Return home"
+              onAction={() => router.replace("/(tabs)/home")}
               className="px-0"
             />
           </View>
@@ -342,8 +340,6 @@ export default function AddTransactionReview() {
             </View>
 
             <Card variant="surface" className="mt-6 p-0 overflow-hidden">
-              <ReviewRow label="Book" value={selectedBook.name} onPress={() => router.push("/modals/book-switcher")} />
-              <View className="h-px bg-stroke" />
               <ReviewRow
                 label="When"
                 value={safeWhen(occurredAt)}
@@ -370,12 +366,6 @@ export default function AddTransactionReview() {
                 muted={!note.length}
                 onPress={() => router.push("/modals/add-transaction/note")}
               />
-              <View className="h-px bg-stroke" />
-              <ReviewRow
-                label="Currency"
-                value={currency}
-                onPress={() => router.push("/(onboarding)/currency")}
-              />
             </Card>
 
             <Card variant="surface" className="mt-6">
@@ -383,8 +373,6 @@ export default function AddTransactionReview() {
                 Summary
               </AppText>
               <SummaryRow label="Amount" value={formatCurrency(amountMinor, currency)} />
-              <View className="mt-3 h-px bg-stroke" />
-              <SummaryRow label="Saved total" value={formatCurrency(amountMinor, currency)} strong />
             </Card>
 
             {submitError ? (

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { StyleSheet, View } from "react-native";
-import { useRouter } from "expo-router";
+import { Redirect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
@@ -40,7 +40,11 @@ const RADIUS = {
 const TYPOGRAPHY = tokens.typography;
 const LOCAL_UNLOCK_PIN = "1234";
 
-export default function PinScreen() {
+export default function PinRoute() {
+  return <Redirect href="/" />;
+}
+
+function LegacyPinScreen() {
   const router = useRouter();
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");

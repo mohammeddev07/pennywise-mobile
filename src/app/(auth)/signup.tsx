@@ -22,7 +22,6 @@ export default function SignupScreen() {
   const [apiError, setApiError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const signup = useAuthStore((s) => s.signup);
-  const onboardingCompleted = useAuthStore((s) => s.onboardingCompleted);
 
   const emailError = submitted && !isEmail(email) ? "Enter a valid email." : undefined;
   const passwordError = submitted && password.trim().length < 8 ? "Use at least 8 characters." : undefined;
@@ -40,7 +39,7 @@ export default function SignupScreen() {
     setIsSubmitting(true);
     try {
       await signup(email, password);
-      router.replace(onboardingCompleted ? "/(tabs)/home" : "/(onboarding)/currency");
+      router.replace("/(onboarding)/currency");
     } catch (err) {
       setApiError(getAuthErrorMessage(err));
     } finally {
@@ -78,6 +77,7 @@ export default function SignupScreen() {
           keyboardType="email-address"
           autoCapitalize="none"
           autoCorrect={false}
+          maxLength={320}
           error={emailError}
         />
 
@@ -88,6 +88,7 @@ export default function SignupScreen() {
           placeholder="Create a password"
           secureTextEntry
           autoCapitalize="none"
+          maxLength={128}
           error={passwordError}
         />
 

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
 
 import { tokens } from "@/shared/ui/theme/tokens";
@@ -15,32 +16,55 @@ import { Card } from "@/shared/ui/components/Card";
 import { Input } from "@/shared/ui/components/Input";
 import { EmptyState } from "@/shared/ui/components/EmptyState";
 import { Skeleton } from "@/shared/ui/components/Skeleton";
+import { useUndoToastStore } from "@/shared/ui/state/useUndoToastStore";
+import { useSettingsStore } from "@/features/settings/store";
+import {
+  currencyMinorUnitDigits,
+  formatCurrency,
+  majorToMinor,
+  minorToMajor,
+} from "@/shared/utils/formatCurrency";
 
-function toCents(raw: string) {
-  const cleaned = raw.replace(/,/g, "").replace(/[^\d.]/g, "");
-  const n = Number.parseFloat(cleaned);
-  if (!Number.isFinite(n)) return 0;
-  return Math.round(n * 100);
+function localMonthKey() {
+  const date = new Date();
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function centsToText(cents: number) {
-  const v = (cents / 100).toFixed(2);
-  return v;
+function parseBudgetAmount(raw: string, currency: string) {
+  const cleaned = raw.trim().replace(/,/g, "");
+  const fractionDigits = currencyMinorUnitDigits(currency);
+  const pattern =
+    fractionDigits === 0
+      ? /^\d+$/
+      : new RegExp(`^\\d+(?:\\.\\d{0,${fractionDigits}})?$`);
+  if (!pattern.test(cleaned)) return null;
+  const amount = Number(cleaned);
+  if (!Number.isFinite(amount)) return null;
+  const amountMinor = majorToMinor(amount, currency);
+  return Number.isSafeInteger(amountMinor) ? amountMinor : null;
+}
+
+function minorToText(amountMinor: number, currency: string) {
+  return minorToMajor(amountMinor, currency).toFixed(currencyMinorUnitDigits(currency));
 }
 
 export default function BudgetEditor() {
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   const { categoryId, month: monthParam } = useLocalSearchParams<{ categoryId?: string; month?: string }>();
   const catId = (categoryId ?? "").toString().trim();
-  const month = (monthParam ?? new Date().toISOString().slice(0, 7)).toString();
+  const month = (monthParam ?? localMonthKey()).toString();
 
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
+  const books = useBooksStore((s) => s.books);
+  const primaryCurrency = useSettingsStore((s) => s.primaryCurrency);
   const getBudget = useBudgetsStore((s) => s.getBudget);
   const upsertBudget = useBudgetsStore((s) => s.upsertBudget);
   const deleteBudget = useBudgetsStore((s) => s.deleteBudget);
   const loadBudgets = useBudgetsStore((s) => s.loadBudgets);
   const categories = useCategoriesStore((s) => s.categories);
+  const showError = useUndoToastStore((s) => s.showError);
 
   const budgetsPersist = (useBudgetsStore as any).persist;
   const booksPersist = (useBooksStore as any).persist;
@@ -97,28 +121,51 @@ export default function BudgetEditor() {
   const category = useMemo(() => {
     return categories.find((c) => c.id === catId && c.bookId === selectedBookId) ?? null;
   }, [catId, categories, selectedBookId]);
+  const currency =
+    books.find((book) => book.id === selectedBookId)?.currencyCode ??
+    primaryCurrency;
 
   const existing = useMemo(() => {
     if (!catId) return null;
     return getBudget(selectedBookId, catId, month);
   }, [catId, getBudget, month, selectedBookId]);
 
-  const [value, setValue] = useState(existing ? centsToText(existing.amountMinor) : "");
+  const [value, setValue] = useState(existing ? minorToText(existing.amountMinor, currency) : "");
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    setValue(existing ? centsToText(existing.amountMinor) : "");
-  }, [existing]);
+    setValue(existing ? minorToText(existing.amountMinor, currency) : "");
+  }, [currency, existing]);
 
-  const canSave = useMemo(() => toCents(value) > 0, [value]);
+  const parsedAmountMinor = useMemo(() => parseBudgetAmount(value, currency), [currency, value]);
+  const canSave = category?.type === "EXPENSE" && parsedAmountMinor !== null && parsedAmountMinor > 0;
 
-  const onSave = () => {
-    if (!catId || !canSave) return;
-    upsertBudget(selectedBookId, catId, month, toCents(value), existing?.version).then(() => router.back());
+  const onSave = async () => {
+    if (!catId || !canSave || parsedAmountMinor === null || isSaving) return;
+    setIsSaving(true);
+    try {
+      await upsertBudget(selectedBookId, catId, month, parsedAmountMinor, existing?.version);
+      await queryClient.invalidateQueries({ queryKey: ["summary", selectedBookId, month] });
+      router.back();
+    } catch (error) {
+      showError(error, "Could not save budget.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const onRemove = () => {
-    if (!catId || !existing) return;
-    deleteBudget(selectedBookId, catId, month, existing.version).then(() => router.back());
+  const onRemove = async () => {
+    if (!catId || !existing || isSaving) return;
+    setIsSaving(true);
+    try {
+      await deleteBudget(selectedBookId, catId, month, existing.version);
+      await queryClient.invalidateQueries({ queryKey: ["summary", selectedBookId, month] });
+      router.back();
+    } catch (error) {
+      showError(error, "Could not reset budget.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -136,12 +183,25 @@ export default function BudgetEditor() {
             <Ionicons name="chevron-back" size={20} color={tokens.colors.text} />
           </HapticPressable>
         }
-        footer={
+        footer={category?.type === "EXPENSE" ? (
           <View className="gap-3">
-            <Button label="Save Budget" disabled={!canSave || !catId} onPress={onSave} size="md" />
-            {existing ? <Button label="Reset Budget" variant="secondary" onPress={onRemove} size="md" /> : null}
+            <Button
+              label={isSaving ? "Saving..." : "Save Budget"}
+              disabled={!canSave || !catId || isSaving}
+              onPress={onSave}
+              size="md"
+            />
+            {existing ? (
+              <Button
+                label="Reset Budget"
+                variant="secondary"
+                onPress={onRemove}
+                disabled={isSaving}
+                size="md"
+              />
+            ) : null}
           </View>
-        }
+        ) : undefined}
       >
         {hydrationError ? (
           <View className="flex-1 justify-center">
@@ -167,6 +227,16 @@ export default function BudgetEditor() {
               className="px-0"
             />
           </View>
+        ) : category.type !== "EXPENSE" ? (
+          <View className="flex-1 justify-center">
+            <EmptyState
+              title="Budgets are for expenses"
+              message="Income categories cannot have a monthly spending budget."
+              actionLabel="Done"
+              onAction={() => router.back()}
+              className="px-0"
+            />
+          </View>
         ) : (
           <>
             <Card variant="surface" className="mt-2">
@@ -188,7 +258,7 @@ export default function BudgetEditor() {
                 Monthly budget
               </AppText>
               <AppText variant="xl" className="mt-2">
-                {existing ? centsToText(existing.amountMinor) : "No budget set"}
+                {existing ? formatCurrency(existing.amountMinor, currency) : "No budget set"}
               </AppText>
             </Card>
 
@@ -197,9 +267,14 @@ export default function BudgetEditor() {
                 label="Monthly budget"
                 value={value}
                 onChangeText={setValue}
-                placeholder="0.00"
-                keyboardType="decimal-pad"
+                placeholder={currencyMinorUnitDigits(currency) === 0 ? "0" : "0.00"}
+                keyboardType={currencyMinorUnitDigits(currency) === 0 ? "number-pad" : "decimal-pad"}
                 inputClassName="text-lg"
+                error={
+                  value.length > 0 && parsedAmountMinor === null
+                    ? `Enter a valid ${currency} amount.`
+                    : undefined
+                }
               />
 
               <AppText variant="xs" tone="muted" className="mt-3">

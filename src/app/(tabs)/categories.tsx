@@ -4,11 +4,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { FlashList } from "@shopify/flash-list";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
+import { useQuery } from "@tanstack/react-query";
 
 import { tokens } from "@/shared/ui/theme/tokens";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { useCategoriesStore } from "@/features/categories/store";
-import { useTransactionsStore } from "@/features/transactions/store";
 import { useBooksStore } from "@/features/books/store";
 import { useBudgetsStore } from "@/features/budgets/store";
 import { useSettingsStore } from "@/features/settings/store";
@@ -19,14 +19,8 @@ import { EmptyState } from "@/shared/ui/components/EmptyState";
 import { Skeleton } from "@/shared/ui/components/Skeleton";
 import { RingProgress } from "@/shared/ui/components/RingProgress";
 import { formatCurrency } from "@/shared/utils/formatCurrency";
-import type { CurrencyCode } from "@/shared/types/models";
-
-function monthKey(iso?: string) {
-  const t = iso ? Date.parse(iso) : NaN;
-  if (!Number.isFinite(t)) return "";
-  const d = new Date(t);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
+import type { CurrencyCode, TransactionType } from "@/shared/types/models";
+import * as summaryApi from "@/shared/api/summary";
 
 function nowMonthKey() {
   const d = new Date();
@@ -39,16 +33,20 @@ type CategoryTile = {
   name: string;
   icon: string;
   color: string;
-  spentCents: number;
+  type: TransactionType;
+  spentCents: number | null;
   budgetCents: number;
   isGhost?: boolean;
 };
 
 function Tile({ item, currency }: { item: CategoryTile; currency: CurrencyCode }) {
-  const remaining = item.budgetCents - item.spentCents;
+  const canBudget = item.type === "EXPENSE";
+  const spendingKnown = item.spentCents !== null;
+  const spentCents = item.spentCents ?? 0;
+  const remaining = item.budgetCents - spentCents;
   const hasBudget = item.budgetCents > 0;
   const over = hasBudget && remaining < 0;
-  const progress = hasBudget ? Math.min(1, item.spentCents / Math.max(1, item.budgetCents)) : 0;
+  const progress = hasBudget && spendingKnown ? Math.min(1, spentCents / Math.max(1, item.budgetCents)) : 0;
 
   return (
     <Card variant="card" className="min-h-[178px] overflow-hidden">
@@ -82,42 +80,56 @@ function Tile({ item, currency }: { item: CategoryTile; currency: CurrencyCode }
           {item.name}
         </AppText>
 
-        <AppText variant="sm" tone="muted" className="mt-1">
-          {formatCurrency(item.spentCents, currency, 0)} spent
-        </AppText>
-
-        <View className="mt-4 h-1 rounded-full bg-stroke overflow-hidden">
-          <View
-            className="h-1 rounded-full"
-            style={{
-              width: `${Math.round(progress * 100)}%`,
-              backgroundColor: over ? tokens.colors.danger : tokens.colors.accent,
-            }}
-          />
-        </View>
-
-        {hasBudget ? (
-          <AppText variant="sm" className="mt-3" style={{ color: over ? tokens.colors.danger : tokens.colors.accent }}>
-            {over ? `${formatCurrency(Math.abs(remaining), currency, 0)} over` : `${formatCurrency(remaining, currency, 0)} left`}
+        {!canBudget ? (
+          <AppText variant="sm" tone="muted" className="mt-3">
+            Income category
           </AppText>
         ) : (
-          <AppText variant="sm" tone="muted" className="mt-3">
-            No budget set
-          </AppText>
+          <>
+            <AppText variant="sm" tone="muted" className="mt-1">
+              {spendingKnown ? `${formatCurrency(spentCents, currency, 0)} spent` : "Spending unavailable"}
+            </AppText>
+
+            <View className="mt-4 h-1 rounded-full bg-stroke overflow-hidden">
+              <View
+                className="h-1 rounded-full"
+                style={{
+                  width: `${Math.round(progress * 100)}%`,
+                  backgroundColor: over ? tokens.colors.danger : tokens.colors.accent,
+                }}
+              />
+            </View>
+
+            {hasBudget && spendingKnown ? (
+              <AppText variant="sm" className="mt-3" style={{ color: over ? tokens.colors.danger : tokens.colors.accent }}>
+                {over ? `${formatCurrency(Math.abs(remaining), currency, 0)} over` : `${formatCurrency(remaining, currency, 0)} left`}
+              </AppText>
+            ) : hasBudget ? (
+              <AppText variant="sm" tone="muted" className="mt-3">
+                {formatCurrency(item.budgetCents, currency, 0)} budget
+              </AppText>
+            ) : (
+              <AppText variant="sm" tone="muted" className="mt-3">
+                No budget set
+              </AppText>
+            )}
+          </>
         )}
       </HapticPressable>
 
-      <HapticPressable
-        onPress={() => router.push({ pathname: "/modals/budget-editor", params: { categoryId: item.categoryId } })}
-        haptic="selection"
-        pressScale={0.98}
-        className="mt-2 -ml-3 min-h-11 px-3 rounded-full flex-row items-center self-start"
-        android_ripple={{ color: "#0B122012" }}
-      >
-        <AppText variant="sm" className="text-accent" style={{ fontFamily: "Inter_600SemiBold" }}>
-          {hasBudget ? "Edit budget" : "Set budget"}
-        </AppText>
-      </HapticPressable>
+      {canBudget ? (
+        <HapticPressable
+          onPress={() => router.push({ pathname: "/modals/budget-editor", params: { categoryId: item.categoryId } })}
+          haptic="selection"
+          pressScale={0.98}
+          className="mt-2 -ml-3 min-h-11 px-3 rounded-full flex-row items-center self-start"
+          android_ripple={{ color: "#0B122012" }}
+        >
+          <AppText variant="sm" className="text-accent" style={{ fontFamily: "Inter_600SemiBold" }}>
+            {hasBudget ? "Edit budget" : "Set budget"}
+          </AppText>
+        </HapticPressable>
+      ) : null}
     </Card>
   );
 }
@@ -126,18 +138,17 @@ export default function CategoriesScreen() {
   const insets = useSafeAreaInsets();
 
   const categories = useCategoriesStore((s) => s.categories);
-  const transactions = useTransactionsStore((s) => s.transactions);
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
+  const books = useBooksStore((s) => s.books);
   const budgets = useBudgetsStore((s) => s.budgets);
   const primaryCurrency = useSettingsStore((s) => s.primaryCurrency);
+  const month = useMemo(() => nowMonthKey(), []);
 
   const catsPersist = (useCategoriesStore as any).persist;
-  const txPersist = (useTransactionsStore as any).persist;
   const booksPersist = (useBooksStore as any).persist;
   const budgetsPersist = (useBudgetsStore as any).persist;
 
   const [catsHydrated, setCatsHydrated] = useState<boolean>(() => catsPersist?.hasHydrated?.() ?? true);
-  const [txHydrated, setTxHydrated] = useState<boolean>(() => txPersist?.hasHydrated?.() ?? true);
   const [booksHydrated, setBooksHydrated] = useState<boolean>(() => booksPersist?.hasHydrated?.() ?? true);
   const [budgetsHydrated, setBudgetsHydrated] = useState<boolean>(() => budgetsPersist?.hasHydrated?.() ?? true);
   const [hydrationError, setHydrationError] = useState(false);
@@ -151,12 +162,6 @@ export default function CategoriesScreen() {
       const unsub = catsPersist.onFinishHydration(() => setCatsHydrated(true));
       unsubs.push(unsub);
       if (catsPersist?.hasHydrated && !catsPersist.hasHydrated()) catsPersist?.rehydrate?.();
-    }
-
-    if (txPersist?.onFinishHydration) {
-      const unsub = txPersist.onFinishHydration(() => setTxHydrated(true));
-      unsubs.push(unsub);
-      if (txPersist?.hasHydrated && !txPersist.hasHydrated()) txPersist?.rehydrate?.();
     }
 
     if (booksPersist?.onFinishHydration) {
@@ -173,10 +178,9 @@ export default function CategoriesScreen() {
 
     const timeoutId = setTimeout(() => {
       const catsReady = catsPersist?.hasHydrated ? catsPersist.hasHydrated() : true;
-      const txReady = txPersist?.hasHydrated ? txPersist.hasHydrated() : true;
       const booksReady = booksPersist?.hasHydrated ? booksPersist.hasHydrated() : true;
       const budgetsReady = budgetsPersist?.hasHydrated ? budgetsPersist.hasHydrated() : true;
-      if (!catsReady || !txReady || !booksReady || !budgetsReady) {
+      if (!catsReady || !booksReady || !budgetsReady) {
         setHydrationError(true);
       }
     }, 3000);
@@ -185,29 +189,35 @@ export default function CategoriesScreen() {
       clearTimeout(timeoutId);
       for (const unsub of unsubs) unsub?.();
     };
-  }, [booksPersist, budgetsPersist, catsPersist, txPersist]);
+  }, [booksPersist, budgetsPersist, catsPersist]);
 
   const retryHydration = () => {
     setHydrationError(false);
     setCatsHydrated(catsPersist?.hasHydrated?.() ?? true);
-    setTxHydrated(txPersist?.hasHydrated?.() ?? true);
     setBooksHydrated(booksPersist?.hasHydrated?.() ?? true);
     setBudgetsHydrated(budgetsPersist?.hasHydrated?.() ?? true);
     catsPersist?.rehydrate?.();
-    txPersist?.rehydrate?.();
     booksPersist?.rehydrate?.();
     budgetsPersist?.rehydrate?.();
   };
 
-  const hydrated = catsHydrated && txHydrated && booksHydrated && budgetsHydrated;
+  const hydrated = catsHydrated && booksHydrated && budgetsHydrated;
+  const summaryQuery = useQuery({
+    queryKey: ["summary", selectedBookId, month],
+    queryFn: () => summaryApi.getMonthlySummary(selectedBookId, month),
+    enabled: Boolean(selectedBookId),
+  });
+  const currency =
+    summaryQuery.data?.currencyCode ??
+    books.find((book) => book.id === selectedBookId)?.currencyCode ??
+    primaryCurrency;
 
   const tiles = useMemo<CategoryTile[]>(() => {
     const bookId = selectedBookId ?? "personal";
-    const month = nowMonthKey();
 
     const budgetByCat = new Map<string, number>();
     for (const b of budgets) {
-      if ((b.bookId ?? "personal") !== bookId) continue;
+      if ((b.bookId ?? "personal") !== bookId || b.month !== month) continue;
       const cat = String(b.categoryId ?? "");
       const cents = Number(b.amountMinor ?? 0) || 0;
       if (!cat) continue;
@@ -215,25 +225,23 @@ export default function CategoriesScreen() {
     }
 
     const spentByCat = new Map<string, number>();
-    for (const tx of transactions as any[]) {
-      if (tx.bookId && tx.bookId !== bookId) continue;
-      if (tx.type !== "EXPENSE") continue;
-      if (monthKey(tx.occurredAt) !== month) continue;
-
-      const cat = String(tx.categoryId ?? "");
-      const cents = Math.abs(Number(tx.amountMinor ?? 0) || 0);
-      spentByCat.set(cat, (spentByCat.get(cat) ?? 0) + cents);
+    for (const item of summaryQuery.data?.byCategory ?? []) {
+      if (item.type !== "EXPENSE") continue;
+      spentByCat.set(item.categoryId, item.totalMinor);
     }
 
-    const out: CategoryTile[] = categories.map((c) => ({
+    const out: CategoryTile[] = categories
+      .filter((category) => category.bookId === bookId)
+      .map((c) => ({
       id: c.id,
       categoryId: c.id,
       name: c.name,
       icon: c.icon,
       color: c.color,
-      spentCents: spentByCat.get(c.id) ?? 0,
+      type: c.type,
+      spentCents: c.type === "EXPENSE" && summaryQuery.data ? (spentByCat.get(c.id) ?? 0) : null,
       budgetCents: budgetByCat.get(c.id) ?? 0,
-    }));
+      }));
 
     const addGhost = (categoryId: string, name: string, color = tokens.colors.muted) => {
       if (out.some((x) => x.name === name)) return;
@@ -243,14 +251,17 @@ export default function CategoriesScreen() {
         name,
         icon: "pricetag-outline",
         color,
-        spentCents: spentByCat.get(categoryId) ?? 0,
+        type: "EXPENSE",
+        spentCents: summaryQuery.data ? (spentByCat.get(categoryId) ?? 0) : null,
         budgetCents: budgetByCat.get(categoryId) ?? 0,
         isGhost: true,
       });
     };
 
     for (const categoryId of new Set([...spentByCat.keys(), ...budgetByCat.keys()])) {
-      const budget = budgets.find((b) => b.categoryId === categoryId);
+      const budget = budgets.find(
+        (b) => b.bookId === bookId && b.month === month && b.categoryId === categoryId,
+      );
       addGhost(categoryId, budget?.categoryName ?? "Uncategorized");
     }
 
@@ -258,14 +269,16 @@ export default function CategoriesScreen() {
     const filtered = q ? out.filter((t) => t.name.toLowerCase().includes(q)) : out;
 
     return filtered.sort((a, b) => a.name.localeCompare(b.name));
-  }, [budgets, categories, query, selectedBookId, transactions]);
+  }, [budgets, categories, month, query, selectedBookId, summaryQuery.data]);
 
   const GUTTER = 8;
   const HALF = GUTTER / 2;
-  const totalBudgetCents = tiles.reduce((sum, item) => sum + item.budgetCents, 0);
-  const totalSpentCents = tiles.reduce((sum, item) => sum + item.spentCents, 0);
-  const remainingCents = Math.max(0, totalBudgetCents - totalSpentCents);
-  const budgetProgress = totalBudgetCents > 0 ? totalSpentCents / totalBudgetCents : 0;
+  const totalBudgetCents = budgets
+    .filter((budget) => budget.bookId === selectedBookId && budget.month === month)
+    .reduce((sum, budget) => sum + budget.amountMinor, 0);
+  const totalSpentCents = summaryQuery.data?.expenseTotalMinor ?? null;
+  const remainingCents = totalSpentCents === null ? null : Math.max(0, totalBudgetCents - totalSpentCents);
+  const budgetProgress = totalSpentCents !== null && totalBudgetCents > 0 ? totalSpentCents / totalBudgetCents : 0;
 
   return (
     <View className="flex-1 bg-app" style={{ paddingTop: insets.top + 12 }}>
@@ -291,7 +304,7 @@ export default function CategoriesScreen() {
                 Total monthly budget
               </AppText>
               <AppText variant="2xl" className="mt-3">
-                {formatCurrency(totalBudgetCents, primaryCurrency)}
+                {formatCurrency(totalBudgetCents, currency)}
               </AppText>
               <View className="mt-3 flex-row items-center">
                 <Ionicons name="calendar-outline" size={16} color={tokens.colors.accent} />
@@ -303,7 +316,7 @@ export default function CategoriesScreen() {
             <View className="items-center">
               <RingProgress progress={budgetProgress} color={tokens.colors.accent} />
               <AppText variant="lg" style={{ marginTop: -58, fontFamily: "Inter_700Bold" }}>
-                {Math.round(Math.min(1, budgetProgress) * 100)}%
+                {totalSpentCents === null ? "—" : `${Math.round(Math.min(1, budgetProgress) * 100)}%`}
               </AppText>
               <AppText variant="xs" tone="muted" style={{ marginTop: 36 }}>
                 Used
@@ -314,16 +327,29 @@ export default function CategoriesScreen() {
             <View className="flex-1 rounded-lg border border-stroke bg-surfaceAlt p-3">
               <AppText variant="xs" tone="muted">Spent</AppText>
               <AppText variant="base" className="mt-1" style={{ fontFamily: "Inter_700Bold" }}>
-                {formatCurrency(totalSpentCents, primaryCurrency)}
+                {totalSpentCents === null ? "Unavailable" : formatCurrency(totalSpentCents, currency)}
               </AppText>
             </View>
             <View className="flex-1 rounded-lg border border-stroke bg-surfaceAlt p-3">
               <AppText variant="xs" tone="muted">Remaining</AppText>
               <AppText variant="base" className="mt-1" style={{ color: tokens.colors.accent, fontFamily: "Inter_700Bold" }}>
-                {formatCurrency(remainingCents, primaryCurrency)}
+                {remainingCents === null ? "Unavailable" : formatCurrency(remainingCents, currency)}
               </AppText>
             </View>
           </View>
+          {summaryQuery.isError ? (
+            <HapticPressable
+              onPress={() => {
+                void summaryQuery.refetch();
+              }}
+              haptic="selection"
+              className="mt-4 min-h-11 items-center justify-center rounded-full border border-stroke"
+            >
+              <AppText variant="sm" tone="muted">
+                Retry monthly totals
+              </AppText>
+            </HapticPressable>
+          ) : null}
         </Card>
 
         <Input
@@ -400,7 +426,7 @@ export default function CategoriesScreen() {
                     paddingTop: 8,
                   }}
                 >
-                    <Tile item={item} currency={primaryCurrency} />
+                    <Tile item={item} currency={currency as CurrencyCode} />
                 </View>
               );
             }}

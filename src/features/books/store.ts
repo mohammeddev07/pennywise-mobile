@@ -5,6 +5,7 @@ import { createJSONStorage, persist } from "zustand/middleware";
 import * as booksApi from "@/shared/api/books";
 import type { Book } from "@/shared/types/models";
 import { useSettingsStore } from "@/features/settings/store";
+import { getAccountEpoch, isCurrentAccountEpoch } from "@/shared/session/accountEpoch";
 
 export type { Book };
 
@@ -21,7 +22,8 @@ type State = {
   isLoading: boolean;
   error: string | null;
 
-  loadBooks: () => Promise<void>;
+  loadBooks: () => Promise<Book[]>;
+  ensureBook: (input: AddBookInput) => Promise<string>;
   setSelectedBookId: (id: string) => void;
 
   addBook: (input: AddBookInput) => Promise<string>;
@@ -56,6 +58,8 @@ function selectedOrFirst(books: Book[], selectedBookId?: string) {
   return books[0]?.id ?? "";
 }
 
+let ensureBookInFlight: { accountEpoch: number; promise: Promise<string> } | null = null;
+
 export const useBooksStore = create<State>()(
   persist(
     (set, get) => ({
@@ -65,20 +69,43 @@ export const useBooksStore = create<State>()(
       error: null,
 
       loadBooks: async () => {
+        const accountEpoch = getAccountEpoch();
         set({ isLoading: true, error: null });
         try {
           const res = await booksApi.listBooks();
           const books = res.items.map(normalizeBook);
-          set((s) => ({
+          if (!isCurrentAccountEpoch(accountEpoch)) return [];
+          set({
             books,
-            selectedBookId: selectedOrFirst(books, s.selectedBookId),
+            selectedBookId: books[0]?.id ?? "",
             isLoading: false,
             error: null,
-          }));
+          });
+          return books;
         } catch (err) {
+          if (!isCurrentAccountEpoch(accountEpoch)) return [];
           const message = err instanceof Error ? err.message : "Could not load books";
           set({ isLoading: false, error: message });
           throw err;
+        }
+      },
+
+      ensureBook: async (input) => {
+        const accountEpoch = getAccountEpoch();
+        if (ensureBookInFlight?.accountEpoch === accountEpoch) return ensureBookInFlight.promise;
+
+        const promise = (async () => {
+          const books = await get().loadBooks();
+          if (!isCurrentAccountEpoch(accountEpoch)) return "";
+          if (books[0]) return books[0].id;
+          return get().addBook(input);
+        })();
+        ensureBookInFlight = { accountEpoch, promise };
+
+        try {
+          return await promise;
+        } finally {
+          if (ensureBookInFlight?.promise === promise) ensureBookInFlight = null;
         }
       },
 
@@ -88,6 +115,12 @@ export const useBooksStore = create<State>()(
       },
 
       addBook: async (input) => {
+        const accountEpoch = getAccountEpoch();
+        const existing = get().books[0];
+        if (existing) {
+          set({ selectedBookId: existing.id });
+          return existing.id;
+        }
         const currencyCode = input.currencyCode ?? useSettingsStore.getState().primaryCurrency ?? "USD";
         const book = normalizeBook(
           await booksApi.createBook(
@@ -97,22 +130,27 @@ export const useBooksStore = create<State>()(
             input.openingBalanceMinor ?? 0
           )
         );
+        if (!isCurrentAccountEpoch(accountEpoch)) return book.id;
         set((s) => ({ books: [book, ...s.books.filter((b) => b.id !== book.id)], selectedBookId: book.id }));
         return book.id;
       },
 
       updateBook: async (id, patch) => {
+        const accountEpoch = getAccountEpoch();
         const current = get().books.find((b) => b.id === id);
         if (!current) return;
         const name = patch.name?.trim() || current.name;
         const book = normalizeBook(await booksApi.patchBook(id, current.version, name));
+        if (!isCurrentAccountEpoch(accountEpoch)) return;
         set((s) => ({ books: s.books.map((b) => (b.id === id ? book : b)) }));
       },
 
       removeBook: async (id) => {
+        const accountEpoch = getAccountEpoch();
         const current = get().books.find((b) => b.id === id);
         if (!current || get().books.length <= 1) return false;
         await booksApi.deleteBook(id, current.version);
+        if (!isCurrentAccountEpoch(accountEpoch)) return false;
         set((s) => {
           const books = s.books.filter((b) => b.id !== id);
           return { books, selectedBookId: selectedOrFirst(books, s.selectedBookId === id ? undefined : s.selectedBookId) };

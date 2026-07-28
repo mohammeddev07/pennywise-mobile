@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Alert, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import { format, parseISO } from "date-fns";
 
@@ -61,6 +62,7 @@ function DetailRow({
 
 export default function TransactionDetailsModal() {
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   const params = useLocalSearchParams<{ id?: string }>();
   const id = String(params.id ?? "");
@@ -72,7 +74,7 @@ export default function TransactionDetailsModal() {
   const books = useBooksStore((s) => s.books);
   const fallbackCurrency = useSettingsStore((s) => s.primaryCurrency);
 
-  const showDeleted = useUndoToastStore((s) => s.showDeleted);
+  const showError = useUndoToastStore((s) => s.showError);
 
   const txPersist = (useTransactionsStore as any).persist;
   const [hydrated, setHydrated] = useState<boolean>(() => {
@@ -80,6 +82,7 @@ export default function TransactionDetailsModal() {
     return typeof has === "boolean" ? has : true;
   });
   const [hydrationError, setHydrationError] = useState(false);
+  const [isMutating, setIsMutating] = useState(false);
 
   useEffect(() => {
     if (!txPersist?.onFinishHydration) return;
@@ -118,36 +121,58 @@ export default function TransactionDetailsModal() {
   }, [categories, tx]);
 
   const occurred = tx?.occurredAt ? safeDate(tx.occurredAt) : null;
-  const dateLabel = occurred ? format(occurred, "MMM d, yyyy") : "—";
+  const occurredOn = tx?.occurredOn ? safeDate(tx.occurredOn) : occurred;
+  const dateLabel = occurredOn ? format(occurredOn, "MMM d, yyyy") : "—";
   const timeLabel = occurred ? format(occurred, "h:mm a") : "—";
 
   const onDelete = () => {
-    if (!tx) return;
+    if (!tx || isMutating) return;
 
-    Alert.alert("Delete transaction?", "You can undo for a few seconds after deleting.", [
+    Alert.alert("Delete transaction?", "This action cannot be undone.", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Delete",
         style: "destructive",
         onPress: async () => {
-          const idx = useTransactionsStore.getState().transactions.findIndex((t) => t.id === tx.id);
-          await removeTransaction(tx.id);
-          showDeleted(tx, idx >= 0 ? idx : 0);
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
-          router.back();
+          setIsMutating(true);
+          try {
+            await removeTransaction(tx.id);
+            await Promise.all([
+              queryClient.invalidateQueries({ queryKey: ["balance", tx.bookId] }),
+              queryClient.invalidateQueries({ queryKey: ["summary", tx.bookId] }),
+            ]);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+            router.back();
+          } catch (error) {
+            showError(error, "Could not delete transaction.");
+          } finally {
+            setIsMutating(false);
+          }
         },
       },
     ]);
   };
 
-  const onDuplicate = () => {
-    if (!tx) return;
-    duplicateTransaction(tx.id).then((duplicatedId) => {
-    if (duplicatedId) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      router.replace({ pathname: "/modals/transaction-details", params: { id: duplicatedId } });
+  const onDuplicate = async () => {
+    if (!tx || isMutating) return;
+    setIsMutating(true);
+    try {
+      const duplicatedId = await duplicateTransaction(tx.id);
+      if (duplicatedId) {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["balance", tx.bookId] }),
+          queryClient.invalidateQueries({ queryKey: ["summary", tx.bookId] }),
+        ]);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+        router.replace({ pathname: "/modals/transaction-details", params: { id: duplicatedId } });
+      } else {
+        showError(undefined, "Transaction is no longer available.");
+      }
+    } catch (error) {
+      showError(error, "Could not duplicate transaction.");
+    } finally {
+      setIsMutating(false);
     }
-    });
   };
 
   const onEdit = () => {
@@ -192,8 +217,14 @@ export default function TransactionDetailsModal() {
           tx ? (
             <View className="gap-3">
               <Button label="Edit" onPress={onEdit} size="md" />
-              <Button label="Duplicate" variant="outline" onPress={onDuplicate} size="md" />
-              <Button label="Delete" variant="danger" onPress={onDelete} size="md" />
+              <Button
+                label={isMutating ? "Working..." : "Duplicate"}
+                variant="outline"
+                onPress={onDuplicate}
+                disabled={isMutating}
+                size="md"
+              />
+              <Button label="Delete" variant="danger" onPress={onDelete} disabled={isMutating} size="md" />
               <Button label="Done" onPress={() => router.back()} size="md" />
             </View>
           ) : (
@@ -267,8 +298,6 @@ export default function TransactionDetailsModal() {
 
             <Card variant="surface" className="mt-3 p-0 overflow-hidden">
               <DetailRow label="Title" value={tx.title || "—"} icon="create-outline" muted={!tx.title} />
-              <View className="h-px bg-stroke" />
-              <DetailRow label="Payment method" value={(tx.paymentMethod || "CASH").toLowerCase()} icon="card-outline" />
               <View className="h-px bg-stroke" />
               <DetailRow label="Date" value={dateLabel} icon="calendar-outline" />
               <View className="h-px bg-stroke" />
