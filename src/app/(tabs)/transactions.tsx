@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { View } from "react-native";
+import { ScrollView, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { FlashList } from "@shopify/flash-list";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -10,6 +10,7 @@ import { tokens } from "@/shared/ui/theme/tokens";
 import { useTransactionsStore, type Transaction } from "@/features/transactions/store";
 import { TransactionRow } from "@/shared/ui/components/TransactionRow";
 import { useBooksStore } from "@/features/books/store";
+import { useCategoriesStore } from "@/features/categories/store";
 import { useSettingsStore } from "@/features/settings/store";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { EmptyState } from "@/shared/ui/components/EmptyState";
@@ -19,7 +20,7 @@ import { Skeleton } from "@/shared/ui/components/Skeleton";
 import { Card } from "@/shared/ui/components/Card";
 import { formatCurrency } from "@/shared/utils/formatCurrency";
 
-type RangeKey = "today" | "month" | "all";
+type RangeKey = "today" | "week" | "month" | "all";
 
 type Row =
   | { type: "header"; id: string; title: string }
@@ -33,6 +34,12 @@ function inRange(tx: Transaction, range: RangeKey, month: Date) {
 
   if (range === "today") {
     return dayKey === format(new Date(), "yyyy-MM-dd");
+  }
+
+  if (range === "week") {
+    const start = format(subDays(new Date(), 6), "yyyy-MM-dd");
+    const end = format(new Date(), "yyyy-MM-dd");
+    return dayKey >= start && dayKey <= end;
   }
 
   return dayKey.startsWith(format(month, "yyyy-MM"));
@@ -77,6 +84,51 @@ function RangeChip({ label, active, onPress }: { label: string; active: boolean;
       <AppText variant="sm" style={{ color: active ? tokens.colors.accent : tokens.colors.text, fontFamily: "Inter_600SemiBold" }}>
         {label}
       </AppText>
+    </HapticPressable>
+  );
+}
+
+function CategoryChip({
+  label,
+  icon,
+  color,
+  active,
+  onPress,
+}: {
+  label: string;
+  icon?: string;
+  color?: string;
+  active: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <HapticPressable
+      onPress={onPress}
+      haptic="selection"
+      pressScale={0.985}
+      className="mr-2 h-11 px-4 rounded-full border flex-row items-center"
+      android_ripple={{ color: "#0B122012", borderless: true }}
+      style={{
+        borderColor: active ? tokens.colors.accent : tokens.colors.stroke,
+        backgroundColor: active ? `${tokens.colors.accent}14` : tokens.colors.surface,
+      }}
+    >
+      {icon ? (
+        <View
+          className="h-6 w-6 items-center justify-center rounded-full border border-stroke mr-2"
+          style={{ backgroundColor: `${color ?? tokens.colors.muted}22` }}
+        >
+          <Ionicons name={icon as any} size={12} color={color ?? tokens.colors.muted} />
+        </View>
+      ) : null}
+
+      <AppText variant="sm" style={{ color: active ? tokens.colors.accent : tokens.colors.text, fontFamily: "Inter_600SemiBold" }}>
+        {label}
+      </AppText>
+
+      {active ? (
+        <Ionicons name="close" size={14} color={tokens.colors.accent} style={{ marginLeft: 6 }} />
+      ) : null}
     </HapticPressable>
   );
 }
@@ -127,6 +179,7 @@ export default function TransactionsScreen() {
   const transactions = useTransactionsStore((s) => s.transactions);
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
   const books = useBooksStore((s) => s.books);
+  const categories = useCategoriesStore((s) => s.categories);
   const primaryCurrency = useSettingsStore((s) => s.primaryCurrency);
 
   const txPersist = (useTransactionsStore as any).persist;
@@ -186,19 +239,37 @@ export default function TransactionsScreen() {
   const [range, setRange] = useState<RangeKey>("today");
   const [selectedMonth, setSelectedMonth] = useState(() => startOfMonth(new Date()));
   const [query, setQuery] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+
+  useEffect(() => {
+    setCategoryFilter(null);
+  }, [selectedBookId]);
 
   const bookTransactions = useMemo(() => {
     return transactions.filter((t) => t.bookId === selectedBookId);
   }, [transactions, selectedBookId]);
 
+  const bookCategories = useMemo(() => {
+    return categories.filter((c) => c.bookId === selectedBookId);
+  }, [categories, selectedBookId]);
+
+  const activeCategory = useMemo(() => {
+    return categoryFilter ? bookCategories.find((c) => c.id === categoryFilter) ?? null : null;
+  }, [bookCategories, categoryFilter]);
+
   const rangeTransactions = useMemo(() => {
     return bookTransactions.filter((tx) => inRange(tx, range, selectedMonth));
   }, [bookTransactions, range, selectedMonth]);
 
+  const categoryTransactions = useMemo(() => {
+    if (!categoryFilter) return rangeTransactions;
+    return rangeTransactions.filter((tx) => tx.categoryId === categoryFilter);
+  }, [rangeTransactions, categoryFilter]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
 
-    return rangeTransactions.filter((tx) => {
+    return categoryTransactions.filter((tx) => {
       if (!q) return true;
 
       const hay = [
@@ -212,13 +283,13 @@ export default function TransactionsScreen() {
 
       return hay.includes(q);
     });
-  }, [query, rangeTransactions]);
+  }, [query, categoryTransactions]);
 
   const totals = useMemo(() => {
     let income = 0;
     let expense = 0;
 
-    for (const tx of rangeTransactions) {
+    for (const tx of categoryTransactions) {
       if (tx.type === "INCOME") income += tx.amountMinor;
       else expense += tx.amountMinor;
     }
@@ -227,9 +298,9 @@ export default function TransactionsScreen() {
       incomeCents: income,
       expenseCents: expense,
       netCents: income - expense,
-      count: rangeTransactions.length,
+      count: categoryTransactions.length,
     };
-  }, [rangeTransactions]);
+  }, [categoryTransactions]);
 
   const rows = useMemo<Row[]>(() => {
     const sorted = [...filtered].sort((a, b) => {
@@ -259,27 +330,37 @@ export default function TransactionsScreen() {
   const rangeLabel =
     range === "today"
       ? "Today · loaded activity"
-      : range === "month"
-        ? `${format(selectedMonth, "MMMM yyyy")} · loaded activity`
-        : "Latest loaded activity";
+      : range === "week"
+        ? "Last 7 days · loaded activity"
+        : range === "month"
+          ? `${format(selectedMonth, "MMMM yyyy")} · loaded activity`
+          : "Latest loaded activity";
 
   const emptyTitle = query.trim()
     ? "No matches"
     : bookTransactions.length === 0
       ? "No transactions yet"
-      : range === "today"
-        ? "No loaded activity today"
-        : range === "month"
-          ? `No loaded activity in ${format(selectedMonth, "MMMM")}`
-          : "No loaded transactions";
+      : activeCategory
+        ? `No ${activeCategory.name} activity`
+        : range === "today"
+          ? "No loaded activity today"
+          : range === "week"
+            ? "No loaded activity in the last 7 days"
+            : range === "month"
+              ? `No loaded activity in ${format(selectedMonth, "MMMM")}`
+              : "No loaded transactions";
 
   const emptyMessage = query.trim()
     ? "Try a different search or clear the filter."
     : bookTransactions.length === 0
       ? "Log your first expense or income and it will appear here."
-      : range === "today"
-        ? "No transaction dated today is present in the latest loaded records."
-        : "Only the latest loaded records are available in this version.";
+      : activeCategory
+        ? `Try a different category, or clear the "${activeCategory.name}" filter.`
+        : range === "today"
+          ? "No transaction dated today is present in the latest loaded records."
+          : range === "week"
+            ? "No transaction from the last 7 days is present in the latest loaded records."
+            : "Only the latest loaded records are available in this version.";
 
   return (
     <View className="flex-1 bg-app" style={{ paddingTop: insets.top + 12 }}>
@@ -327,9 +408,37 @@ export default function TransactionsScreen() {
 
         <View className="mt-4 flex-row items-center" style={{ gap: 8 }}>
           <RangeChip label="Today" active={range === "today"} onPress={() => setRange("today")} />
+          <RangeChip label="7 Days" active={range === "week"} onPress={() => setRange("week")} />
           <RangeChip label="Month" active={range === "month"} onPress={() => setRange("month")} />
           <RangeChip label="Recent" active={range === "all"} onPress={() => setRange("all")} />
         </View>
+
+        {bookCategories.length > 0 ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            className="mt-3"
+            keyboardShouldPersistTaps="handled"
+          >
+            <View className="flex-row">
+              <CategoryChip
+                label="All categories"
+                active={!categoryFilter}
+                onPress={() => setCategoryFilter(null)}
+              />
+              {bookCategories.map((c) => (
+                <CategoryChip
+                  key={c.id}
+                  label={c.name}
+                  icon={c.icon}
+                  color={c.color}
+                  active={categoryFilter === c.id}
+                  onPress={() => setCategoryFilter((cur) => (cur === c.id ? null : c.id))}
+                />
+              ))}
+            </View>
+          </ScrollView>
+        ) : null}
 
         {range === "month" ? (
           <View className="mt-3 flex-row items-center justify-between rounded-lg border border-stroke bg-surface p-2">
