@@ -8,6 +8,7 @@
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "android": {
+      "package": "com.mohammeddev07.pennywise",
       "softwareKeyboardLayoutMode": "pan",
       "versionCode": 1,
       "adaptiveIcon": {
