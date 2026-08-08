@@ -60,7 +60,7 @@ src/shared/utils/                         Currency and legacy money helpers
 | Legacy book onboarding | `src/app/(onboarding)/books.tsx` | `/(onboarding)/books` | placeholder | Redirects to currency; legacy UI is unreachable. |
 | Legacy finish onboarding | `src/app/(onboarding)/start-tracking.tsx` | `/(onboarding)/start-tracking` | placeholder | Redirects to currency; legacy UI is unreachable. |
 | Home | `src/app/(tabs)/home.tsx` | `/(tabs)/home` | complete | Real balance/monthly summary; cached transactions/budgets; no fake trend or percentage. |
-| Transactions | `src/app/(tabs)/transactions.tsx` | `/(tabs)/transactions` | partial | Real cached API page; clearly labeled as latest loaded records (first 100 only). |
+| Transactions | `src/app/(tabs)/transactions.tsx` | `/(tabs)/transactions` | partial | Real cached API page; clearly labeled as latest loaded records (first 100 only). Range now includes Today/7 Days/Month/Recent, plus a client-side, book-scoped category filter (chip row with a dismiss affordance) — both filter over the already-loaded cache, no new endpoints. |
 | Insights | `src/app/(tabs)/analytics.tsx` | `/(tabs)/analytics` | partial | Real current-month summary and expense-category breakdown only. |
 | Categories | `src/app/(tabs)/categories.tsx` | `/(tabs)/categories` | complete | Real categories, current-month budgets, and server monthly spend. |
 | Settings | `src/app/(tabs)/settings.tsx` | `/(tabs)/settings` | partial | Real cached email, real currency PATCH, book rename, and sign-out; opening balance is read-only due to backend contract. |
@@ -149,11 +149,33 @@ fnm exec --using=20.19.4 -- npx expo export --platform android --output-dir /pri
 
 Both checks passed during this audit. CI (`.github/workflows/super-linter.yml`) runs Node from `.node-version`, `npm ci`, and `npx tsc --noEmit`; it no longer invokes a nonexistent lint script.
 
-`eas.json` is absent. `android/` is absent, so `expo prebuild` has not been retained in this checkout; whether it was ever run is UNKNOWN — needs manual check. `app.json` has Android `versionCode: 1`, icon/splash configuration, and no package identifier yet. Local Android SDK/adb are not installed on this machine, so a local Gradle release build cannot run here.
+`eas.json` now exists (added on `feat/mvp-gap-fixes`, see section 10) with `preview` (internal APK)
+and `production` (app bundle) profiles; neither hardcodes an API URL, both rely on EAS
+environment variables for `EXPO_PUBLIC_API_BASE_URL`. `android/` is still absent, so `expo
+prebuild` has not been retained in this checkout; whether it was ever run is UNKNOWN — needs
+manual check. `app.json` has Android `versionCode: 1`, icon/splash configuration, and now sets
+`android.package: "com.mohammeddev07.pennywise"` (previously absent — chosen to be unique/
+permanent for sideloaded APKs, not yet published to the Play Store). Local Android SDK/adb are
+not installed on this machine, so a local Gradle release build cannot run here.
 
 ## 10. In-Flight Work
 
-PR #6 (`codex/add-api-client-and-services`) is merged into `develop` at `7f6ac51` (merge commit dated before this audit). It added Axios, DTOs, API wrappers, SecureStore-backed auth, and API-backed entity stores. There is no open PR in the local Git/GitHub listing. The current worktree contains uncommitted follow-up work implementing session validation, single-book flow, mutation errors, numeric correctness, and partial Android build configuration.
+PR #6 (`codex/add-api-client-and-services`) is merged into `develop` at `7f6ac51` (merge commit
+dated before this audit). It added Axios, DTOs, API wrappers, SecureStore-backed auth, and
+API-backed entity stores. `develop` has since moved past this doc's original snapshot — e.g. `git
+log` shows `48c8484` and other commits implementing session validation, single-book flow, mutation
+errors, and numeric correctness landed and merged; this file's sections 1–9 have not been re-audited
+against that state and may be stale outside of the branch-specific updates below.
+
+**New**: `feat/mvp-gap-fixes` (branched off `develop`, pushed to
+`github.com/mohammeddev07/pennywise-mobile/compare/develop...feat/mvp-gap-fixes`, no PR opened yet
+— no `gh` CLI available when it was pushed). Two commits:
+
+- Transactions screen: adds the 7-day range and category filter described in section 3.
+- `app.json`/`eas.json`: adds the Android package id and EAS build profiles described above.
+
+`npx tsc --noEmit` passed with zero errors on this branch (`node_modules` was reinstalled fresh via
+`npm install` first; `package-lock.json` was unchanged, so no dependency versions moved).
 
 ## 11. Gaps vs. Target State
 
@@ -166,8 +188,8 @@ PR #6 (`codex/add-api-client-and-services`) is merged into `develop` at `7f6ac51
 - [x] Delete expense — Done: real DELETE, no fake local undo, visible errors.
 - [x] Expense list screen — Done: real cache-backed list. Scope note: latest 100 loaded records only.
 - [x] Running balance display — Done: Home renders only server `balanceMinor`.
-- [ ] Date filters (today / 7 days / month / custom) — Partial: Today and month from the loaded cache; 7-day/custom are intentionally out of scope.
-- [ ] Category filter — Missing: explicitly out of scope.
+- [x] Date filters (today / 7 days / month / custom) — Done on `feat/mvp-gap-fixes`: Today, 7 Days, Month, and Recent (all-loaded) chips, all computed client-side over the loaded transaction cache; there is still no arbitrary custom range picker.
+- [x] Category filter — Done on `feat/mvp-gap-fixes`: book-scoped category chip row on the Transactions screen, filtering the already-loaded cache client-side; no new endpoint was needed.
 - [x] Category management screen — Done: real CRUD and visible backend errors.
 - [ ] Summary / breakdown view — Partial: exact current-month totals and expense-category breakdown; no income-category breakdown or selectable range.
 - [x] Loading states — Done: primary flows use skeleton/loading UI.
@@ -178,7 +200,21 @@ PR #6 (`codex/add-api-client-and-services`) is merged into `develop` at `7f6ac51
 
 ## 12. APK Build Readiness
 
-- `eas.json` is not present. EAS cloud builds require an Expo account and project/credential setup; account ownership is UNKNOWN — needs manual check.
+- `eas.json` now exists (`feat/mvp-gap-fixes`) with a `preview` profile (`distribution: internal`,
+  `android.buildType: apk`, `environment: preview`) and a minimal `production` profile
+  (`android.buildType: app-bundle`, `environment: production`). Neither was run — EAS cloud builds
+  still require an Expo account and project/credential setup, and account ownership is UNKNOWN —
+  needs manual check. Before running `eas build --profile preview --platform android`, the
+  `EXPO_PUBLIC_API_BASE_URL` value must be set per-environment via `eas env:create --environment
+  preview --name EXPO_PUBLIC_API_BASE_URL --value "<url>"` (and again for `production`), since the
+  profiles deliberately don't hardcode it.
+- `app.json` now sets `android.package: "com.mohammeddev07.pennywise"` (previously absent) — the
+  permanent package id the readiness list below used to be blocked on.
 - No current dependency requires a custom dev client. The native modules used (SecureStore, DateTimePicker, Gesture Handler, Reanimated, Screens, SVG, splash screen) are Expo SDK-compatible, so Expo Go remains viable for day-to-day Android testing.
-- To produce a signed APK: provide/confirm the permanent `expo.android.package`; provide the deployed `EXPO_PUBLIC_API_BASE_URL`; add `eas.json` preview APK profile if EAS is desired; run Android device tests; then either let EAS manage credentials or create a release keystore and configure Gradle signing. Increment `versionCode` for later APKs.
-- A free local alternative is viable after Android SDK/Build Tools, a supported JDK, package ID, generated `android/`, and release signing are available: `npx expo prebuild --platform android`, then `cd android && ./gradlew assembleRelease`. It needs no EAS cloud build or Expo account. It is not currently runnable on this machine because Android SDK/adb and an `android/` directory are absent.
+- To produce a signed APK via EAS: run `eas build --profile preview --platform android` after the
+  env vars above are set; EAS will manage build credentials/signing unless a release keystore is
+  explicitly configured. Increment `versionCode` for later APKs.
+- A free local alternative is viable after Android SDK/Build Tools, a supported JDK, generated
+  `android/`, and release signing are available: `npx expo prebuild --platform android`, then
+  `cd android && ./gradlew assembleRelease`. It needs no EAS cloud build or Expo account. It is not
+  currently runnable on this machine because Android SDK/adb and an `android/` directory are absent.
