@@ -1,15 +1,15 @@
 ## 1. Stack
 
-| Concern | Version / implementation |
-|---|---|
-| Expo SDK | `expo ~54.0.32` (SDK 54) |
-| React Native | `0.81.5` |
-| TypeScript | `~5.9.2`; `tsconfig.json` has `strict: true` |
-| NativeWind | `^4.2.1` with Tailwind `^3.4.19` |
-| Navigation | `expo-router ~6.0.22`; React Navigation Native `^7.1.8`, Bottom Tabs `^7.4.0`, Native Stack `^7.3.16` |
-| State | Zustand `^5.0.10`, persisted with AsyncStorage `2.2.0`; React Query `^5.90.20` for balance/summary queries |
-| HTTP | Axios `^1.16.1` |
-| Secure token storage | `expo-secure-store ~15.0.8` |
+| Concern              | Version / implementation                                                                                   |
+| -------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Expo SDK             | `expo ~54.0.32` (SDK 54)                                                                                   |
+| React Native         | `0.81.5`                                                                                                   |
+| TypeScript           | `~5.9.2`; `tsconfig.json` has `strict: true`                                                               |
+| NativeWind           | `^4.2.1` with Tailwind `^3.4.19`                                                                           |
+| Navigation           | `expo-router ~6.0.22`; React Navigation Native `^7.1.8`, Bottom Tabs `^7.4.0`, Native Stack `^7.3.16`      |
+| State                | Zustand `^5.0.10`, persisted with AsyncStorage `2.2.0`; React Query `^5.90.20` for balance/summary queries |
+| HTTP                 | Axios `^1.16.1`                                                                                            |
+| Secure token storage | `expo-secure-store ~15.0.8`                                                                                |
 
 Node is pinned to `20.19.4` in `.node-version` (`package.json` allows `>=20.19.4 <23`).
 
@@ -49,27 +49,27 @@ src/shared/utils/                         Currency and legacy money helpers
 
 ## 3. Screens
 
-| Screen | File path | Route name | Status (complete / partial / placeholder) | Real data or mock? |
-|---|---|---|---|---|
-| Root resolver | `src/app/index.tsx` | `/` | complete | Validated auth state; routes to login, currency onboarding, or Home. |
-| Welcome | `src/app/(auth)/welcome.tsx` | `/(auth)/welcome` | complete | Static navigation only. |
-| Login | `src/app/(auth)/login.tsx` | `/(auth)/login` | complete | Real `POST /v1/auth/login`. |
-| Sign up | `src/app/(auth)/signup.tsx` | `/(auth)/signup` | complete | Real `POST /v1/auth/signup`. |
-| PIN | `src/app/(auth)/pin.tsx` | `/(auth)/pin` | placeholder | Redirect only; legacy hard-coded PIN UI remains on disk but is not routed. |
-| Currency onboarding | `src/app/(onboarding)/currency.tsx` | `/(onboarding)/currency` | partial | Creates/uses one real book and `PATCH /v1/me`; opening balance edit after creation is unsupported by backend. |
-| Legacy book onboarding | `src/app/(onboarding)/books.tsx` | `/(onboarding)/books` | placeholder | Redirects to currency; legacy UI is unreachable. |
-| Legacy finish onboarding | `src/app/(onboarding)/start-tracking.tsx` | `/(onboarding)/start-tracking` | placeholder | Redirects to currency; legacy UI is unreachable. |
-| Home | `src/app/(tabs)/home.tsx` | `/(tabs)/home` | complete | Real balance/monthly summary; cached transactions/budgets; no fake trend or percentage. |
-| Transactions | `src/app/(tabs)/transactions.tsx` | `/(tabs)/transactions` | partial | Real cached API page; clearly labeled as latest loaded records (first 100 only). Range now includes Today/7 Days/Month/Recent, plus a client-side, book-scoped category filter (chip row with a dismiss affordance) — both filter over the already-loaded cache, no new endpoints. |
-| Insights | `src/app/(tabs)/analytics.tsx` | `/(tabs)/analytics` | partial | Real current-month summary and expense-category breakdown only. |
-| Categories | `src/app/(tabs)/categories.tsx` | `/(tabs)/categories` | complete | Real categories, current-month budgets, and server monthly spend. |
-| Settings | `src/app/(tabs)/settings.tsx` | `/(tabs)/settings` | partial | Real cached email, real currency PATCH, book rename, and sign-out; opening balance is read-only due to backend contract. |
-| Legacy book switcher | `src/app/modals/book-switcher.tsx` | `/modals/book-switcher` | placeholder | Redirects to Settings; no UI entry point. |
-| Budget editor | `src/app/modals/budget-editor.tsx` | `/modals/budget-editor` | complete | Real budget PUT/DELETE; expense categories only; visible errors. |
-| Category editor | `src/app/modals/category-editor.tsx` | `/modals/category-editor` | complete | Real create/update/delete; visible errors. |
-| Transaction details | `src/app/modals/transaction-details.tsx` | `/modals/transaction-details?id=:id` | complete | Cached transaction plus real duplicate/delete; visible errors. |
-| Edit transaction | `src/app/modals/edit-transaction.tsx` | `/modals/edit-transaction?id=:id` | complete | Real PATCH, current returned version retained, visible errors. |
-| Add transaction flow | `src/app/modals/add-transaction/*.tsx` | `/modals/add-transaction/...` | complete | Real categories and real POST with idempotency key; draft fields are local until review. |
+| Screen                   | File path                                 | Route name                           | Status (complete / partial / placeholder) | Real data or mock?                                                                                                                                                                                                                                                                 |
+| ------------------------ | ----------------------------------------- | ------------------------------------ | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Root resolver            | `src/app/index.tsx`                       | `/`                                  | complete                                  | Validated auth state; routes to login, currency onboarding, or Home.                                                                                                                                                                                                               |
+| Welcome                  | `src/app/(auth)/welcome.tsx`              | `/(auth)/welcome`                    | complete                                  | Static navigation only.                                                                                                                                                                                                                                                            |
+| Login                    | `src/app/(auth)/login.tsx`                | `/(auth)/login`                      | complete                                  | Real `POST /v1/auth/login`.                                                                                                                                                                                                                                                        |
+| Sign up                  | `src/app/(auth)/signup.tsx`               | `/(auth)/signup`                     | complete                                  | Real `POST /v1/auth/signup`.                                                                                                                                                                                                                                                       |
+| PIN                      | `src/app/(auth)/pin.tsx`                  | `/(auth)/pin`                        | placeholder                               | Redirect only; legacy hard-coded PIN UI remains on disk but is not routed.                                                                                                                                                                                                         |
+| Currency onboarding      | `src/app/(onboarding)/currency.tsx`       | `/(onboarding)/currency`             | partial                                   | Creates/uses one real book and `PATCH /v1/me`; opening balance edit after creation is unsupported by backend.                                                                                                                                                                      |
+| Legacy book onboarding   | `src/app/(onboarding)/books.tsx`          | `/(onboarding)/books`                | placeholder                               | Redirects to currency; legacy UI is unreachable.                                                                                                                                                                                                                                   |
+| Legacy finish onboarding | `src/app/(onboarding)/start-tracking.tsx` | `/(onboarding)/start-tracking`       | placeholder                               | Redirects to currency; legacy UI is unreachable.                                                                                                                                                                                                                                   |
+| Home                     | `src/app/(tabs)/home.tsx`                 | `/(tabs)/home`                       | complete                                  | Real balance/monthly summary; cached transactions/budgets; no fake trend or percentage.                                                                                                                                                                                            |
+| Transactions             | `src/app/(tabs)/transactions.tsx`         | `/(tabs)/transactions`               | partial                                   | Real cached API page; clearly labeled as latest loaded records (first 100 only). Range now includes Today/7 Days/Month/Recent, plus a client-side, book-scoped category filter (chip row with a dismiss affordance) — both filter over the already-loaded cache, no new endpoints. |
+| Insights                 | `src/app/(tabs)/analytics.tsx`            | `/(tabs)/analytics`                  | partial                                   | Real current-month summary and expense-category breakdown only.                                                                                                                                                                                                                    |
+| Categories               | `src/app/(tabs)/categories.tsx`           | `/(tabs)/categories`                 | complete                                  | Real categories, current-month budgets, and server monthly spend.                                                                                                                                                                                                                  |
+| Settings                 | `src/app/(tabs)/settings.tsx`             | `/(tabs)/settings`                   | partial                                   | Real cached email, real currency PATCH, book rename, and sign-out; opening balance is read-only due to backend contract.                                                                                                                                                           |
+| Legacy book switcher     | `src/app/modals/book-switcher.tsx`        | `/modals/book-switcher`              | placeholder                               | Redirects to Settings; no UI entry point.                                                                                                                                                                                                                                          |
+| Budget editor            | `src/app/modals/budget-editor.tsx`        | `/modals/budget-editor`              | complete                                  | Real budget PUT/DELETE; expense categories only; visible errors.                                                                                                                                                                                                                   |
+| Category editor          | `src/app/modals/category-editor.tsx`      | `/modals/category-editor`            | complete                                  | Real create/update/delete; visible errors.                                                                                                                                                                                                                                         |
+| Transaction details      | `src/app/modals/transaction-details.tsx`  | `/modals/transaction-details?id=:id` | complete                                  | Cached transaction plus real duplicate/delete; visible errors.                                                                                                                                                                                                                     |
+| Edit transaction         | `src/app/modals/edit-transaction.tsx`     | `/modals/edit-transaction?id=:id`    | complete                                  | Real PATCH, current returned version retained, visible errors.                                                                                                                                                                                                                     |
+| Add transaction flow     | `src/app/modals/add-transaction/*.tsx`    | `/modals/add-transaction/...`        | complete                                  | Real categories and real POST with idempotency key; draft fields are local until review.                                                                                                                                                                                           |
 
 ## 4. Navigation
 
@@ -105,23 +105,23 @@ There is no mock API client. AsyncStorage is a cache, not the source of truth. C
 
 `src/shared/api/client.ts` uses Axios with `Authorization: Bearer <SecureStore token>`. Base URL is `process.env.EXPO_PUBLIC_API_BASE_URL ?? "http://localhost:8080/api"`: environment-configurable, but the committed fallback is only suitable for a local emulator/server. No deployed URL is committed.
 
-| Method / endpoint | Calling file | Request / expected response |
-|---|---|---|
-| `POST /v1/auth/signup` | `shared/api/auth.ts` | `{email,password,defaultCurrencyCode?}` -> `{accessToken,tokenType,expiresInSeconds,user}` |
-| `POST /v1/auth/login` | `shared/api/auth.ts` | `{email,password}` -> auth response above |
-| `GET /v1/me` | `shared/api/auth.ts`, auth store | -> `{id,email,defaultCurrencyCode,createdAt}` |
-| `PATCH /v1/me` | `shared/api/auth.ts`, onboarding/settings | `{defaultCurrencyCode}` only -> updated profile |
-| `GET /v1/books` | `shared/api/books.ts` | -> `{items: BookResponse[]}` |
-| `POST /v1/books` | `shared/api/books.ts` | `{name,currencyCode,timezone,openingBalanceMinor}` -> BookResponse |
-| `PATCH /v1/books/:id` | `shared/api/books.ts` | `{name}`, `If-Match: "version"` -> BookResponse |
-| `DELETE /v1/books/:id` | `shared/api/books.ts` | `If-Match` -> empty; unused in UI |
-| `GET/POST/PATCH/DELETE /v1/books/:id/categories...` | `shared/api/categories.ts` | category DTOs; PATCH/DELETE use `If-Match`; list -> `{items}` |
-| `GET/PUT/DELETE /v1/books/:id/budgets...` | `shared/api/budgets.ts` | `month=YYYY-MM`, `{amountMinor}` for PUT, `If-Match` when updating/deleting; list -> `{items}` |
-| `GET /v1/books/:id/balance` | `shared/api/summary.ts` | -> `{bookId,currencyCode,balanceMinor}` |
-| `GET /v1/books/:id/summary/monthly?month=YYYY-MM` | `shared/api/summary.ts` | -> `{bookId,month,currencyCode,incomeTotalMinor,expenseTotalMinor,byCategory[]}` |
-| `GET /v1/books/:id/transactions` | `shared/api/transactions.ts` | query `{from?,to?,type?,categoryId?,q?,limit?,cursor?}` -> `{page:{items,nextCursor}}` |
-| `POST /v1/books/:id/transactions` | `shared/api/transactions.ts` | transaction DTO plus required `Idempotency-Key` -> TransactionResponse |
-| `PATCH/DELETE /v1/books/:id/transactions/:txId` | `shared/api/transactions.ts` | PATCH partial transaction DTO or DELETE; `If-Match` -> response/empty |
+| Method / endpoint                                   | Calling file                              | Request / expected response                                                                    |
+| --------------------------------------------------- | ----------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `POST /v1/auth/signup`                              | `shared/api/auth.ts`                      | `{email,password,defaultCurrencyCode?}` -> `{accessToken,tokenType,expiresInSeconds,user}`     |
+| `POST /v1/auth/login`                               | `shared/api/auth.ts`                      | `{email,password}` -> auth response above                                                      |
+| `GET /v1/me`                                        | `shared/api/auth.ts`, auth store          | -> `{id,email,defaultCurrencyCode,createdAt}`                                                  |
+| `PATCH /v1/me`                                      | `shared/api/auth.ts`, onboarding/settings | `{defaultCurrencyCode}` only -> updated profile                                                |
+| `GET /v1/books`                                     | `shared/api/books.ts`                     | -> `{items: BookResponse[]}`                                                                   |
+| `POST /v1/books`                                    | `shared/api/books.ts`                     | `{name,currencyCode,timezone,openingBalanceMinor}` -> BookResponse                             |
+| `PATCH /v1/books/:id`                               | `shared/api/books.ts`                     | `{name}`, `If-Match: "version"` -> BookResponse                                                |
+| `DELETE /v1/books/:id`                              | `shared/api/books.ts`                     | `If-Match` -> empty; unused in UI                                                              |
+| `GET/POST/PATCH/DELETE /v1/books/:id/categories...` | `shared/api/categories.ts`                | category DTOs; PATCH/DELETE use `If-Match`; list -> `{items}`                                  |
+| `GET/PUT/DELETE /v1/books/:id/budgets...`           | `shared/api/budgets.ts`                   | `month=YYYY-MM`, `{amountMinor}` for PUT, `If-Match` when updating/deleting; list -> `{items}` |
+| `GET /v1/books/:id/balance`                         | `shared/api/summary.ts`                   | -> `{bookId,currencyCode,balanceMinor}`                                                        |
+| `GET /v1/books/:id/summary/monthly?month=YYYY-MM`   | `shared/api/summary.ts`                   | -> `{bookId,month,currencyCode,incomeTotalMinor,expenseTotalMinor,byCategory[]}`               |
+| `GET /v1/books/:id/transactions`                    | `shared/api/transactions.ts`              | query `{from?,to?,type?,categoryId?,q?,limit?,cursor?}` -> `{page:{items,nextCursor}}`         |
+| `POST /v1/books/:id/transactions`                   | `shared/api/transactions.ts`              | transaction DTO plus required `Idempotency-Key` -> TransactionResponse                         |
+| `PATCH/DELETE /v1/books/:id/transactions/:txId`     | `shared/api/transactions.ts`              | PATCH partial transaction DTO or DELETE; `If-Match` -> response/empty                          |
 
 DTO shapes are defined in `src/shared/types/api.ts`. Backend error parsing accepts the deployed nested shape `{ error: { code, message, details, requestId } }`. A 401 response interceptor clears the session and routes to login, except for `/v1/auth/*` calls to avoid a loop.
 
@@ -206,7 +206,7 @@ against that state and may be stale outside of the branch-specific updates below
   still require an Expo account and project/credential setup, and account ownership is UNKNOWN —
   needs manual check. Before running `eas build --profile preview --platform android`, the
   `EXPO_PUBLIC_API_BASE_URL` value must be set per-environment via `eas env:create --environment
-  preview --name EXPO_PUBLIC_API_BASE_URL --value "<url>"` (and again for `production`), since the
+preview --name EXPO_PUBLIC_API_BASE_URL --value "<url>"` (and again for `production`), since the
   profiles deliberately don't hardcode it.
 - `app.json` now sets `android.package: "com.mohammeddev07.pennywise"` (previously absent) — the
   permanent package id the readiness list below used to be blocked on.
