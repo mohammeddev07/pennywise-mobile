@@ -32,7 +32,7 @@ export function ActionRow({
     <View style={{ minHeight: 72, flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 10 }}>
       <CategoryIcon icon={icon} color={iconColor} size={48} />
       <View style={{ flex: 1, marginLeft: 14 }}>
-        <AppText variant="base" style={{ fontFamily: "Inter_600SemiBold" }} numberOfLines={1}>
+        <AppText variant="base" weight="semibold" numberOfLines={1}>
           {label}
         </AppText>
         {value || subtitle ? (

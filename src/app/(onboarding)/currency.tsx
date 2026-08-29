@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ScrollView, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 
 import { tokens } from "@/shared/ui/theme/tokens";
@@ -128,6 +129,13 @@ export default function CurrencyScreen() {
       <AppText variant="base" tone="muted" className="mt-2">
         Choose the currency and opening balance for your cash book.
       </AppText>
+      <View className="mt-4 flex-row items-start rounded-lg border border-stroke bg-surfaceAlt p-4">
+        <Ionicons name="lock-closed-outline" size={16} color={tokens.colors.muted} style={{ marginTop: 2 }} />
+        <AppText variant="sm" tone="muted" className="ml-3 flex-1">
+          This is permanent. Amounts are stored without an exchange rate, so a book&apos;s
+          currency can&apos;t be changed once it is created.
+        </AppText>
+      </View>
 
       {hydrationError ? (
         <View className="flex-1 justify-center">
@@ -171,7 +179,7 @@ export default function CurrencyScreen() {
                     <View className="flex-row items-start justify-between">
                       <AppText
                         variant="2xl"
-                        style={{ color: active ? tokens.colors.accent : tokens.colors.text, fontFamily: "Inter_700Bold" }}
+                        weight="bold" style={{ color: active ? tokens.colors.accent : tokens.colors.text }}
                       >
                         {item.symbol}
                       </AppText>

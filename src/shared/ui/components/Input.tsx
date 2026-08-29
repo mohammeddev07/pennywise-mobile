@@ -50,7 +50,7 @@ export function Input({
             editable={!disabled}
             placeholderTextColor={tokens.colors.muted}
             className="flex-1 text-text"
-            style={[{ fontFamily: "Inter_400Regular", color: tokens.colors.text }, style]}
+            style={[tokens.typography.base, { color: tokens.colors.text }, style]}
           />
         </View>
       ) : (
@@ -59,7 +59,7 @@ export function Input({
           editable={!disabled}
           placeholderTextColor={tokens.colors.muted}
           className={clsx(inputBase, "border", error ? "border-danger" : "border-stroke")}
-          style={[{ fontFamily: "Inter_400Regular", color: tokens.colors.text }, style]}
+          style={[tokens.typography.base, { color: tokens.colors.text }, style]}
         />
       )}
 

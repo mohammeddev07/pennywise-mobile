@@ -4,7 +4,7 @@ import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 
-import { tokens } from "@/shared/ui/theme/tokens";
+import { fonts, tokens } from "@/shared/ui/theme/tokens";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { AppText } from "@/shared/ui/components/AppText";
 
@@ -135,7 +135,7 @@ export function GlassTabBar({ state, navigation }: BottomTabBarProps) {
                 style={{
                   marginTop: 3,
                   color: isFocused ? tokens.colors.accent : tokens.colors.muted,
-                  fontFamily: isFocused ? "Inter_600SemiBold" : "Inter_500Medium",
+                  fontFamily: isFocused ? fonts.semibold : fonts.medium,
                   fontSize: 9,
                 }}
               >

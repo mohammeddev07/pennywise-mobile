@@ -14,14 +14,11 @@ import { Button } from "@/shared/ui/components/Button";
 import { Input } from "@/shared/ui/components/Input";
 import { CategoryIcon } from "@/shared/ui/components/CategoryIcon";
 import { useBooksStore } from "@/features/books/store";
-import { useSettingsStore, type CurrencyCode } from "@/features/settings/store";
+import { useBookCurrency } from "@/features/books/useBookCurrency";
+import { useSettingsStore } from "@/features/settings/store";
 import { useAuthStore } from "@/features/auth/store";
-import { formatCurrency } from "@/shared/utils/formatCurrency";
-import * as authApi from "@/shared/api/auth";
+import { formatCurrency, currencySymbol } from "@/shared/utils/formatCurrency";
 import { useUndoToastStore } from "@/shared/ui/state/useUndoToastStore";
-import { getAccountEpoch, isCurrentAccountEpoch } from "@/shared/session/accountEpoch";
-
-const CURRENCIES: CurrencyCode[] = ["USD", "EUR", "GBP", "JPY", "INR"];
 
 function ProfileRow({
   label,
@@ -63,10 +60,8 @@ export default function ProfileScreen() {
   const books = useBooksStore((s) => s.books);
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
   const updateBook = useBooksStore((s) => s.updateBook);
-  const currency = useSettingsStore((s) => s.primaryCurrency);
-  const setPrimaryCurrency = useSettingsStore((s) => s.setPrimaryCurrency);
+  const currency = useBookCurrency();
   const user = useAuthStore((s) => s.user);
-  const setUser = useAuthStore((s) => s.setUser);
   const logout = useAuthStore((s) => s.logout);
   const showError = useUndoToastStore((s) => s.showError);
 
@@ -78,7 +73,6 @@ export default function ProfileScreen() {
   const [hydrationError, setHydrationError] = useState(false);
   const [bookName, setBookName] = useState("");
   const [isSavingBook, setIsSavingBook] = useState(false);
-  const [savingCurrency, setSavingCurrency] = useState<CurrencyCode | null>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
 
   useEffect(() => {
@@ -141,26 +135,6 @@ export default function ProfileScreen() {
       showError(error, "Couldn’t rename the cash book.");
     } finally {
       setIsSavingBook(false);
-    }
-  };
-
-  const onChangeCurrency = async (nextCurrency: CurrencyCode) => {
-    if (savingCurrency) return;
-    const accountEpoch = getAccountEpoch();
-    setSavingCurrency(nextCurrency);
-    try {
-      const profile = await authApi.updateMe({ defaultCurrencyCode: nextCurrency });
-      if (!isCurrentAccountEpoch(accountEpoch)) return;
-      const returnedCurrency = profile.defaultCurrencyCode as CurrencyCode | null;
-      if (!returnedCurrency || !CURRENCIES.includes(returnedCurrency)) {
-        throw new Error("The server returned an unsupported currency.");
-      }
-      setUser(profile);
-      setPrimaryCurrency(returnedCurrency);
-    } catch (error) {
-      showError(error, "Couldn’t update the default currency.");
-    } finally {
-      setSavingCurrency(null);
     }
   };
 
@@ -272,37 +246,33 @@ export default function ProfileScreen() {
             </Card>
 
             <Card variant="surface" className="mt-6">
-              <AppText variant="lg">Default currency</AppText>
-              <AppText variant="sm" tone="muted" className="mt-1">
-                Saved to your account. Existing book entries remain in {selectedBook?.currencyCode ?? currency}.
-              </AppText>
-
-              <View className="mt-4 flex-row flex-wrap" style={{ gap: 8 }}>
-                {CURRENCIES.map((item) => {
-                  const active = item === currency;
-                  const saving = item === savingCurrency;
-                  return (
-                    <HapticPressable
-                      key={item}
-                      onPress={() => {
-                        void onChangeCurrency(item);
-                      }}
-                      disabled={Boolean(savingCurrency)}
-                      haptic="selection"
-                      className="min-h-12 min-w-16 items-center justify-center rounded-full border px-4"
-                      style={{
-                        borderColor: active ? tokens.colors.accent : tokens.colors.stroke,
-                        backgroundColor: active ? tokens.colors.greenSoft : tokens.colors.surface,
-                        opacity: savingCurrency && !saving ? 0.5 : 1,
-                      }}
-                    >
-                      <AppText variant="sm" style={{ color: active ? tokens.colors.accent : tokens.colors.text }}>
-                        {saving ? "Saving…" : item}
-                      </AppText>
-                    </HapticPressable>
-                  );
-                })}
+              <View className="flex-row items-center justify-between">
+                <AppText variant="lg">Currency</AppText>
+                <View className="flex-row items-center rounded-full border border-stroke bg-surfaceAlt px-3 py-1">
+                  <Ionicons name="lock-closed" size={12} color={tokens.colors.muted} />
+                  <AppText variant="xs" tone="muted" className="ml-1">
+                    Locked
+                  </AppText>
+                </View>
               </View>
+
+              <View className="mt-4 flex-row items-center">
+                <CategoryIcon icon="cash-outline" color={tokens.colors.accent} size={48} />
+                <View className="ml-4 flex-1">
+                  <AppText variant="xl" weight="bold">
+                    {currencySymbol(currency)} {currency}
+                  </AppText>
+                  <AppText variant="sm" tone="muted" className="mt-1">
+                    Used for every amount in {selectedBook?.name ?? "this book"}
+                  </AppText>
+                </View>
+              </View>
+
+              <AppText variant="xs" tone="muted" className="mt-4">
+                A book&apos;s currency is set when the book is created and cannot be changed
+                afterwards - stored amounts have no exchange rate attached, so switching would
+                silently reinterpret every past transaction.
+              </AppText>
             </Card>
 
             <Card variant="surface" className="mt-6 p-0 overflow-hidden">

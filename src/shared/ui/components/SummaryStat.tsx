@@ -5,13 +5,16 @@ import { Ionicons } from "@expo/vector-icons";
 import { AppText } from "@/shared/ui/components/AppText";
 import { CategoryIcon } from "@/shared/ui/components/CategoryIcon";
 import { tokens } from "@/shared/ui/theme/tokens";
+import { amountColor } from "@/shared/ui/theme/money";
 
 type Tone = "income" | "expense" | "neutral" | "primary";
 
 function toneColor(tone: Tone) {
-  if (tone === "expense") return tokens.colors.danger;
-  if (tone === "neutral") return "#5B5BF7";
-  return tokens.colors.accent;
+  if (tone === "expense") return amountColor("EXPENSE");
+  if (tone === "income") return amountColor("INCOME");
+  // A count or a label is not money, so it stays in body text color.
+  if (tone === "neutral") return tokens.semantic.text;
+  return tokens.semantic.primary;
 }
 
 function toneIcon(tone: Tone): keyof typeof Ionicons.glyphMap {
@@ -25,13 +28,46 @@ export function SummaryStat({
   value,
   tone = "primary",
   icon,
+  /**
+   * `compact` drops the icon and stacks tighter, for rows of three or more.
+   * It is a density of the same component, not a second component - screens
+   * must not hand-roll a smaller stat block.
+   */
+  compact = false,
 }: {
   label: string;
   value: string;
   tone?: Tone;
   icon?: keyof typeof Ionicons.glyphMap;
+  compact?: boolean;
 }) {
   const color = toneColor(tone);
+
+  if (compact) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          minHeight: 64,
+          justifyContent: "center",
+          borderRadius: tokens.radii.md,
+          borderWidth: 1,
+          borderColor: tokens.colors.stroke,
+          backgroundColor: tokens.colors.surface,
+          paddingHorizontal: tokens.space[3],
+          paddingVertical: tokens.space[3],
+        }}
+      >
+        <AppText variant="xs" tone="muted" numberOfLines={1}>
+          {label}
+        </AppText>
+        <AppText variant="sm" weight="bold" style={{ marginTop: 2, color }} numberOfLines={1}>
+          {value}
+        </AppText>
+      </View>
+    );
+  }
+
   return (
     <View
       style={{
@@ -51,7 +87,7 @@ export function SummaryStat({
         <AppText variant="sm" tone="muted">
           {label}
         </AppText>
-        <AppText variant="base" style={{ marginTop: 2, color, fontFamily: "Inter_700Bold" }} numberOfLines={1}>
+        <AppText variant="base" weight="bold" style={{ marginTop: 2, color }} numberOfLines={1}>
           {value}
         </AppText>
       </View>

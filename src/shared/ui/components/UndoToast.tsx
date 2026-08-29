@@ -78,7 +78,7 @@ export function UndoToast() {
         </View>
 
         <View style={{ flex: 1, marginLeft: 12 }}>
-          <AppText variant="sm" style={{ fontFamily: "Inter_600SemiBold" }}>
+          <AppText variant="sm" weight="semibold">
             {title}
           </AppText>
           <AppText variant="xs" tone="muted" className="mt-0.5">

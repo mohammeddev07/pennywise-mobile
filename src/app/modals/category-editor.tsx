@@ -36,7 +36,7 @@ const ICONS = [
   "wallet-outline",
 ] as const;
 
-const COLORS = ["#22C55E", "#60A5FA", "#A78BFA", "#F472B6", "#FFB020", "#34D399", "#F87171", "#94A3B8"];
+const CATEGORY_COLORS = ["#22C55E", "#60A5FA", "#A78BFA", "#F472B6", "#FFB020", "#34D399", "#F87171", "#94A3B8"];
 
 export default function CategoryEditorModal() {
   const router = useRouter();
@@ -97,7 +97,7 @@ export default function CategoryEditorModal() {
   const [name, setName] = useState("");
   const [type, setType] = useState<"EXPENSE" | "INCOME">("EXPENSE");
   const [icon, setIcon] = useState<(typeof ICONS)[number]>("pricetag-outline");
-  const [color, setColor] = useState(COLORS[0]);
+  const [color, setColor] = useState(CATEGORY_COLORS[0]);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -105,13 +105,13 @@ export default function CategoryEditorModal() {
       setName("");
       setType("EXPENSE");
       setIcon("pricetag-outline");
-      setColor(COLORS[0]);
+      setColor(CATEGORY_COLORS[0]);
       return;
     }
     setName(editing.name);
     setType(editing.type);
     setIcon((editing.icon as any) ?? "pricetag-outline");
-    setColor(editing.color ?? COLORS[0]);
+    setColor(editing.color ?? CATEGORY_COLORS[0]);
   }, [editing]);
 
   const title = editing ? "Edit category" : "New category";
@@ -300,7 +300,7 @@ export default function CategoryEditorModal() {
               </AppText>
 
               <View className="mt-3 flex-row flex-wrap">
-                {COLORS.map((c) => {
+                {CATEGORY_COLORS.map((c) => {
                   const active = c === color;
                   return (
                     <HapticPressable

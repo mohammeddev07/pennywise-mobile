@@ -223,7 +223,7 @@ function LegacyBookSwitcherModal() {
                       className="flex-1 pr-3"
                       android_ripple={{ color: "#0B122012" }}
                     >
-                      <AppText variant="base" style={{ fontFamily: "Inter_600SemiBold" }} numberOfLines={1}>
+                      <AppText variant="base" weight="semibold" numberOfLines={1}>
                         {book.name}
                       </AppText>
                       <AppText variant="xs" tone="muted" className="mt-1" numberOfLines={1}>

@@ -31,7 +31,7 @@ export function BookPill({
         style,
       ]}
     >
-      <AppText variant="sm" style={{ fontFamily: "Inter_600SemiBold" }} numberOfLines={1}>
+      <AppText variant="sm" weight="semibold" numberOfLines={1}>
         {label}
       </AppText>
 

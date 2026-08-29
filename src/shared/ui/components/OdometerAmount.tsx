@@ -8,7 +8,7 @@ import Animated, {
   withSpring,
 } from "react-native-reanimated";
 
-import { tokens } from "@/shared/ui/theme/tokens";
+import { fonts, tokens } from "@/shared/ui/theme/tokens";
 
 type Props = {
   /**
@@ -93,7 +93,9 @@ function DigitWheel({
       width,
       textAlign: "center",
       fontSize,
-      fontWeight: "900",
+      // Weight must come from the family: Android ignores fontWeight once a
+      // named fontFamily is set, which previously rendered this at Regular.
+      fontFamily: fonts.extrabold,
       letterSpacing: 0,
       color,
       includeFontPadding: false,
@@ -148,7 +150,7 @@ function StaticChar({
       <Text
         style={{
           fontSize,
-          fontWeight: "900",
+          fontFamily: fonts.extrabold,
           letterSpacing: 0,
           color,
           includeFontPadding: false,

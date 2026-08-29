@@ -4,6 +4,16 @@ import { createJSONStorage, persist } from "zustand/middleware";
 
 import type { CurrencyCode } from "@/shared/types/models";
 
+/**
+ * Account-level currency fallback ONLY.
+ *
+ * The currency a user actually sees is `book.currencyCode`, picked once during
+ * onboarding and fixed for the life of that book (see `useBookCurrency`).
+ * This value exists so onboarding has something to seed the first book with,
+ * and so a frame rendered before books hydrate has a sane placeholder. It is
+ * deliberately not user-editable after setup - a live switch here would leave
+ * every stored `amountMinor` reinterpreted in the wrong currency.
+ */
 type State = {
   primaryCurrency: CurrencyCode;
   setPrimaryCurrency: (c: CurrencyCode) => void;

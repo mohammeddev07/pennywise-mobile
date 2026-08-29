@@ -28,7 +28,7 @@ export function MetricCard({
           <AppText variant="sm" tone="muted">
             {label}
           </AppText>
-          <AppText variant="xl" style={{ marginTop: 4, fontFamily: "Inter_700Bold" }} numberOfLines={1}>
+          <AppText variant="xl" weight="bold" style={{ marginTop: 4 }} numberOfLines={1}>
             {value}
           </AppText>
           {change ? (

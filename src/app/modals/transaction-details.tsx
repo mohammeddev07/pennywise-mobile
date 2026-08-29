@@ -10,8 +10,8 @@ import { tokens } from "@/shared/ui/theme/tokens";
 import { Button } from "@/shared/ui/components/Button";
 import { useTransactionsStore } from "@/features/transactions/store";
 import { useCategoriesStore } from "@/features/categories/store";
-import { useBooksStore } from "@/features/books/store";
-import { useSettingsStore } from "@/features/settings/store";
+import { useBookCurrency } from "@/features/books/useBookCurrency";
+import { amountColor, amountSoftColor } from "@/shared/ui/theme/money";
 import { useUndoToastStore } from "@/shared/ui/state/useUndoToastStore";
 import { Sheet } from "@/shared/ui/components/Sheet";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
@@ -71,9 +71,6 @@ export default function TransactionDetailsModal() {
   const removeTransaction = useTransactionsStore((s) => s.removeTransaction);
   const duplicateTransaction = useTransactionsStore((s) => s.duplicateTransaction);
   const categories = useCategoriesStore((s) => s.categories);
-  const books = useBooksStore((s) => s.books);
-  const fallbackCurrency = useSettingsStore((s) => s.primaryCurrency);
-
   const showError = useUndoToastStore((s) => s.showError);
 
   const txPersist = (useTransactionsStore as any).persist;
@@ -185,7 +182,7 @@ export default function TransactionDetailsModal() {
     setHydrated(txPersist?.hasHydrated?.() ?? true);
     txPersist?.rehydrate?.();
   };
-  const currency = tx ? books.find((b) => b.id === tx.bookId)?.currencyCode ?? fallbackCurrency : fallbackCurrency;
+  const currency = useBookCurrency(tx?.bookId);
 
   return (
     <View className="flex-1 bg-app">
@@ -265,8 +262,8 @@ export default function TransactionDetailsModal() {
                 <Ionicons name={categoryMeta.icon} size={44} color={categoryMeta.color} />
               </View>
 
-              <View className="mt-5 rounded-full px-4 py-2" style={{ backgroundColor: tx.type === "INCOME" ? tokens.colors.greenSoft : tokens.colors.redSoft }}>
-                <AppText variant="sm" style={{ color: tx.type === "INCOME" ? tokens.colors.accent : tokens.colors.danger, fontFamily: "Inter_600SemiBold" }}>
+              <View className="mt-5 rounded-full px-4 py-2" style={{ backgroundColor: amountSoftColor(tx.type) }}>
+                <AppText variant="sm" weight="semibold" style={{ color: amountColor(tx.type) }}>
                   {tx.type === "INCOME" ? "Income" : "Expense"}
                 </AppText>
               </View>
@@ -282,7 +279,7 @@ export default function TransactionDetailsModal() {
               <AppText
                 variant="amount"
                 className="mt-4"
-                style={{ color: tx.type === "INCOME" ? tokens.colors.accent : tokens.colors.text }}
+                style={{ color: amountColor(tx.type) }}
               >
                 {formatSignedCurrency(tx.type === "INCOME" ? tx.amountMinor : -tx.amountMinor, currency)}
               </AppText>
