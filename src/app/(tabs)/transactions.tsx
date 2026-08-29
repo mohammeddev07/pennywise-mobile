@@ -11,7 +11,7 @@ import { useTransactionsStore, type Transaction } from "@/features/transactions/
 import { TransactionRow } from "@/shared/ui/components/TransactionRow";
 import { useBooksStore } from "@/features/books/store";
 import { useCategoriesStore } from "@/features/categories/store";
-import { useSettingsStore } from "@/features/settings/store";
+import { useBookCurrency } from "@/features/books/useBookCurrency";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { EmptyState } from "@/shared/ui/components/EmptyState";
 import { AppText } from "@/shared/ui/components/AppText";
@@ -19,6 +19,8 @@ import { Input } from "@/shared/ui/components/Input";
 import { Skeleton } from "@/shared/ui/components/Skeleton";
 import { Card } from "@/shared/ui/components/Card";
 import { formatCurrency } from "@/shared/utils/formatCurrency";
+import { balanceColor } from "@/shared/ui/theme/money";
+import { SummaryStat } from "@/shared/ui/components/SummaryStat";
 
 type RangeKey = "today" | "week" | "month" | "all";
 
@@ -81,7 +83,7 @@ function RangeChip({ label, active, onPress }: { label: string; active: boolean;
         backgroundColor: active ? tokens.colors.greenSoft : tokens.colors.surface,
       }}
     >
-      <AppText variant="sm" style={{ color: active ? tokens.colors.accent : tokens.colors.text, fontFamily: "Inter_600SemiBold" }}>
+      <AppText variant="sm" weight="semibold" style={{ color: active ? tokens.colors.accent : tokens.colors.text }}>
         {label}
       </AppText>
     </HapticPressable>
@@ -122,7 +124,7 @@ function CategoryChip({
         </View>
       ) : null}
 
-      <AppText variant="sm" style={{ color: active ? tokens.colors.accent : tokens.colors.text, fontFamily: "Inter_600SemiBold" }}>
+      <AppText variant="sm" weight="semibold" style={{ color: active ? tokens.colors.accent : tokens.colors.text }}>
         {label}
       </AppText>
 
@@ -148,20 +150,6 @@ function IconButton({ icon, onPress, disabled }: { icon: keyof typeof Ionicons.g
   );
 }
 
-function SummaryStat({ label, value, tone }: { label: string; value: string; tone?: "income" | "expense" }) {
-  const color = tone === "income" ? tokens.colors.accent : tone === "expense" ? tokens.colors.danger : tokens.colors.text;
-
-  return (
-    <View className="flex-1 min-h-14 rounded-lg border border-stroke bg-surface px-4 flex-row items-center justify-between">
-      <AppText variant="xs" tone="muted">
-        {label}
-      </AppText>
-      <AppText variant="sm" style={{ color, fontFamily: "Inter_600SemiBold" }} numberOfLines={1}>
-        {value}
-      </AppText>
-    </View>
-  );
-}
 
 function SectionHeader({ title }: { title: string }) {
   return (
@@ -180,7 +168,6 @@ export default function TransactionsScreen() {
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
   const books = useBooksStore((s) => s.books);
   const categories = useCategoriesStore((s) => s.categories);
-  const primaryCurrency = useSettingsStore((s) => s.primaryCurrency);
 
   const txPersist = (useTransactionsStore as any).persist;
   const booksPersist = (useBooksStore as any).persist;
@@ -234,7 +221,7 @@ export default function TransactionsScreen() {
 
   const isHydrated = txHydrated && booksHydrated;
 
-  const currency = books.find((book) => book.id === selectedBookId)?.currencyCode ?? primaryCurrency;
+  const currency = useBookCurrency(selectedBookId);
 
   const [range, setRange] = useState<RangeKey>("today");
   const [selectedMonth, setSelectedMonth] = useState(() => startOfMonth(new Date()));
@@ -383,7 +370,7 @@ export default function TransactionsScreen() {
               <AppText
                 variant="2xl"
                 className="mt-1"
-                style={{ color: totals.netCents < 0 ? tokens.colors.danger : tokens.colors.text }}
+                style={{ color: balanceColor(totals.netCents) }}
               >
                 {formatCurrency(totals.netCents, currency)}
               </AppText>
@@ -401,9 +388,9 @@ export default function TransactionsScreen() {
         </Card>
 
         <View className="mt-3 flex-row" style={{ gap: 8 }}>
-          <SummaryStat label="Income" value={formatCurrency(totals.incomeCents, currency)} tone="income" />
-          <SummaryStat label="Expense" value={formatCurrency(totals.expenseCents, currency)} tone="expense" />
-          <SummaryStat label="Items" value={String(totals.count)} />
+          <SummaryStat compact label="Income" value={formatCurrency(totals.incomeCents, currency)} tone="income" />
+          <SummaryStat compact label="Expense" value={formatCurrency(totals.expenseCents, currency)} tone="expense" />
+          <SummaryStat compact label="Items" value={String(totals.count)} tone="neutral" />
         </View>
 
         <View className="mt-4 flex-row items-center" style={{ gap: 8 }}>

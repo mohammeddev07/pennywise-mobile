@@ -1,239 +1,107 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useWindowDimensions, View } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { parseISO, format } from "date-fns";
 
 import { NumericKeypad, type Key } from "@/shared/ui/NumericKeypad";
 import { tokens } from "@/shared/ui/theme/tokens";
+import { amountColor } from "@/shared/ui/theme/money";
 import { useBooksStore } from "@/features/books/store";
+import { useBookCurrency } from "@/features/books/useBookCurrency";
 import { useAddTransactionDraftStore } from "@/features/transactions/addDraftStore";
-import { useSettingsStore } from "@/features/settings/store";
 import { currencyMinorUnitDigits, currencySymbol } from "@/shared/utils/formatCurrency";
 
-import { HapticPressable } from "@/shared/ui/components/HapticPressable";
-import { Sheet } from "@/shared/ui/components/Sheet";
 import { AppText } from "@/shared/ui/components/AppText";
-import { AmountInput, applyAmountKey } from "@/shared/ui/components/AmountInput";
+import { Button } from "@/shared/ui/components/Button";
 import { EmptyState } from "@/shared/ui/components/EmptyState";
-import { Card } from "@/shared/ui/components/Card";
+import { FlowHeader } from "@/shared/ui/components/FlowHeader";
+import { OdometerAmount } from "@/shared/ui/components/OdometerAmount";
+import { TypeToggle } from "@/shared/ui/components/TypeToggle";
+import { applyAmountKey, formatForTicker } from "@/shared/ui/components/AmountInput";
 
-const COLORS = {
-  bg: tokens.colors.app,
-  surface: tokens.colors.surface,
-  card: tokens.colors.card,
-  stroke: tokens.colors.stroke,
-  text: tokens.colors.text,
-  muted: tokens.colors.muted,
-  accent: tokens.colors.accent,
-  danger: tokens.colors.danger,
-} as const;
-
-const SPACING = {
-  0: tokens.space[0],
-  4: tokens.space[1],
-  8: tokens.space[2],
-  12: tokens.space[3],
-  16: tokens.space[4],
-  20: tokens.space[5],
-  24: tokens.space[6],
-  32: tokens.space[7],
-  40: tokens.space[8],
-} as const;
-
-const RADIUS = {
-  input: tokens.radii.md,
-  card: tokens.radii.lg,
-  sheet: tokens.radii.xl,
-  pill: tokens.radii.pill,
-} as const;
-
-function safeWhenLabel(iso: string) {
-  try {
-    const d = parseISO(iso);
-    return format(d, "MMM d, yyyy · h:mm a");
-  } catch {
-    return "Now";
-  }
-}
-
-function FormPressRow({
-  label,
-  value,
-  placeholder,
-  onPress,
-}: {
-  label: string;
-  value?: string;
-  placeholder: string;
-  onPress: () => void;
-}) {
-  return (
-    <HapticPressable
-      onPress={onPress}
-      haptic="selection"
-      pressScale={0.99}
-      style={styles.formRow}
-      android_ripple={{ color: "#0B122012" }}
-    >
-      <View style={styles.formLabelWrap}>
-        <AppText variant="sm" tone="muted">
-          {label}
-        </AppText>
-        <AppText variant="base" numberOfLines={1} style={{ color: value ? COLORS.text : COLORS.muted }}>
-          {value || placeholder}
-        </AppText>
-      </View>
-      <View style={styles.chevronTarget}>
-        <Ionicons name="chevron-forward" size={18} color={COLORS.muted} />
-      </View>
-    </HapticPressable>
-  );
-}
-
-function ReviewButton({
-  disabled,
-  onPress,
-}: {
-  disabled?: boolean;
-  onPress: () => void;
-}) {
-  const [pressed, setPressed] = useState(false);
-
-  return (
-    <HapticPressable
-      onPress={onPress}
-      disabled={disabled}
-      haptic="selection"
-      pressScale={0.98}
-      pressOpacity={1}
-      onPressIn={() => setPressed(true)}
-      onPressOut={() => setPressed(false)}
-      style={[
-        styles.reviewButton,
-        { backgroundColor: pressed && !disabled ? tokens.colors.accentPressed : tokens.colors.accent },
-      ]}
-      android_ripple={{ color: "#FFFFFF22" }}
-    >
-      <AppText variant="lg" style={styles.reviewButtonText}>
-        Review Transaction
-      </AppText>
-    </HapticPressable>
-  );
-}
-
-export default function AddTransactionEntry() {
+/**
+ * Step 1 of 2: the amount, and nothing else.
+ *
+ * Everything secondary (title, category, date, note) lives on step 2 so this
+ * screen is a single decision - type the number, pick a direction, continue.
+ */
+export default function AddTransactionAmount() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
 
   const books = useBooksStore((s) => s.books);
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
-  const primaryCurrency = useSettingsStore((s) => s.primaryCurrency);
-
-  const resetDraft = useAddTransactionDraftStore((s) => s.reset);
 
   const amount = useAddTransactionDraftStore((s) => s.amount);
   const kind = useAddTransactionDraftStore((s) => s.kind);
-  const occurredAt = useAddTransactionDraftStore((s) => s.occurredAt);
-
-  const title = useAddTransactionDraftStore((s) => s.title);
-  const categoryId = useAddTransactionDraftStore((s) => s.categoryId);
-  const categoryName = useAddTransactionDraftStore((s) => s.categoryName);
-  const note = useAddTransactionDraftStore((s) => s.note);
-
   const setAmount = useAddTransactionDraftStore((s) => s.setAmount);
   const setKind = useAddTransactionDraftStore((s) => s.setKind);
   const setBookId = useAddTransactionDraftStore((s) => s.setBookId);
-  const [reviewAttempted, setReviewAttempted] = useState(false);
+  const resetDraft = useAddTransactionDraftStore((s) => s.reset);
 
   const didInitRef = useRef(false);
 
-  useFocusEffect(() => {
-    if (didInitRef.current) return;
-    didInitRef.current = true;
-    resetDraft();
-  });
+  // Only clear the draft the first time this screen is focused; coming back
+  // from step 2 to correct the number must not wipe what was typed there.
+  useFocusEffect(
+    useCallback(() => {
+      if (didInitRef.current) return;
+      didInitRef.current = true;
+      resetDraft();
+    }, [resetDraft])
+  );
 
   const hasBooks = books.length > 0;
+  const selectedBook = useMemo(
+    () => (hasBooks ? (books.find((b) => b.id === selectedBookId) ?? books[0]) : undefined),
+    [books, selectedBookId, hasBooks]
+  );
 
-  const selectedBook = useMemo(() => {
-    if (!hasBooks) return undefined;
-    return books.find((b) => b.id === selectedBookId) ?? books[0];
-  }, [books, selectedBookId, hasBooks]);
-  const currency = selectedBook?.currencyCode ?? primaryCurrency;
+  const currency = useBookCurrency(selectedBook?.id);
   const fractionDigits = currencyMinorUnitDigits(currency);
 
   useEffect(() => {
     if (!selectedBook) return;
     setBookId(selectedBook.id);
-  }, [selectedBook?.id, setBookId, selectedBook]);
+  }, [selectedBook, setBookId]);
 
-  const valueNum = useMemo(() => Number(amount || "0") || 0, [amount]);
-  const canReview = valueNum > 0 && Boolean(categoryId);
+  const formattedAmount = formatForTicker(amount, currencySymbol(currency), fractionDigits);
+
+  // The hero is 60px by default, but OdometerAmount lays digits out at a fixed
+  // width each, so a long amount would run past the screen edge. Scale the type
+  // down just enough to fit rather than letting it clip or wrap.
+  const heroFontSize = useMemo(() => {
+    const base = tokens.typography.display.fontSize;
+    const available = width - tokens.layout.screenPaddingX * 2;
+    const estimated = formattedAmount.length * base * 0.6;
+    if (estimated <= available) return base;
+    return Math.max(28, Math.floor(base * (available / estimated)));
+  }, [formattedAmount, width]);
+
+  const valueNum = Number(amount || "0") || 0;
+  const canContinue = valueNum > 0 && Boolean(selectedBook);
 
   const close = () => {
     resetDraft();
-    const canGoBack = typeof (router as any).canGoBack === "function" ? (router as any).canGoBack() : false;
+    const canGoBack = typeof router.canGoBack === "function" ? router.canGoBack() : false;
     if (canGoBack) router.back();
     else router.replace("/(tabs)/home");
   };
 
-  const applyKey = (k: Key) => {
-    setAmount(applyAmountKey(amount, k, fractionDigits));
-  };
-
-  const goReview = () => {
-    if (!canReview || !selectedBook) {
-      setReviewAttempted(true);
-      return;
-    }
-    router.push({
-      pathname: "/modals/add-transaction/review",
-      params: {
-        amount,
-        kind,
-        title,
-        categoryId,
-        categoryName,
-        note,
-        bookId: selectedBook.id,
-        occurredAt,
-      },
-    });
+  const goNext = () => {
+    if (!canContinue) return;
+    router.push("/modals/add-transaction/details");
   };
 
   return (
-    <View style={styles.screen}>
-      <Sheet
-        tone="app"
-        style={styles.sheet}
-        title="New transaction"
-        footerVariant="fullBleed"
-        leftAction={
-          <HapticPressable
-            onPress={close}
-            style={styles.closeButton}
-            android_ripple={{ color: "#0B122012", borderless: true }}
-          >
-            <Ionicons name="close" size={18} color={COLORS.text} />
-          </HapticPressable>
-        }
-        footer={
-          hasBooks ? (
-            <View style={[styles.footer, { paddingBottom: insets.bottom + SPACING[8] }]}>
-              <ReviewButton onPress={goReview} disabled={!canReview || !selectedBook} />
-              <NumericKeypad
-                onPress={(key) => applyKey(key as Key)}
-                onDelete={() => applyKey("back")}
-                decimalAllowed={fractionDigits > 0}
-                disabled={!selectedBook}
-              />
-            </View>
-          ) : null
-        }
-      >
-        {!hasBooks ? (
+    <View className="flex-1 bg-app" style={{ paddingTop: insets.top + tokens.space[3] }}>
+      <View className="px-6">
+        <FlowHeader title="New transaction" onBack={close} backIcon="close" step={1} totalSteps={2} />
+      </View>
+
+      {!hasBooks ? (
+        <View className="flex-1 justify-center px-6">
           <EmptyState
             title="Cash book unavailable"
             message="Return home and retry once your account data has loaded."
@@ -241,244 +109,37 @@ export default function AddTransactionEntry() {
             onAction={() => router.replace("/(tabs)/home")}
             className="px-0"
           />
-        ) : (
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={styles.content}
-          >
-            <Card style={styles.amountCard}>
-              <View style={styles.amountHeader}>
-                <View style={styles.currencyPill}>
-                  <AppText variant="sm" style={styles.semibold}>
-                    {currency}
-                  </AppText>
-                </View>
-                <View style={styles.calculatorBubble}>
-                  <Ionicons name="calculator-outline" size={24} color={COLORS.accent} />
-                </View>
-              </View>
+        </View>
+      ) : (
+        <>
+          <View className="flex-1 items-center justify-center px-6">
+            <TypeToggle value={kind} onChange={setKind} />
 
-              <View style={styles.amountBlock}>
-                <AmountInput
-                  value={amount}
-                  type={kind === "EXPENSE" ? "expense" : "income"}
-                  currencySymbol={currencySymbol(currency)}
-                  fractionDigits={fractionDigits}
-                  helperText={kind === "EXPENSE" ? "Money out" : "Money in"}
-                  error={reviewAttempted && valueNum <= 0 ? "Amount is required." : undefined}
-                />
-              </View>
-
-              <View style={styles.segmented}>
-                <View pointerEvents="none" style={styles.segmentTrack} />
-                {(["EXPENSE", "INCOME"] as const).map((item) => {
-                  const active = kind === item;
-                  return (
-                    <HapticPressable
-                      key={item}
-                      onPress={() => setKind(item)}
-                      haptic="selection"
-                      pressScale={0.99}
-                      style={styles.segmentHit}
-                    >
-                      <View style={[styles.segmentVisual, active ? styles.segmentActive : null]}>
-                        <Ionicons
-                          name={item === "EXPENSE" ? "arrow-down" : "arrow-up"}
-                          size={20}
-                          color={active ? COLORS.accent : COLORS.muted}
-                          style={{ marginRight: 8 }}
-                        />
-                        <AppText variant="base" style={[styles.segmentText, { color: active ? COLORS.accent : COLORS.text }]}>
-                          {item === "EXPENSE" ? "Expense" : "Income"}
-                        </AppText>
-                      </View>
-                    </HapticPressable>
-                  );
-                })}
-              </View>
-            </Card>
-
-            <View style={styles.formGroup}>
-              <FormPressRow
-                label="Title"
-                value={title}
-                placeholder="Coffee, Uber, Rent"
-                onPress={() => router.push("/modals/add-transaction/title")}
-              />
-              <View style={styles.divider} />
-              <FormPressRow
-                label="When"
-                value={safeWhenLabel(occurredAt)}
-                placeholder="Now"
-                onPress={() => router.push("/modals/add-transaction/datetime")}
-              />
-              <View style={styles.divider} />
-              <FormPressRow
-                label="Category"
-                value={categoryName}
-                placeholder="Uncategorized"
-                onPress={() => router.push("/modals/add-transaction/category")}
-              />
-              {reviewAttempted && !categoryId ? (
-                <AppText variant="sm" tone="danger" style={{ marginHorizontal: 16, marginBottom: 12 }}>
-                  Choose a category before reviewing.
-                </AppText>
-              ) : null}
-              <View style={styles.divider} />
-              <FormPressRow
-                label="Note"
-                value={note}
-                placeholder="Add details"
-                onPress={() => router.push("/modals/add-transaction/note")}
+            <View className="mt-8 w-full items-center">
+              <OdometerAmount
+                value={formattedAmount}
+                majorFontSize={heroFontSize}
+                minorFontSize={Math.round(heroFontSize * 0.5)}
+                color={valueNum > 0 ? amountColor(kind) : tokens.colors.muted}
               />
             </View>
-          </ScrollView>
-        )}
-      </Sheet>
+
+            <AppText variant="sm" tone="muted" className="mt-4">
+              {currency} · {kind === "EXPENSE" ? "Money out" : "Money in"}
+            </AppText>
+          </View>
+
+          <View className="px-6" style={{ paddingBottom: insets.bottom + tokens.space[4], gap: tokens.space[5] }}>
+            <NumericKeypad
+              onPress={(key) => setAmount(applyAmountKey(amount, key as Key, fractionDigits))}
+              onDelete={() => setAmount(applyAmountKey(amount, "back", fractionDigits))}
+              decimalAllowed={fractionDigits > 0}
+              disabled={!selectedBook}
+            />
+            <Button label="Next" onPress={goNext} disabled={!canContinue} size="lg" />
+          </View>
+        </>
+      )}
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: COLORS.bg,
-  },
-  sheet: {
-    flex: 1,
-    backgroundColor: COLORS.bg,
-  },
-  closeButton: {
-    width: 48,
-    height: 48,
-    borderRadius: RADIUS.pill,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  content: {
-    paddingTop: SPACING[16],
-    paddingBottom: SPACING[24],
-  },
-  amountCard: {
-    padding: SPACING[16],
-  },
-  amountHeader: {
-    minHeight: 48,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  currencyPill: {
-    minHeight: 44,
-    flexDirection: "row",
-    alignItems: "center",
-    borderRadius: RADIUS.pill,
-    borderWidth: 1,
-    borderColor: COLORS.stroke,
-    paddingHorizontal: SPACING[16],
-  },
-  calculatorBubble: {
-    width: 56,
-    height: 56,
-    borderRadius: RADIUS.pill,
-    backgroundColor: tokens.colors.greenSoft,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  segmented: {
-    width: "100%",
-    height: 58,
-    alignSelf: "center",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    position: "relative",
-    marginTop: SPACING[24],
-  },
-  segmentTrack: {
-    position: "absolute",
-    left: SPACING[0],
-    right: SPACING[0],
-    height: 54,
-    borderRadius: RADIUS.pill,
-    borderWidth: 1,
-    borderColor: COLORS.stroke,
-    backgroundColor: COLORS.surface,
-  },
-  segmentHit: {
-    flex: 1,
-    height: 58,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  segmentVisual: {
-    width: "96%",
-    height: 48,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: RADIUS.pill,
-    borderWidth: 1,
-    borderColor: "transparent",
-  },
-  segmentActive: {
-    borderColor: tokens.colors.greenSoft,
-    backgroundColor: tokens.colors.greenSoft,
-  },
-  segmentText: {
-    fontFamily: "Inter_600SemiBold",
-  },
-  amountBlock: {
-    marginTop: SPACING[20],
-    alignItems: "center",
-  },
-  formGroup: {
-    marginTop: SPACING[40],
-    overflow: "hidden",
-    borderRadius: RADIUS.card,
-    borderWidth: 1,
-    borderColor: COLORS.stroke,
-    backgroundColor: COLORS.surface,
-  },
-  formRow: {
-    minHeight: 64,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingLeft: SPACING[16],
-  },
-  formLabelWrap: {
-    flex: 1,
-    gap: SPACING[4],
-  },
-  chevronTarget: {
-    width: 48,
-    height: 48,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  divider: {
-    height: 1,
-    marginLeft: SPACING[16],
-    backgroundColor: COLORS.stroke,
-  },
-  footer: {
-    backgroundColor: COLORS.bg,
-    paddingHorizontal: SPACING[24],
-    gap: SPACING[8],
-  },
-  reviewButton: {
-    width: "100%",
-    height: 56,
-    borderRadius: RADIUS.input,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  reviewButtonText: {
-    color: tokens.colors.white,
-    fontFamily: "Inter_700Bold",
-  },
-  semibold: {
-    fontFamily: "Inter_600SemiBold",
-  },
-});

@@ -31,10 +31,20 @@ type CategoriesState = {
   removeCategory: (bookId: string, id: string) => Promise<void>;
 };
 
-function normalizeCategory(input: any): Category {
+// `fallbackBookId` matters: these endpoints are already scoped by book in the
+// URL, so the payload may omit `bookId`. Without the fallback that became the
+// literal string "undefined" and every `c.bookId === bookId` filter in the app
+// silently matched nothing, hiding existing categories from the picker.
+function isUsableBookId(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0 && value !== "undefined" && value !== "null";
+}
+
+function normalizeCategory(input: any, fallbackBookId = ""): Category {
+  const rawBookId = input?.bookId != null ? String(input.bookId) : "";
+  const bookId = isUsableBookId(rawBookId) ? rawBookId : fallbackBookId;
   return {
     id: String(input.id),
-    bookId: String(input.bookId),
+    bookId,
     type: input.type === "INCOME" ? "INCOME" : "EXPENSE",
     name: String(input.name ?? "Untitled"),
     icon: String(input.icon ?? "pricetag-outline"),
@@ -66,7 +76,7 @@ export const useCategoriesStore = create<CategoriesState>()(
         set({ isLoading: true, error: null });
         try {
           const res = await categoriesApi.listCategories(bookId);
-          const next = res.items.map(normalizeCategory);
+          const next = res.items.map((item) => normalizeCategory(item, bookId));
           if (!isCurrentAccountEpoch(accountEpoch)) return;
           set((s) => ({
             categories: [...s.categories.filter((c) => c.bookId !== bookId), ...next],
@@ -90,7 +100,8 @@ export const useCategoriesStore = create<CategoriesState>()(
             input.name.trim() || "Untitled",
             input.icon || "pricetag-outline",
             input.color || "#22C55E"
-          )
+          ),
+          bookId
         );
         if (!isCurrentAccountEpoch(accountEpoch)) return category.id;
         set((s) => ({ categories: [category, ...s.categories.filter((c) => c.id !== category.id)] }));
@@ -101,7 +112,10 @@ export const useCategoriesStore = create<CategoriesState>()(
         const accountEpoch = getAccountEpoch();
         const current = get().categories.find((c) => c.id === id && c.bookId === bookId);
         if (!current) return;
-        const category = normalizeCategory(await categoriesApi.patchCategory(bookId, id, current.version, patch));
+        const category = normalizeCategory(
+          await categoriesApi.patchCategory(bookId, id, current.version, patch),
+          bookId
+        );
         if (!isCurrentAccountEpoch(accountEpoch)) return;
         set((s) => ({ categories: s.categories.map((c) => (c.id === id ? category : c)) }));
       },
@@ -117,14 +131,17 @@ export const useCategoriesStore = create<CategoriesState>()(
     }),
     {
       name: "pennywise_categories_v1",
-      version: 2,
+      version: 3,
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (s) => ({ categories: s.categories }),
+      // v2 could persist rows whose bookId was the literal string "undefined".
+      // Those rows are unreachable by every book-scoped filter, so drop them
+      // here; `loadCategories` refetches the book's real list on next launch.
       migrate: async (persisted: any) => {
         const categories = Array.isArray(persisted?.categories)
           ? persisted.categories
-              .filter((c: any) => typeof c?.bookId === "string" && typeof c?.type === "string")
-              .map(normalizeCategory)
+              .filter((c: any) => typeof c?.type === "string" && isUsableBookId(c?.bookId))
+              .map((c: any) => normalizeCategory(c))
           : [];
         return { categories };
       },

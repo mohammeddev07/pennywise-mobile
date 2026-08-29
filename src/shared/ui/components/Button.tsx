@@ -91,7 +91,7 @@ export function Button({
           <AppText
             variant="base"
             className={textClass}
-            style={{ fontFamily: "Inter_600SemiBold" }}
+            weight="semibold"
           >
             {label}
           </AppText>
@@ -104,7 +104,7 @@ export function Button({
 export function LinkButton({ label, onPress }: { label: string; onPress: () => void }) {
   return (
     <HapticPressable onPress={onPress} haptic="selection" pressScale={0.99} className="py-2">
-      <AppText variant="sm" className="text-accent" style={{ fontFamily: "Inter_600SemiBold" }}>
+      <AppText variant="sm" className="text-accent" weight="semibold">
         {label}
       </AppText>
     </HapticPressable>

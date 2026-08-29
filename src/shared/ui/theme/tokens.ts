@@ -1,3 +1,18 @@
+// Inter family map. Always set fontFamily explicitly: on Android a named font
+// family makes `fontWeight` a no-op, so weight must be encoded in the family.
+export const fonts = {
+  light: "Inter_300Light",
+  regular: "Inter_400Regular",
+  medium: "Inter_500Medium",
+  semibold: "Inter_600SemiBold",
+  bold: "Inter_700Bold",
+  extrabold: "Inter_800ExtraBold",
+} as const;
+
+// Declared separately so `as const` below does not widen it to a readonly
+// tuple, which would not satisfy TextStyle["fontVariant"].
+const TABULAR: "tabular-nums"[] = ["tabular-nums"];
+
 export const tokens = {
   // Keep existing keys for backwards compatibility while mapping them to the
   // light-first visual system from /Light_design.
@@ -46,6 +61,12 @@ export const tokens = {
     purpleSoft: "#F2EEFF",
     neutralSoft: "#F2F4F7",
     ink: "#0B1220",
+
+    // Money semantics. Applied everywhere a signed amount is displayed via
+    // `amountColor()` in @/shared/ui/theme/money - never read these directly
+    // from a screen, so the whole app can be re-tuned from one place.
+    income: "#00C313",
+    expense: "#FF4D57",
   },
 
   // Allowed spacing only
@@ -73,14 +94,31 @@ export const tokens = {
   // Typography tokens (Inter via expo-google-fonts)
   // IMPORTANT: Use fontFamily per weight so it works consistently with loaded fonts.
   typography: {
-    xs: { fontSize: 12, lineHeight: 16, fontFamily: "Inter_500Medium" },
-    sm: { fontSize: 14, lineHeight: 20, fontFamily: "Inter_500Medium" },
-    base: { fontSize: 16, lineHeight: 22, fontFamily: "Inter_400Regular" },
-    lg: { fontSize: 18, lineHeight: 24, fontFamily: "Inter_600SemiBold" },
-    xl: { fontSize: 20, lineHeight: 28, fontFamily: "Inter_600SemiBold" },
-    "2xl": { fontSize: 28, lineHeight: 34, fontFamily: "Inter_700Bold" },
-    "3xl": { fontSize: 40, lineHeight: 46, fontFamily: "Inter_700Bold" },
-    amount: { fontSize: 48, lineHeight: 54, fontFamily: "Inter_700Bold" },
+    xs: { fontSize: 12, lineHeight: 16, fontFamily: fonts.medium },
+    sm: { fontSize: 14, lineHeight: 20, fontFamily: fonts.medium },
+    base: { fontSize: 16, lineHeight: 22, fontFamily: fonts.regular },
+    lg: { fontSize: 18, lineHeight: 24, fontFamily: fonts.semibold, letterSpacing: -0.2 },
+    xl: { fontSize: 20, lineHeight: 28, fontFamily: fonts.semibold, letterSpacing: -0.3 },
+    "2xl": { fontSize: 28, lineHeight: 34, fontFamily: fonts.bold, letterSpacing: -0.6 },
+    "3xl": { fontSize: 40, lineHeight: 46, fontFamily: fonts.bold, letterSpacing: -1 },
+
+    // Money displays. Tabular figures stop digits from reflowing while the
+    // keypad edits the value; negative tracking keeps large numbers optical.
+    amount: {
+      fontSize: 48,
+      lineHeight: 54,
+      fontFamily: fonts.bold,
+      letterSpacing: -1.4,
+      fontVariant: TABULAR,
+    },
+    // Hero amount for the first step of the add-transaction flow.
+    display: {
+      fontSize: 60,
+      lineHeight: 66,
+      fontFamily: fonts.extrabold,
+      letterSpacing: -2.4,
+      fontVariant: TABULAR,
+    },
   },
 
   layout: {

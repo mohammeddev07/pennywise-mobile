@@ -2,6 +2,7 @@ import React from "react";
 import { View } from "react-native";
 
 import { tokens } from "@/shared/ui/theme/tokens";
+import { amountColor } from "@/shared/ui/theme/money";
 import { AppText } from "@/shared/ui/components/AppText";
 import { OdometerAmount } from "@/shared/ui/components/OdometerAmount";
 import type { Key as NumericKey } from "@/shared/ui/NumericKeypad";
@@ -77,7 +78,9 @@ export function AmountInput({
   const transactionType = type ?? kind;
   const isEmpty = !Number.isFinite(valueNum) || valueNum <= 0;
 
-  const color = isEmpty ? tokens.colors.text : transactionType === "income" ? tokens.colors.success : tokens.colors.text;
+  // An untouched "0" stays neutral; as soon as there is a value it takes the
+  // money color so the sign of what you are entering is never ambiguous.
+  const color = isEmpty ? tokens.colors.muted : amountColor(transactionType);
 
   return (
     <View className="w-full items-center">

@@ -6,33 +6,6 @@ import { tokens } from "@/shared/ui/theme/tokens";
 import { AppText } from "@/shared/ui/components/AppText";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 
-const COLORS = {
-  bg: tokens.colors.app,
-  surface: tokens.colors.surface,
-  card: tokens.colors.card,
-  stroke: tokens.colors.stroke,
-  text: tokens.colors.text,
-  muted: tokens.colors.muted,
-  accent: tokens.colors.accent,
-} as const;
-
-const SPACING = {
-  0: tokens.space[0],
-  4: tokens.space[1],
-  8: tokens.space[2],
-  12: tokens.space[3],
-  16: tokens.space[4],
-  20: tokens.space[5],
-  24: tokens.space[6],
-  32: tokens.space[7],
-  40: tokens.space[8],
-} as const;
-
-const RADIUS = {
-  pill: tokens.radii.pill,
-} as const;
-
-const TYPOGRAPHY = tokens.typography;
 
 export type Key = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "." | "back";
 type DigitKey = Exclude<Key, "back">;
@@ -131,13 +104,13 @@ function KeyBtn({
     >
       <View style={[styles.keyCircle, pressed && !disabled ? styles.keyCirclePressed : null]}>
         {isBackspace ? (
-          <Ionicons name="backspace-outline" size={22} color={COLORS.accent} />
+          <Ionicons name="backspace-outline" size={22} color={tokens.colors.accent} />
         ) : (
           <AppText
             variant={label === "." ? "lg" : "2xl"}
             style={[
-              label === "." ? TYPOGRAPHY.lg : TYPOGRAPHY["2xl"],
-              { color: muted ? COLORS.muted : COLORS.text },
+              label === "." ? tokens.typography.lg : tokens.typography["2xl"],
+              { color: muted ? tokens.colors.muted : tokens.colors.text },
             ]}
           >
             {label}
@@ -152,13 +125,13 @@ const styles = StyleSheet.create({
   container: {
     width: "100%",
     alignItems: "center",
-    gap: SPACING[16],
+    gap: tokens.space[4],
   },
   row: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: SPACING[24],
+    gap: tokens.space[6],
   },
   keyTouch: {
     width: 72,
@@ -169,10 +142,10 @@ const styles = StyleSheet.create({
   keyCircle: {
     width: 64,
     height: 64,
-    borderRadius: RADIUS.pill,
+    borderRadius: tokens.radii.pill,
     borderWidth: 1,
-    borderColor: COLORS.stroke,
-    backgroundColor: COLORS.surface,
+    borderColor: tokens.colors.stroke,
+    backgroundColor: tokens.colors.surface,
     alignItems: "center",
     justifyContent: "center",
   },

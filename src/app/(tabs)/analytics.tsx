@@ -9,7 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import { tokens } from "@/shared/ui/theme/tokens";
 import { useCategoriesStore } from "@/features/categories/store";
 import { useBooksStore } from "@/features/books/store";
-import { useSettingsStore } from "@/features/settings/store";
+import { useBookCurrency } from "@/features/books/useBookCurrency";
 import { AppText } from "@/shared/ui/components/AppText";
 import { Card } from "@/shared/ui/components/Card";
 import { EmptyState } from "@/shared/ui/components/EmptyState";
@@ -29,7 +29,6 @@ export default function AnalyticsScreen() {
   const categories = useCategoriesStore((s) => s.categories);
   const books = useBooksStore((s) => s.books);
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
-  const primaryCurrency = useSettingsStore((s) => s.primaryCurrency);
 
   const catsPersist = (useCategoriesStore as any).persist;
   const booksPersist = (useBooksStore as any).persist;
@@ -78,7 +77,7 @@ export default function AnalyticsScreen() {
   const hydrated = catsHydrated && booksHydrated;
   const month = useMemo(() => currentMonthKey(), []);
   const monthLabel = useMemo(() => format(new Date(), "MMMM yyyy"), []);
-  const bookCurrency = books.find((book) => book.id === selectedBookId)?.currencyCode ?? primaryCurrency;
+  const bookCurrency = useBookCurrency(selectedBookId);
 
   const summaryQuery = useQuery({
     queryKey: ["summary", selectedBookId, month],
@@ -216,7 +215,7 @@ export default function AnalyticsScreen() {
                           </View>
 
                           <View className="ml-3 flex-1">
-                            <AppText variant="base" style={{ fontFamily: "Inter_600SemiBold" }} numberOfLines={1}>
+                            <AppText variant="base" weight="semibold" numberOfLines={1}>
                               {c.name}
                             </AppText>
                             <View className="mt-2 h-2 w-full rounded-full bg-stroke overflow-hidden">
@@ -228,7 +227,7 @@ export default function AnalyticsScreen() {
                           </View>
                         </View>
 
-                        <AppText variant="base" style={{ fontFamily: "Inter_600SemiBold" }}>
+                        <AppText variant="base" weight="semibold">
                           {formatCurrency(c.cents, currency)}
                         </AppText>
                       </View>

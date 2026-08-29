@@ -7,15 +7,15 @@ import * as Haptics from "expo-haptics";
 
 import { tokens } from "@/shared/ui/theme/tokens";
 import type { Transaction } from "@/features/transactions/store";
+import { useBookCurrency } from "@/features/books/useBookCurrency";
 import { useTransactionsStore } from "@/features/transactions/store";
-import { useBooksStore } from "@/features/books/store";
-import { useSettingsStore } from "@/features/settings/store";
 import { useUndoToastStore } from "@/shared/ui/state/useUndoToastStore";
 import { Card } from "@/shared/ui/components/Card";
 import { AppText } from "@/shared/ui/components/AppText";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { CategoryIcon } from "@/shared/ui/components/CategoryIcon";
 import { formatSignedCurrency } from "@/shared/utils/formatCurrency";
+import { amountColor } from "@/shared/ui/theme/money";
 
 function safeDate(iso: string) {
   try {
@@ -57,10 +57,7 @@ export function TransactionRow({
   const duplicateTransaction = useTransactionsStore((s) => s.duplicateTransaction);
   const removeTransaction = useTransactionsStore((s) => s.removeTransaction);
   const showError = useUndoToastStore((s) => s.showError);
-  const books = useBooksStore((s) => s.books);
-  const fallbackCurrency = useSettingsStore((s) => s.primaryCurrency);
-
-  const currency = books.find((b) => b.id === item.bookId)?.currencyCode ?? fallbackCurrency;
+  const currency = useBookCurrency(item.bookId);
   const isIncome = item.type === "INCOME";
   const amount = formatSignedCurrency(isIncome ? item.amountMinor : -item.amountMinor, currency);
 
@@ -124,14 +121,10 @@ export function TransactionRow({
         android_ripple={{ color: "#0B12200F" }}
       >
         <View className="flex-row items-center">
-          <CategoryIcon
-            icon={isIncome ? "arrow-down" : "arrow-up"}
-            color={isIncome ? tokens.colors.accent : tokens.colors.danger}
-            size={52}
-          />
+          <CategoryIcon icon={isIncome ? "arrow-down" : "arrow-up"} color={amountColor(item.type)} size={52} />
 
           <View className="ml-3 flex-1">
-            <AppText variant="base" style={{ fontFamily: "Inter_600SemiBold" }} numberOfLines={1}>
+            <AppText variant="base" weight="semibold" numberOfLines={1}>
               {primary}
             </AppText>
             <AppText variant="xs" tone="muted" className="mt-1" numberOfLines={1}>
@@ -139,10 +132,7 @@ export function TransactionRow({
             </AppText>
           </View>
 
-          <AppText
-            variant="base"
-            style={{ color: isIncome ? tokens.colors.accent : tokens.colors.text, fontFamily: "Inter_600SemiBold" }}
-          >
+          <AppText variant="base" weight="semibold" style={{ color: amountColor(item.type) }}>
             {amount}
           </AppText>
 

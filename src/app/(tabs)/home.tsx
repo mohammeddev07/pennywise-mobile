@@ -24,6 +24,7 @@ import { useBudgetsStore } from "@/features/budgets/store";
 import { useSettingsStore } from "@/features/settings/store";
 import * as summaryApi from "@/shared/api/summary";
 import { formatCurrency } from "@/shared/utils/formatCurrency";
+import { balanceColor } from "@/shared/ui/theme/money";
 import { useUndoToastStore } from "@/shared/ui/state/useUndoToastStore";
 
 function nowMonthKey() {
@@ -48,7 +49,7 @@ function BudgetPreview({ item, currency }: { item: BudgetItem; currency: string 
       <View style={{ flexDirection: "row", alignItems: "center" }}>
         <CategoryIcon icon="pie-chart-outline" color={over ? tokens.colors.danger : tokens.colors.accent} />
         <View style={{ flex: 1, marginLeft: 12 }}>
-          <AppText variant="base" style={{ fontFamily: "Inter_700Bold" }} numberOfLines={1}>
+          <AppText variant="base" weight="bold" numberOfLines={1}>
             {item.categoryName}
           </AppText>
           <AppText variant="sm" tone="muted" numberOfLines={1}>
@@ -76,7 +77,7 @@ function BudgetPreview({ item, currency }: { item: BudgetItem; currency: string 
       </View>
       <AppText
         variant="sm"
-        style={{ marginTop: 14, color: over ? tokens.colors.danger : tokens.colors.accent, fontFamily: "Inter_700Bold" }}
+        weight="bold" style={{ marginTop: 14, color: over ? tokens.colors.danger : tokens.colors.accent }}
       >
         {over ? `${formatCurrency(Math.abs(remaining), currency, 0)} over` : `${formatCurrency(remaining, currency, 0)} left`}
       </AppText>
@@ -226,7 +227,7 @@ export default function Home() {
             justifyContent: "center",
           }}
         >
-          <AppText variant="xl" style={{ color: tokens.colors.accent, fontFamily: "Inter_700Bold" }}>
+          <AppText variant="xl" weight="bold" style={{ color: tokens.colors.accent }}>
             {displayName.slice(0, 1).toUpperCase()}
           </AppText>
         </View>
@@ -292,7 +293,7 @@ export default function Home() {
                     </AppText>
                     <AppText
                       variant="amount"
-                      style={{ marginTop: 14, color: balanceMinor < 0 ? tokens.colors.danger : tokens.colors.text }}
+                      style={{ marginTop: 14, color: balanceColor(balanceMinor) }}
                     >
                       {formatCurrency(balanceMinor, dashboardCurrency)}
                     </AppText>
@@ -308,7 +309,7 @@ export default function Home() {
                       alignItems: "center",
                     }}
                   >
-                    <AppText variant="sm" style={{ fontFamily: "Inter_600SemiBold" }}>
+                    <AppText variant="sm" weight="semibold">
                       {dashboardCurrency}
                     </AppText>
                   </View>
@@ -332,7 +333,7 @@ export default function Home() {
               title="Recent Transactions"
               action={
                 <HapticPressable onPress={() => router.push("/(tabs)/transactions")} haptic="selection" style={{ padding: 8 }}>
-                  <AppText variant="base" style={{ color: tokens.colors.accent, fontFamily: "Inter_700Bold" }}>
+                  <AppText variant="base" weight="bold" style={{ color: tokens.colors.accent }}>
                     View all
                   </AppText>
                 </HapticPressable>
@@ -368,7 +369,7 @@ export default function Home() {
                 title="Budgets"
                 action={
                   <HapticPressable onPress={() => router.push("/(tabs)/categories")} haptic="selection" style={{ padding: 8 }}>
-                    <AppText variant="base" style={{ color: tokens.colors.accent, fontFamily: "Inter_700Bold" }}>
+                    <AppText variant="base" weight="bold" style={{ color: tokens.colors.accent }}>
                       Manage
                     </AppText>
                   </HapticPressable>

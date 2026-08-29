@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ScrollView, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { FlashList } from "@shopify/flash-list";
@@ -64,7 +64,7 @@ function CatPill({
       <AppText
         variant="sm"
         className="ml-2"
-        style={{ fontFamily: "Inter_600SemiBold" }}
+        weight="semibold"
         numberOfLines={1}
       >
         {item.name}
@@ -114,7 +114,7 @@ function CatCard({
         <AppText
           variant="base"
           className="mt-3"
-          style={{ fontFamily: "Inter_600SemiBold" }}
+          weight="semibold"
           numberOfLines={1}
         >
           {item.name}
@@ -132,6 +132,7 @@ export default function AddTransactionCategory() {
   const router = useRouter();
 
   const categories = useCategoriesStore((s) => s.categories);
+  const loadCategories = useCategoriesStore((s) => s.loadCategories);
   const consumeLastCreatedCategoryId = useCategoriesStore((s) => s.consumeLastCreatedCategoryId);
 
   const transactions = useTransactionsStore((s) => s.transactions);
@@ -175,17 +176,30 @@ export default function AddTransactionCategory() {
 
   const hydrated = hydratedCats && hydratedTx;
 
-  const choose = (id: string, name: string) => {
-    setCategory(id, name);
-    router.back();
-  };
+  // The persisted cache can be stale or partial; refetch so an existing
+  // category is always selectable instead of prompting a duplicate.
+  useEffect(() => {
+    if (!bookId) return;
+    loadCategories(bookId).catch(() => {});
+  }, [bookId, loadCategories]);
 
-  // Create -> auto-select bridge.
-  useFocusEffect(() => {
-    const id = consumeLastCreatedCategoryId();
-    const category = id ? categories.find((c) => c.id === id) : null;
-    if (category) choose(category.id, category.name);
-  });
+  const choose = useCallback(
+    (id: string, name: string) => {
+      setCategory(id, name);
+      router.back();
+    },
+    [router, setCategory]
+  );
+
+  // Create -> auto-select bridge. Memoised: an inline callback would re-run on
+  // every render while the screen is focused.
+  useFocusEffect(
+    useCallback(() => {
+      const id = consumeLastCreatedCategoryId();
+      const category = id ? categories.find((c) => c.id === id) : null;
+      if (category) choose(category.id, category.name);
+    }, [categories, choose, consumeLastCreatedCategoryId])
+  );
 
   const allCats = useMemo(() => {
     const base: CatMeta[] = categories
@@ -387,7 +401,7 @@ export default function AddTransactionCategory() {
 
               <View className="mt-4">
                 <HapticPressable onPress={retryHydrate} haptic="selection" className="py-2">
-                  <AppText variant="sm" className="text-accent" style={{ fontFamily: "Inter_600SemiBold" }}>
+                  <AppText variant="sm" className="text-accent" weight="semibold">
                     Retry loading
                   </AppText>
                 </HapticPressable>

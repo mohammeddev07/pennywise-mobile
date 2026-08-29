@@ -76,7 +76,7 @@ function Tile({ item, currency }: { item: CategoryTile; currency: CurrencyCode }
           <Ionicons name="create-outline" size={18} color={tokens.colors.muted} />
         </View>
 
-        <AppText variant="base" className="mt-4" style={{ fontFamily: "Inter_600SemiBold" }} numberOfLines={1}>
+        <AppText variant="base" className="mt-4" weight="semibold" numberOfLines={1}>
           {item.name}
         </AppText>
 
@@ -125,7 +125,7 @@ function Tile({ item, currency }: { item: CategoryTile; currency: CurrencyCode }
           className="mt-2 -ml-3 min-h-11 px-3 rounded-full flex-row items-center self-start"
           android_ripple={{ color: "#0B122012" }}
         >
-          <AppText variant="sm" className="text-accent" style={{ fontFamily: "Inter_600SemiBold" }}>
+          <AppText variant="sm" className="text-accent" weight="semibold">
             {hasBudget ? "Edit budget" : "Set budget"}
           </AppText>
         </HapticPressable>
@@ -315,7 +315,7 @@ export default function CategoriesScreen() {
             </View>
             <View className="items-center">
               <RingProgress progress={budgetProgress} color={tokens.colors.accent} />
-              <AppText variant="lg" style={{ marginTop: -58, fontFamily: "Inter_700Bold" }}>
+              <AppText variant="lg" weight="bold" style={{ marginTop: -58 }}>
                 {totalSpentCents === null ? "—" : `${Math.round(Math.min(1, budgetProgress) * 100)}%`}
               </AppText>
               <AppText variant="xs" tone="muted" style={{ marginTop: 36 }}>
@@ -326,13 +326,13 @@ export default function CategoriesScreen() {
           <View className="mt-5 flex-row" style={{ gap: 12 }}>
             <View className="flex-1 rounded-lg border border-stroke bg-surfaceAlt p-3">
               <AppText variant="xs" tone="muted">Spent</AppText>
-              <AppText variant="base" className="mt-1" style={{ fontFamily: "Inter_700Bold" }}>
+              <AppText variant="base" className="mt-1" weight="bold">
                 {totalSpentCents === null ? "Unavailable" : formatCurrency(totalSpentCents, currency)}
               </AppText>
             </View>
             <View className="flex-1 rounded-lg border border-stroke bg-surfaceAlt p-3">
               <AppText variant="xs" tone="muted">Remaining</AppText>
-              <AppText variant="base" className="mt-1" style={{ color: tokens.colors.accent, fontFamily: "Inter_700Bold" }}>
+              <AppText variant="base" className="mt-1" weight="bold" style={{ color: tokens.colors.accent }}>
                 {remainingCents === null ? "Unavailable" : formatCurrency(remainingCents, currency)}
               </AppText>
             </View>

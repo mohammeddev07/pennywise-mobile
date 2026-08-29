@@ -129,7 +129,7 @@ DTO shapes are defined in `src/shared/types/api.ts`. Backend error parsing accep
 
 NativeWind v4 is configured through `global.css`, `tailwind.config.js`, `babel.config.js`, `metro.config.js`, and `nativewind-env.d.ts`. The app loads Inter and uses `src/shared/ui/theme/tokens.ts`.
 
-`UI_CONTRACT.md` specifies the light palette, Inter type scale, fixed spacing/radius scales, shared primitives, and loading/error/empty/success states. The implemented app substantially follows the light palette, cards, tabs, sheets, typography, skeletons, empty states, and shared components. It is not a documented pixel-perfect implementation: some screen-local layout styling remains, the transfer design references in `Light_design/` are intentionally not built, and legacy routes remain on disk. `assets/icon.png`, `assets/adaptive-icon.png`, and `assets/splash-icon.png` are real PNGs and are configured in `app.json`.
+`DESIGN_SYSTEM.md` (which replaces the former `UI_CONTRACT.md`) specifies the light palette, Inter type scale, fixed spacing/radius scales, shared primitives, money-color and currency rules, navigation rules, and loading/error/empty/success states. Screen-local token re-maps and hardcoded `Inter_*` font strings have been removed, so colour, spacing, radius and weight now come from `src/shared/ui/theme/tokens.ts` everywhere. The transfer design references in `Light_design/` are intentionally not built, and legacy routes remain on disk. App icons are generated from a single vector description by `npm run icons` (`scripts/generate-icons.js`) and wired in `app.json`, including the Android adaptive foreground and the Android 13+ monochrome icon.
 
 ## 9. Build & Run
 

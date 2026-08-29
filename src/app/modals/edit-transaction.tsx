@@ -21,8 +21,8 @@ import { EmptyState } from "@/shared/ui/components/EmptyState";
 import { Skeleton } from "@/shared/ui/components/Skeleton";
 import { useTransactionsStore, type TransactionKind } from "@/features/transactions/store";
 import { useCategoriesStore } from "@/features/categories/store";
-import { useBooksStore } from "@/features/books/store";
-import { useSettingsStore } from "@/features/settings/store";
+import { TypeToggle } from "@/shared/ui/components/TypeToggle";
+import { useBookCurrency } from "@/features/books/useBookCurrency";
 import {
   currencyMinorUnitDigits,
   currencySymbol,
@@ -85,8 +85,6 @@ export default function EditTransactionModal() {
   const transactions = useTransactionsStore((s) => s.transactions);
   const updateTransaction = useTransactionsStore((s) => s.updateTransaction);
   const categories = useCategoriesStore((s) => s.categories);
-  const books = useBooksStore((s) => s.books);
-  const fallbackCurrency = useSettingsStore((s) => s.primaryCurrency);
   const showError = useUndoToastStore((s) => s.showError);
 
   const txPersist = (useTransactionsStore as any).persist;
@@ -110,10 +108,7 @@ export default function EditTransactionModal() {
   }, [txPersist]);
 
   const tx = useMemo(() => transactions.find((item) => item.id === id) ?? null, [id, transactions]);
-  const currency = useMemo(
-    () => books.find((book) => book.id === tx?.bookId)?.currencyCode ?? fallbackCurrency,
-    [books, fallbackCurrency, tx?.bookId],
-  );
+  const currency = useBookCurrency(tx?.bookId);
   const fractionDigits = currencyMinorUnitDigits(currency);
 
   const [amount, setAmount] = useState("0");
@@ -256,40 +251,16 @@ export default function EditTransactionModal() {
         ) : (
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
             <View className="items-center mt-2">
-              <View className="flex-row rounded-full border border-stroke bg-surface overflow-hidden">
-                <HapticPressable
-                  onPress={() => {
-                    if (kind !== "EXPENSE") {
-                      setKind("EXPENSE");
-                      setCategoryId("");
-                      setCategoryName("Uncategorized");
-                    }
-                  }}
-                  haptic="selection"
-                  pressScale={0.99}
-                  className={`px-6 h-12 items-center justify-center ${kind === "EXPENSE" ? "bg-card" : ""}`}
-                >
-                  <AppText variant="sm" className={kind === "EXPENSE" ? "text-text" : "text-muted"}>
-                    Expense
-                  </AppText>
-                </HapticPressable>
-                <HapticPressable
-                  onPress={() => {
-                    if (kind !== "INCOME") {
-                      setKind("INCOME");
-                      setCategoryId("");
-                      setCategoryName("Uncategorized");
-                    }
-                  }}
-                  haptic="selection"
-                  pressScale={0.99}
-                  className={`px-6 h-12 items-center justify-center ${kind === "INCOME" ? "bg-card" : ""}`}
-                >
-                  <AppText variant="sm" className={kind === "INCOME" ? "text-text" : "text-muted"}>
-                    Income
-                  </AppText>
-                </HapticPressable>
-              </View>
+              <TypeToggle
+                value={kind}
+                onChange={(next) => {
+                  if (next === kind) return;
+                  setKind(next);
+                  // Categories are type-scoped, so the old pick is no longer valid.
+                  setCategoryId("");
+                  setCategoryName("Uncategorized");
+                }}
+              />
 
               <View className="mt-7 w-full">
                 <AmountInput

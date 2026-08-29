@@ -3,7 +3,7 @@ import { View } from "react-native";
 
 import { AppText } from "@/shared/ui/components/AppText";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
-import { tokens } from "@/shared/ui/theme/tokens";
+import { fonts, tokens } from "@/shared/ui/theme/tokens";
 
 type Item<T extends string> = {
   label: string;
@@ -54,7 +54,7 @@ export function SegmentedControl<T extends string>({
               variant="sm"
               style={{
                 color: active ? tokens.colors.accent : tokens.colors.text,
-                fontFamily: "Inter_600SemiBold",
+                fontFamily: fonts.semibold,
               }}
             >
               {item.label}
