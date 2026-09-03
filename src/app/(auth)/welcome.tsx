@@ -22,7 +22,7 @@ export default function WelcomeScreen() {
   );
 
   return (
-    <View className="flex-1 bg-app px-6 pt-16 pb-10">
+    <View className="flex-1 bg-app px-5 pt-16 pb-10">
       <View className="mt-6">
         <AppText variant="2xl">PennyWise</AppText>
         <AppText variant="base" tone="muted" className="mt-2">
@@ -59,7 +59,7 @@ export default function WelcomeScreen() {
 
       <View className="mt-8 gap-3">
         <Button label="Log in" onPress={() => router.push("/(auth)/login")} />
-        <Button variant="ghost" label="Create account" onPress={() => router.push("/(auth)/signup")} />
+        <Button variant="secondary" label="Create account" onPress={() => router.push("/(auth)/signup")} />
       </View>
     </View>
   );

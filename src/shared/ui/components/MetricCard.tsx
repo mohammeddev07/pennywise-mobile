@@ -23,7 +23,7 @@ export function MetricCard({
   return (
     <Card variant="surface">
       <View style={{ flexDirection: "row", alignItems: "center" }}>
-        <CategoryIcon icon={icon} color={color} size={56} />
+        <CategoryIcon icon={icon} color={color} size={44} rounded="lg" />
         <View style={{ flex: 1, marginLeft: 16 }}>
           <AppText variant="sm" tone="muted">
             {label}

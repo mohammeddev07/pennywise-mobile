@@ -76,7 +76,7 @@ function LegacyBooksScreen() {
   };
 
   return (
-    <View className="flex-1 bg-app px-6 pt-16 pb-10">
+    <View className="flex-1 bg-app px-5 pt-16 pb-10">
       <AppText variant="2xl">Your books</AppText>
       <AppText variant="base" tone="muted" className="mt-2">
         Choose a book to start tracking.
@@ -94,8 +94,8 @@ function LegacyBooksScreen() {
         </View>
       ) : !hydrated ? (
         <View className="mt-8 gap-3">
-          <Skeleton height={72} borderRadius={24} />
-          <Skeleton height={72} borderRadius={24} />
+          <Skeleton height={72} borderRadius={20} />
+          <Skeleton height={72} borderRadius={20} />
         </View>
       ) : books.length === 0 ? (
         <View className="flex-1 justify-center">

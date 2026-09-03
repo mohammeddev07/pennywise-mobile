@@ -18,6 +18,9 @@ import { Card } from "@/shared/ui/components/Card";
 import { EmptyState } from "@/shared/ui/components/EmptyState";
 import { Skeleton } from "@/shared/ui/components/Skeleton";
 import { RingProgress } from "@/shared/ui/components/RingProgress";
+import { IconButton } from "@/shared/ui/components/IconButton";
+import { ScreenHeader } from "@/shared/ui/components/ScreenHeader";
+import { useTabBarClearance } from "@/shared/ui/components/Screen";
 import { formatCurrency } from "@/shared/utils/formatCurrency";
 import type { CurrencyCode, TransactionType } from "@/shared/types/models";
 import * as summaryApi from "@/shared/api/summary";
@@ -63,7 +66,7 @@ function Tile({ item, currency }: { item: CategoryTile; currency: CurrencyCode }
         pressScale={0.99}
         pressOpacity={0.92}
         className="pb-1"
-        android_ripple={{ color: "#0B122012" }}
+        android_ripple={{ color: tokens.colors.ripple }}
       >
         <View className="flex-row items-center justify-between">
           <View
@@ -123,7 +126,7 @@ function Tile({ item, currency }: { item: CategoryTile; currency: CurrencyCode }
           haptic="selection"
           pressScale={0.98}
           className="mt-2 -ml-3 min-h-11 px-3 rounded-full flex-row items-center self-start"
-          android_ripple={{ color: "#0B122012" }}
+          android_ripple={{ color: tokens.colors.ripple }}
         >
           <AppText variant="sm" className="text-accent" weight="semibold">
             {hasBudget ? "Edit budget" : "Set budget"}
@@ -136,6 +139,7 @@ function Tile({ item, currency }: { item: CategoryTile; currency: CurrencyCode }
 
 export default function CategoriesScreen() {
   const insets = useSafeAreaInsets();
+  const tabClearance = useTabBarClearance();
 
   const categories = useCategoriesStore((s) => s.categories);
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
@@ -282,20 +286,25 @@ export default function CategoriesScreen() {
 
   return (
     <View className="flex-1 bg-app" style={{ paddingTop: insets.top + 12 }}>
-      <View className="px-6">
-        <View className="flex-row items-center justify-between">
-          <AppText variant="2xl">Categories</AppText>
-
-          <HapticPressable
-            onPress={() => router.push("/modals/category-editor")}
-            haptic="selection"
-            pressScale={0.98}
-            className="h-12 w-12 items-center justify-center rounded-full border border-stroke bg-surface"
-            android_ripple={{ color: "#0B122012", borderless: true }}
-          >
-            <Ionicons name="add" size={20} color={tokens.colors.accent} />
-          </HapticPressable>
-        </View>
+      <View className="px-5">
+        <ScreenHeader
+          title="Categories"
+          left={
+            <IconButton
+              icon="chevron-back"
+              accessibilityLabel="Back"
+              onPress={() => (router.canGoBack() ? router.back() : router.replace("/(tabs)/settings"))}
+            />
+          }
+          right={
+            <IconButton
+              icon="add"
+              tone="soft"
+              accessibilityLabel="New category"
+              onPress={() => router.push("/modals/category-editor")}
+            />
+          }
+        />
 
         <Card className="mt-6">
           <View className="flex-row items-center justify-between">
@@ -364,7 +373,7 @@ export default function CategoriesScreen() {
         />
       </View>
 
-      <View className="flex-1 px-6 mt-4">
+      <View className="flex-1 px-5 mt-4">
         {hydrationError ? (
           <View className="flex-1 justify-center">
             <EmptyState
@@ -379,18 +388,18 @@ export default function CategoriesScreen() {
           <View className="pt-2">
             <View className="flex-row" style={{ gap: GUTTER }}>
               <View style={{ flex: 1 }}>
-                <Skeleton height={220} borderRadius={24} />
+                <Skeleton height={200} borderRadius={20} />
               </View>
               <View style={{ flex: 1 }}>
-                <Skeleton height={220} borderRadius={24} />
+                <Skeleton height={200} borderRadius={20} />
               </View>
             </View>
             <View className="mt-2 flex-row" style={{ gap: GUTTER }}>
               <View style={{ flex: 1 }}>
-                <Skeleton height={220} borderRadius={24} />
+                <Skeleton height={200} borderRadius={20} />
               </View>
               <View style={{ flex: 1 }}>
-                <Skeleton height={220} borderRadius={24} />
+                <Skeleton height={200} borderRadius={20} />
               </View>
             </View>
           </View>
@@ -430,10 +439,7 @@ export default function CategoriesScreen() {
                 </View>
               );
             }}
-            contentContainerStyle={{
-              paddingBottom: (insets.bottom || 0) + 24,
-              paddingTop: 4,
-            }}
+            contentContainerStyle={{ paddingBottom: tabClearance, paddingTop: 4 }}
             showsVerticalScrollIndicator={false}
           />
         )}

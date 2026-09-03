@@ -138,7 +138,7 @@ function LegacyBookSwitcherModal() {
           <HapticPressable
             onPress={() => router.back()}
             className="h-12 w-12 items-center justify-center rounded-full border border-stroke bg-surface"
-            android_ripple={{ color: "#0B122012", borderless: true }}
+            android_ripple={{ color: tokens.colors.ripple, borderless: true }}
           >
             <Ionicons name="close" size={18} color={tokens.colors.text} />
           </HapticPressable>
@@ -148,7 +148,7 @@ function LegacyBookSwitcherModal() {
             onPress={startCreate}
             haptic="selection"
             className="h-12 w-12 items-center justify-center rounded-full border border-stroke bg-surface"
-            android_ripple={{ color: "#0B122012", borderless: true }}
+            android_ripple={{ color: tokens.colors.ripple, borderless: true }}
           >
             <Ionicons name="add" size={20} color={tokens.colors.accent} />
           </HapticPressable>
@@ -167,9 +167,9 @@ function LegacyBookSwitcherModal() {
           </View>
         ) : !hydrated ? (
           <View className="mt-2 gap-3">
-            <Skeleton height={72} borderRadius={24} />
-            <Skeleton height={72} borderRadius={24} />
-            <Skeleton height={72} borderRadius={24} />
+            <Skeleton height={72} borderRadius={20} />
+            <Skeleton height={72} borderRadius={20} />
+            <Skeleton height={72} borderRadius={20} />
           </View>
         ) : books.length === 0 && !isCreating ? (
           <View className="flex-1 justify-center">
@@ -221,7 +221,7 @@ function LegacyBookSwitcherModal() {
                       haptic="selection"
                       pressScale={0.99}
                       className="flex-1 pr-3"
-                      android_ripple={{ color: "#0B122012" }}
+                      android_ripple={{ color: tokens.colors.ripple }}
                     >
                       <AppText variant="base" weight="semibold" numberOfLines={1}>
                         {book.name}
@@ -236,7 +236,7 @@ function LegacyBookSwitcherModal() {
                       haptic="selection"
                       pressScale={0.98}
                       className="h-12 w-12 items-center justify-center rounded-full border border-stroke bg-card"
-                      android_ripple={{ color: "#0B122012", borderless: true }}
+                      android_ripple={{ color: tokens.colors.ripple, borderless: true }}
                     >
                       <Ionicons name="create-outline" size={16} color={tokens.colors.accent} />
                     </HapticPressable>

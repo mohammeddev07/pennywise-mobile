@@ -183,7 +183,7 @@ export default function CategoryEditorModal() {
           <HapticPressable
             onPress={() => router.back()}
             className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
-            android_ripple={{ color: "#0B122012", borderless: true }}
+            android_ripple={{ color: tokens.colors.ripple, borderless: true }}
           >
             <Ionicons name="close" size={20} color={tokens.colors.text} />
           </HapticPressable>
@@ -193,7 +193,7 @@ export default function CategoryEditorModal() {
             <HapticPressable
               onPress={onDelete}
               className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
-              android_ripple={{ color: "#0B122012", borderless: true }}
+              android_ripple={{ color: tokens.colors.ripple, borderless: true }}
             >
               <Ionicons name="trash-outline" size={20} color={tokens.colors.danger} />
             </HapticPressable>
@@ -226,8 +226,8 @@ export default function CategoryEditorModal() {
         ) : !hydrated ? (
           <View className="mt-2 gap-3">
             <Skeleton height={56} borderRadius={16} />
-            <Skeleton height={180} borderRadius={24} />
-            <Skeleton height={120} borderRadius={24} />
+            <Skeleton height={180} borderRadius={20} />
+            <Skeleton height={120} borderRadius={20} />
           </View>
         ) : params.id && !editing ? (
           <View className="flex-1 justify-center">
@@ -285,7 +285,7 @@ export default function CategoryEditorModal() {
                         borderColor: active ? tokens.colors.accent : tokens.colors.stroke,
                         backgroundColor: active ? `${tokens.colors.accent}14` : tokens.colors.surface,
                       }}
-                      android_ripple={{ color: "#0B122012", borderless: true }}
+                      android_ripple={{ color: tokens.colors.ripple, borderless: true }}
                     >
                       <Ionicons name={n as any} size={20} color={active ? tokens.colors.accent : tokens.colors.text} />
                     </HapticPressable>
@@ -310,7 +310,7 @@ export default function CategoryEditorModal() {
                       pressScale={0.98}
                       className="h-12 w-12 items-center justify-center rounded-full border mr-3 mb-3"
                       style={{ borderColor: active ? tokens.colors.text : tokens.colors.stroke, backgroundColor: tokens.colors.surface }}
-                      android_ripple={{ color: "#0B122012", borderless: true }}
+                      android_ripple={{ color: tokens.colors.ripple, borderless: true }}
                     >
                       <View className="h-7 w-7 rounded-full" style={{ backgroundColor: c }} />
                     </HapticPressable>

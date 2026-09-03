@@ -21,8 +21,9 @@ type Props = TextProps & {
 const toneClass: Record<TextTone, string> = {
   default: "text-text",
   muted: "text-muted",
+  subtle: "text-subtle",
   danger: "text-danger",
-  success: "text-accent",
+  success: "text-income",
   warning: "text-warning",
 };
 

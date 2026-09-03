@@ -24,7 +24,7 @@ export function TipCard({ title, body, icon = "tips-and-updates", actionLabel, o
   return (
     <View
       style={{
-        borderRadius: 18,
+        borderRadius: tokens.radii.lg,
         padding: 16,
         backgroundColor: tokens.colors.surface,
         borderWidth: 1,
@@ -40,7 +40,7 @@ export function TipCard({ title, body, icon = "tips-and-updates", actionLabel, o
               borderRadius: 999,
               alignItems: "center",
               justifyContent: "center",
-              backgroundColor: "#22C55E1A",
+              backgroundColor: tokens.colors.greenSoft,
             }}
           >
             <MaterialIcons name={icon} size={20} color={tokens.colors.accent} />
@@ -56,8 +56,8 @@ export function TipCard({ title, body, icon = "tips-and-updates", actionLabel, o
                 haptic="selection"
                 pressScale={0.985}
                 className="mt-4 self-start rounded-full px-4 py-2"
-                style={{ backgroundColor: "#22C55E22" }}
-                android_ripple={{ color: "#0B122012" }}
+                style={{ backgroundColor: tokens.colors.greenSoft }}
+                android_ripple={{ color: tokens.colors.ripple }}
               >
                 <Text style={{ color: tokens.colors.accent }} className="text-xs font-extrabold tracking-widest">
                   {actionLabel.toUpperCase()}
@@ -72,8 +72,8 @@ export function TipCard({ title, body, icon = "tips-and-updates", actionLabel, o
             onPress={onClose}
             haptic="selection"
             className="h-9 w-9 items-center justify-center rounded-full"
-            android_ripple={{ color: "#0B122012", borderless: true }}
-            style={{ backgroundColor: tokens.colors.greenSoft }}
+            android_ripple={{ color: tokens.colors.ripple, borderless: true }}
+            style={{ backgroundColor: tokens.colors.neutralSoft }}
           >
             <MaterialIcons name="close" size={18} color={tokens.colors.muted} />
           </HapticPressable>

@@ -12,6 +12,7 @@ import { AppText } from "@/shared/ui/components/AppText";
 import { SelectRow } from "@/shared/ui/components/SelectRow";
 import { Button } from "@/shared/ui/components/Button";
 import { Card } from "@/shared/ui/components/Card";
+import { IconButton } from "@/shared/ui/components/IconButton";
 import { useAddTransactionDraftStore } from "@/features/transactions/addDraftStore";
 
 function parseWhen(iso: string) {
@@ -51,73 +52,91 @@ export default function DateTimeModal() {
     setValue(selected);
   };
 
+  // "Now" is a real shortcut, not decoration - it is the fastest way back to
+  // the present after scrolling the spinner, and it is the recovery path when
+  // a stored timestamp cannot be parsed.
   const setNow = () => {
     setHasParseError(false);
     setValue(new Date());
   };
 
   return (
-    <View className="flex-1 bg-app">
+    <View style={{ flex: 1, backgroundColor: tokens.colors.app }}>
       <Sheet
         tone="app"
         className="flex-1"
         title="Date & time"
         leftAction={
-          <HapticPressable
-            onPress={() => router.back()}
-            className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
-            android_ripple={{ color: "#0B122012", borderless: true }}
-          >
-            <Ionicons name="chevron-back" size={20} color={tokens.colors.text} />
-          </HapticPressable>
+          <IconButton icon="chevron-back" accessibilityLabel="Back" onPress={() => router.back()} />
         }
         rightAction={
           <HapticPressable
             onPress={setNow}
             haptic="selection"
-            pressScale={0.98}
-            className="h-12 min-w-12 px-3 items-center justify-center rounded-full bg-surface border border-stroke"
-            android_ripple={{ color: "#0B122012", borderless: true }}
+            pressScale={0.97}
+            accessibilityRole="button"
+            accessibilityLabel="Set to now"
+            android_ripple={{ color: tokens.colors.ripple, borderless: true }}
+            style={{
+              minHeight: tokens.layout.minTap,
+              paddingHorizontal: tokens.space[3],
+              justifyContent: "center",
+            }}
           >
-            <AppText variant="sm" className="text-accent">
+            <AppText variant="sm" weight="semibold" style={{ color: tokens.colors.accent }}>
               Now
             </AppText>
           </HapticPressable>
         }
-        footer={<Button label="Done" onPress={() => router.back()} size="md" />}
+        footer={<Button label="Done" onPress={() => router.back()} size="lg" />}
       >
         {hasParseError ? (
-          <Card variant="surface" className="mt-2">
-            <AppText variant="base" tone="danger">
-              Stored timestamp was invalid.
-            </AppText>
-            <AppText variant="sm" tone="muted" className="mt-2">
+          <Card variant="surface" padding={16} style={{ marginBottom: tokens.space[4] }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: tokens.space[2] }}>
+              <Ionicons name="alert-circle-outline" size={18} color={tokens.colors.danger} />
+              <AppText variant="base" tone="danger">
+                Stored timestamp was invalid.
+              </AppText>
+            </View>
+            <AppText variant="sm" tone="muted" style={{ marginTop: tokens.space[2] }}>
               Reset to the current time and save again.
             </AppText>
-            <Button label="Use now" variant="ghost" size="md" onPress={setNow} className="mt-4" />
+            <Button
+              label="Use now"
+              variant="secondary"
+              size="md"
+              onPress={setNow}
+              style={{ marginTop: tokens.space[4] }}
+            />
           </Card>
         ) : null}
 
-        <SelectRow label="Date" value={dateLabel} onPress={() => setShowMode("date")} className="mt-2" />
-
-        <SelectRow label="Time" value={timeLabel} onPress={() => setShowMode("time")} className="mt-2" />
-
-        <Card variant="surface" className="mt-4">
-          <AppText variant="xs" tone="muted">
-            Preview
-          </AppText>
-          <AppText variant="lg" className="mt-2">
-            {format(value, "MMM d, yyyy · h:mm a")}
-          </AppText>
-        </Card>
+        <View style={{ gap: tokens.space[2] }}>
+          <SelectRow label="Date" value={dateLabel} onPress={() => setShowMode("date")} />
+          <SelectRow label="Time" value={timeLabel} onPress={() => setShowMode("time")} />
+        </View>
 
         {Platform.OS === "ios" ? (
-          <View className="mt-6 gap-3">
-            <Card variant="surface">
-              <DateTimePicker value={value} mode="date" display="spinner" onChange={onChange} />
+          <View style={{ marginTop: tokens.space[4], gap: tokens.space[3] }}>
+            <Card variant="surface" padding={0} style={{ overflow: "hidden" }}>
+              <DateTimePicker
+                value={value}
+                mode="date"
+                display="spinner"
+                themeVariant="dark"
+                textColor={tokens.colors.text}
+                onChange={onChange}
+              />
             </Card>
-            <Card variant="surface">
-              <DateTimePicker value={value} mode="time" display="spinner" onChange={onChange} />
+            <Card variant="surface" padding={0} style={{ overflow: "hidden" }}>
+              <DateTimePicker
+                value={value}
+                mode="time"
+                display="spinner"
+                themeVariant="dark"
+                textColor={tokens.colors.text}
+                onChange={onChange}
+              />
             </Card>
           </View>
         ) : null}

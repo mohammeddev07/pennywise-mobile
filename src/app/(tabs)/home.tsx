@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { View, ScrollView } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
+import { format, isSameDay, parseISO, subDays } from "date-fns";
 
 import { tokens } from "@/shared/ui/theme/tokens";
 import { Screen } from "@/shared/ui/components/Screen";
@@ -13,12 +13,15 @@ import { Skeleton } from "@/shared/ui/components/Skeleton";
 import { TransactionRow } from "@/shared/ui/components/TransactionRow";
 import { IconButton } from "@/shared/ui/components/IconButton";
 import { SectionHeader } from "@/shared/ui/components/SectionHeader";
-import { SummaryStat } from "@/shared/ui/components/SummaryStat";
-import { CategoryIcon } from "@/shared/ui/components/CategoryIcon";
+import { StatBlock } from "@/shared/ui/components/StatBlock";
+import { MoneyAmount } from "@/shared/ui/components/MoneyAmount";
+import { TrendAreaChart, type AreaPoint } from "@/shared/ui/components/TrendAreaChart";
+import { BreakdownRow } from "@/shared/ui/components/BreakdownRow";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 
 import { useAuthStore } from "@/features/auth/store";
 import { useBooksStore } from "@/features/books/store";
+import { useCategoriesStore } from "@/features/categories/store";
 import { useTransactionsStore } from "@/features/transactions/store";
 import { useBudgetsStore } from "@/features/budgets/store";
 import { useSettingsStore } from "@/features/settings/store";
@@ -32,6 +35,22 @@ function nowMonthKey() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
+function greeting(now = new Date()) {
+  const h = now.getHours();
+  if (h < 12) return "Good morning";
+  if (h < 18) return "Good afternoon";
+  return "Good evening";
+}
+
+function safeDate(iso: string) {
+  try {
+    const d = parseISO(iso);
+    return Number.isNaN(d.getTime()) ? null : d;
+  } catch {
+    return null;
+  }
+}
+
 type BudgetItem = {
   categoryId: string;
   categoryName: string;
@@ -39,28 +58,26 @@ type BudgetItem = {
   budgetMinor: number;
 };
 
+/** A budget's progress, as a compact tile in the horizontal budgets rail. */
 function BudgetPreview({ item, currency }: { item: BudgetItem; currency: string }) {
   const remaining = item.budgetMinor - item.spentMinor;
   const progress = Math.min(1, item.spentMinor / Math.max(1, item.budgetMinor));
   const over = remaining < 0;
+  const barColor = over ? tokens.colors.danger : tokens.colors.accent;
 
   return (
-    <Card style={{ width: 214 }} elevated>
-      <View style={{ flexDirection: "row", alignItems: "center" }}>
-        <CategoryIcon icon="pie-chart-outline" color={over ? tokens.colors.danger : tokens.colors.accent} />
-        <View style={{ flex: 1, marginLeft: 12 }}>
-          <AppText variant="base" weight="bold" numberOfLines={1}>
-            {item.categoryName}
-          </AppText>
-          <AppText variant="sm" tone="muted" numberOfLines={1}>
-            {formatCurrency(item.spentMinor, currency, 0)} spent
-          </AppText>
-        </View>
-      </View>
+    <Card variant="surface" padding={16} style={{ width: 200 }}>
+      <AppText variant="sm" weight="semibold" numberOfLines={1}>
+        {item.categoryName}
+      </AppText>
+      <AppText variant="xs" tone="muted" style={{ marginTop: tokens.space[1] }} numberOfLines={1}>
+        {formatCurrency(item.spentMinor, currency, 0)} SPENT
+      </AppText>
+
       <View
         style={{
-          height: 8,
-          marginTop: 18,
+          height: 6,
+          marginTop: tokens.space[4],
           borderRadius: tokens.radii.pill,
           backgroundColor: tokens.colors.neutralSoft,
           overflow: "hidden",
@@ -69,17 +86,17 @@ function BudgetPreview({ item, currency }: { item: BudgetItem; currency: string 
         <View
           style={{
             width: `${Math.round(progress * 100)}%`,
-            height: 8,
+            height: 6,
             borderRadius: tokens.radii.pill,
-            backgroundColor: over ? tokens.colors.danger : tokens.colors.accent,
+            backgroundColor: barColor,
           }}
         />
       </View>
-      <AppText
-        variant="sm"
-        weight="bold" style={{ marginTop: 14, color: over ? tokens.colors.danger : tokens.colors.accent }}
-      >
-        {over ? `${formatCurrency(Math.abs(remaining), currency, 0)} over` : `${formatCurrency(remaining, currency, 0)} left`}
+
+      <AppText variant="sm" weight="semibold" style={{ marginTop: tokens.space[3], color: barColor }}>
+        {over
+          ? `${formatCurrency(Math.abs(remaining), currency, 0)} over`
+          : `${formatCurrency(remaining, currency, 0)} left`}
       </AppText>
     </Card>
   );
@@ -93,6 +110,7 @@ export default function Home() {
   const books = useBooksStore((s) => s.books);
   const ensureBook = useBooksStore((s) => s.ensureBook);
   const transactions = useTransactionsStore((s) => s.transactions);
+  const categories = useCategoriesStore((s) => s.categories);
   const budgets = useBudgetsStore((s) => s.budgets);
   const primaryCurrency = useSettingsStore((s) => s.primaryCurrency);
   const showError = useUndoToastStore((s) => s.showError);
@@ -137,9 +155,13 @@ export default function Home() {
   }, [booksPersist, budgetsPersist, txPersist]);
 
   const isHydrated = booksHydrated && txHydrated && budgetsHydrated;
-  const selectedBookName = useMemo(() => books.find((b) => b.id === selectedBookId)?.name ?? "Personal", [books, selectedBookId]);
+  const selectedBookName = useMemo(
+    () => books.find((b) => b.id === selectedBookId)?.name ?? "Personal",
+    [books, selectedBookId]
+  );
   const selectedBook = useMemo(() => books.find((b) => b.id === selectedBookId) ?? null, [books, selectedBookId]);
   const currentMonth = useMemo(() => nowMonthKey(), []);
+  const monthShort = useMemo(() => format(new Date(), "MMM"), []);
   const displayName = useMemo(() => {
     const name = user?.email?.split("@")[0]?.trim();
     return name ? name.slice(0, 1).toUpperCase() + name.slice(1) : selectedBookName;
@@ -157,7 +179,30 @@ export default function Home() {
     enabled: Boolean(selectedBookId),
   });
 
-  const bookTransactions = useMemo(() => transactions.filter((t) => t.bookId === selectedBookId), [transactions, selectedBookId]);
+  const bookTransactions = useMemo(
+    () => transactions.filter((t) => t.bookId === selectedBookId),
+    [transactions, selectedBookId]
+  );
+
+  // Last seven days of spending, from the transactions already loaded. Days
+  // with no activity render as an empty column rather than being skipped, so
+  // the shape of the week stays honest.
+  const weekSpend = useMemo<AreaPoint[]>(() => {
+    const days = Array.from({ length: 7 }, (_, i) => subDays(new Date(), 6 - i));
+
+    return days.map((day) => {
+      const total = bookTransactions.reduce((sum, tx) => {
+        if (tx.type !== "EXPENSE") return sum;
+        const when = safeDate(tx.occurredOn || tx.occurredAt);
+        if (!when || !isSameDay(when, day)) return sum;
+        return sum + tx.amountMinor;
+      }, 0);
+
+      return { label: format(day, "EEEEE"), value: total };
+    });
+  }, [bookTransactions]);
+
+  const weekTotal = useMemo(() => weekSpend.reduce((sum, d) => sum + d.value, 0), [weekSpend]);
 
   const budgetItems = useMemo(() => {
     const apiItems =
@@ -169,17 +214,47 @@ export default function Home() {
           budgetMinor: item.budgetMinor ?? 0,
           spentMinor: item.totalMinor,
         })) ?? [];
-    if (apiItems.length > 0) return apiItems.sort((a, b) => b.spentMinor / Math.max(1, b.budgetMinor) - a.spentMinor / Math.max(1, a.budgetMinor));
+    if (apiItems.length > 0)
+      return apiItems.sort(
+        (a, b) => b.spentMinor / Math.max(1, b.budgetMinor) - a.spentMinor / Math.max(1, a.budgetMinor)
+      );
 
     return budgets
       .filter((b) => b.bookId === selectedBookId && b.month === currentMonth)
-      .map((b) => ({ categoryId: b.categoryId, categoryName: b.categoryName, budgetMinor: b.amountMinor, spentMinor: b.spentMinor }))
+      .map((b) => ({
+        categoryId: b.categoryId,
+        categoryName: b.categoryName,
+        budgetMinor: b.amountMinor,
+        spentMinor: b.spentMinor,
+      }))
       .sort((a, b) => b.spentMinor / Math.max(1, b.budgetMinor) - a.spentMinor / Math.max(1, a.budgetMinor));
   }, [budgets, currentMonth, selectedBookId, summaryQuery.data?.byCategory]);
 
-  const recentTransactions = useMemo(() => {
-    return [...bookTransactions].sort((a, b) => (Date.parse(b.occurredAt) || 0) - (Date.parse(a.occurredAt) || 0)).slice(0, 4);
-  }, [bookTransactions]);
+  // Top spending comes from the same verified monthly summary Insights uses,
+  // so the two screens can never disagree.
+  const topSpending = useMemo(() => {
+    const rows =
+      summaryQuery.data?.byCategory
+        .filter((item) => item.type === "EXPENSE" && item.totalMinor > 0)
+        .map((item) => ({
+          id: item.categoryId,
+          name: item.categoryName,
+          minor: item.totalMinor,
+          color: categories.find((c) => c.id === item.categoryId)?.color ?? tokens.colors.accent,
+          icon: categories.find((c) => c.id === item.categoryId)?.icon,
+        }))
+        .sort((a, b) => b.minor - a.minor) ?? [];
+    const total = rows.reduce((sum, r) => sum + r.minor, 0);
+    return { rows: rows.slice(0, 4), total };
+  }, [categories, summaryQuery.data?.byCategory]);
+
+  const recentTransactions = useMemo(
+    () =>
+      [...bookTransactions]
+        .sort((a, b) => (Date.parse(b.occurredAt) || 0) - (Date.parse(a.occurredAt) || 0))
+        .slice(0, 4),
+    [bookTransactions]
+  );
 
   const retryHydration = () => {
     setHydrationError(false);
@@ -195,11 +270,7 @@ export default function Home() {
     if (isRestoringBook) return;
     setIsRestoringBook(true);
     try {
-      await ensureBook({
-        name: "Personal",
-        currencyCode: primaryCurrency,
-        openingBalanceMinor: 0,
-      });
+      await ensureBook({ name: "Personal", currencyCode: primaryCurrency, openingBalanceMinor: 0 });
     } catch (error) {
       showError(error, "Couldn’t restore your cash book.");
     } finally {
@@ -207,175 +278,271 @@ export default function Home() {
     }
   };
 
-  const dashboardCurrency = balanceQuery.data?.currencyCode ?? summaryQuery.data?.currencyCode ?? selectedBook?.currencyCode ?? primaryCurrency;
+  const dashboardCurrency =
+    balanceQuery.data?.currencyCode ??
+    summaryQuery.data?.currencyCode ??
+    selectedBook?.currencyCode ??
+    primaryCurrency;
   const incomeMinor = summaryQuery.data?.incomeTotalMinor;
   const expenseMinor = summaryQuery.data?.expenseTotalMinor;
   const balanceMinor = balanceQuery.data?.balanceMinor;
 
   return (
     <Screen scroll bottom="tab">
+      {/* Greeting */}
       <View style={{ flexDirection: "row", alignItems: "center" }}>
         <View
           style={{
-            width: 64,
-            height: 64,
-            borderRadius: 32,
-            borderWidth: 1,
-            borderColor: tokens.colors.stroke,
-            backgroundColor: tokens.colors.greenSoft,
+            width: 44,
+            height: 44,
+            borderRadius: tokens.radii.pill,
+            backgroundColor: tokens.colors.accent,
             alignItems: "center",
             justifyContent: "center",
           }}
         >
-          <AppText variant="xl" weight="bold" style={{ color: tokens.colors.accent }}>
+          <AppText variant="base" weight="bold" style={{ color: tokens.colors.onAccent }}>
             {displayName.slice(0, 1).toUpperCase()}
           </AppText>
         </View>
-        <View style={{ flex: 1, marginLeft: 16 }}>
-          <AppText variant="lg" tone="muted">
-            Good morning,
+
+        <View style={{ flex: 1, marginLeft: tokens.space[3] }}>
+          <AppText variant="sm" tone="muted">
+            {greeting()}
           </AppText>
-          <AppText variant="2xl">{displayName}</AppText>
+          <AppText variant="lg" numberOfLines={1}>
+            {displayName}
+          </AppText>
         </View>
-        <IconButton icon="settings-outline" onPress={() => router.push("/(tabs)/settings")} />
+
+        <IconButton
+          icon="settings-outline"
+          accessibilityLabel="Settings"
+          onPress={() => router.push("/(tabs)/settings")}
+        />
       </View>
 
       {hydrationError ? (
-        <View style={{ marginTop: 24 }}>
+        <View style={{ marginTop: tokens.space[7] }}>
           <EmptyState
             title="Couldn’t load dashboard"
             message="Retry to reload books, transactions, and budgets."
             actionLabel="Retry"
             onAction={retryHydration}
-            className="px-0"
+            tone="danger"
           />
         </View>
       ) : !isHydrated ? (
-        <View style={{ marginTop: 24, gap: 12 }}>
-          <Skeleton height={236} borderRadius={24} />
-          <Skeleton height={68} borderRadius={24} />
-          <Skeleton height={260} borderRadius={24} />
+        <View style={{ marginTop: tokens.space[7], gap: tokens.space[4] }}>
+          <Skeleton height={96} borderRadius={16} />
+          <Skeleton height={180} borderRadius={20} />
+          <Skeleton height={200} borderRadius={20} />
         </View>
       ) : !selectedBookId ? (
-        <Card style={{ marginTop: 28 }}>
+        <View style={{ marginTop: tokens.space[8] }}>
           <EmptyState
             title="Cash book unavailable"
             message="Your account is signed in, but its cash book could not be restored."
-            actionLabel={isRestoringBook ? "Retrying..." : "Retry setup"}
+            actionLabel={isRestoringBook ? "Retrying…" : "Retry setup"}
             onAction={() => {
               void restoreBook();
             }}
-            className="px-0"
+            tone="danger"
           />
-        </Card>
+        </View>
       ) : (
         <>
-          <Card style={{ marginTop: 28, overflow: "hidden" }}>
+          {/* Balance - the single strongest element on the screen. */}
+          <View style={{ marginTop: tokens.space[7] }}>
             {balanceQuery.isPending ? (
               <Skeleton height={96} borderRadius={16} />
             ) : balanceMinor === undefined ? (
-              <EmptyState
-                title="Couldn’t load balance"
-                message="The balance is hidden until it can be verified with the server."
-                actionLabel="Retry"
-                onAction={() => {
-                  void balanceQuery.refetch();
-                  void summaryQuery.refetch();
-                }}
-                className="px-0"
-              />
+              <Card variant="surface" padding={20}>
+                <EmptyState
+                  title="Couldn’t load balance"
+                  message="The balance stays hidden until it can be verified with the server."
+                  actionLabel="Retry"
+                  tone="danger"
+                  onAction={() => {
+                    void balanceQuery.refetch();
+                    void summaryQuery.refetch();
+                  }}
+                />
+              </Card>
             ) : (
               <>
-                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
-                  <View>
-                    <AppText variant="lg" tone="muted">
-                      Total Balance
-                    </AppText>
-                    <AppText
-                      variant="amount"
-                      style={{ marginTop: 14, color: balanceColor(balanceMinor) }}
-                    >
-                      {formatCurrency(balanceMinor, dashboardCurrency)}
-                    </AppText>
-                  </View>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: tokens.space[2] }}>
+                  <AppText variant="xs" tone="muted">
+                    TOTAL BALANCE
+                  </AppText>
                   <View
                     style={{
-                      minHeight: 44,
+                      paddingHorizontal: tokens.space[2],
+                      paddingVertical: 2,
                       borderRadius: tokens.radii.pill,
-                      borderWidth: 1,
-                      borderColor: tokens.colors.stroke,
-                      paddingHorizontal: 16,
-                      flexDirection: "row",
-                      alignItems: "center",
+                      backgroundColor: tokens.colors.neutralSoft,
                     }}
                   >
-                    <AppText variant="sm" weight="semibold">
+                    <AppText variant="xs" tone="muted">
                       {dashboardCurrency}
                     </AppText>
                   </View>
                 </View>
+                <MoneyAmount
+                  value={formatCurrency(balanceMinor, dashboardCurrency)}
+                  tone="neutral"
+                  size="display"
+                  color={balanceColor(balanceMinor)}
+                  style={{ marginTop: tokens.space[2] }}
+                />
+
                 {incomeMinor === undefined || expenseMinor === undefined ? (
-                  <View style={{ marginTop: 20 }}>
-                    <Skeleton height={68} borderRadius={16} />
+                  <View style={{ marginTop: tokens.space[6] }}>
+                    <Skeleton height={48} borderRadius={16} />
                   </View>
                 ) : (
-                  <View style={{ flexDirection: "row", gap: 12, marginTop: 20 }}>
-                    <SummaryStat label="Income this month" value={formatCurrency(incomeMinor, dashboardCurrency)} tone="income" />
-                    <SummaryStat label="Expense this month" value={formatCurrency(expenseMinor, dashboardCurrency)} tone="expense" />
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      marginTop: tokens.space[6],
+                      gap: tokens.space[4],
+                    }}
+                  >
+                    <StatBlock
+                      label={`Income · ${monthShort}`}
+                      value={formatCurrency(incomeMinor, dashboardCurrency)}
+                      tone="income"
+                    />
+                    <StatBlock
+                      label={`Spent · ${monthShort}`}
+                      value={formatCurrency(expenseMinor, dashboardCurrency)}
+                      tone="expense"
+                    />
                   </View>
                 )}
               </>
             )}
-          </Card>
+          </View>
 
-          <View style={{ marginTop: 28 }}>
+          {/* Weekly spend */}
+          <View style={{ marginTop: tokens.space[7] }}>
             <SectionHeader
-              title="Recent Transactions"
+              title="This week"
               action={
-                <HapticPressable onPress={() => router.push("/(tabs)/transactions")} haptic="selection" style={{ padding: 8 }}>
-                  <AppText variant="base" weight="bold" style={{ color: tokens.colors.accent }}>
+                <AppText variant="sm" tone="muted" style={{ fontVariant: ["tabular-nums"] }}>
+                  {formatCurrency(weekTotal, dashboardCurrency)} spent
+                </AppText>
+              }
+            />
+            <View style={{ marginTop: tokens.space[4] }}>
+              <TrendAreaChart
+                data={weekSpend}
+                height={190}
+                formatValue={(minor) => formatCurrency(minor, dashboardCurrency)}
+                accessibilityLabel="Spending over the last seven days"
+              />
+            </View>
+          </View>
+
+          {/* Top spending */}
+          {topSpending.rows.length > 0 ? (
+            <View style={{ marginTop: tokens.space[7] }}>
+              <SectionHeader
+                title="Top spending"
+                action={
+                  <HapticPressable
+                    onPress={() => router.push("/(tabs)/analytics")}
+                    haptic="selection"
+                    style={{ minHeight: tokens.layout.minTap, justifyContent: "center" }}
+                  >
+                    <AppText variant="sm" weight="semibold" style={{ color: tokens.colors.accent }}>
+                      Insights
+                    </AppText>
+                  </HapticPressable>
+                }
+              />
+              <View style={{ marginTop: tokens.space[1] }}>
+                {topSpending.rows.map((row) => (
+                  <BreakdownRow
+                    key={row.id}
+                    name={row.name}
+                    icon={row.icon}
+                    color={row.color}
+                    amount={formatCurrency(row.minor, dashboardCurrency)}
+                    share={topSpending.total > 0 ? row.minor / topSpending.total : 0}
+                  />
+                ))}
+              </View>
+            </View>
+          ) : null}
+
+          {/* Recent activity */}
+          <View style={{ marginTop: tokens.space[7] }}>
+            <SectionHeader
+              title="Recent"
+              action={
+                <HapticPressable
+                  onPress={() => router.push("/(tabs)/transactions")}
+                  haptic="selection"
+                  style={{ minHeight: tokens.layout.minTap, justifyContent: "center" }}
+                >
+                  <AppText variant="sm" weight="semibold" style={{ color: tokens.colors.accent }}>
                     View all
                   </AppText>
                 </HapticPressable>
               }
             />
+
             {recentTransactions.length === 0 ? (
-              <Card style={{ marginTop: 12 }}>
+              <View style={{ marginTop: tokens.space[6] }}>
                 <EmptyState
+                  iconName="receipt-outline"
                   title="No transactions yet"
-                  message="Add a transaction to start building your timeline."
+                  message="Your transactions will appear here."
                   actionLabel="Add transaction"
                   onAction={() => router.push("/modals/add-transaction")}
-                  className="px-0"
                 />
-              </Card>
+              </View>
             ) : (
-              <Card padding={0} style={{ marginTop: 12, overflow: "hidden" }}>
+              <View style={{ marginTop: tokens.space[1] }}>
                 {recentTransactions.map((tx, index) => (
                   <View key={tx.id}>
                     <TransactionRow item={tx} enableActions={false} embedded />
                     {index !== recentTransactions.length - 1 ? (
-                      <View style={{ height: 1, marginLeft: 84, backgroundColor: tokens.colors.stroke }} />
+                      <View style={{ height: 1, backgroundColor: tokens.colors.divider }} />
                     ) : null}
                   </View>
                 ))}
-              </Card>
+              </View>
             )}
           </View>
 
+          {/* Budgets */}
           {budgetItems.length > 0 ? (
-            <View style={{ marginTop: 28 }}>
+            <View style={{ marginTop: tokens.space[7] }}>
               <SectionHeader
                 title="Budgets"
                 action={
-                  <HapticPressable onPress={() => router.push("/(tabs)/categories")} haptic="selection" style={{ padding: 8 }}>
-                    <AppText variant="base" weight="bold" style={{ color: tokens.colors.accent }}>
+                  <HapticPressable
+                    onPress={() => router.push("/(tabs)/categories")}
+                    haptic="selection"
+                    style={{ minHeight: tokens.layout.minTap, justifyContent: "center" }}
+                  >
+                    <AppText variant="sm" weight="semibold" style={{ color: tokens.colors.accent }}>
                       Manage
                     </AppText>
                   </HapticPressable>
                 }
               />
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingTop: 12, paddingRight: 24 }}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{
+                  gap: tokens.space[3],
+                  paddingTop: tokens.space[4],
+                  paddingRight: tokens.space[5],
+                }}
+              >
                 {budgetItems.slice(0, 6).map((item) => (
                   <BudgetPreview key={item.categoryId} item={item} currency={dashboardCurrency} />
                 ))}

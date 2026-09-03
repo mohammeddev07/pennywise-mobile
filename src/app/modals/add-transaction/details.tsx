@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView, TextInput, View } from "react-native";
+import { KeyboardAvoidingView, Platform, ScrollView, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { format, parseISO } from "date-fns";
+import { format, isSameDay, parseISO, subDays } from "date-fns";
 
 import { tokens } from "@/shared/ui/theme/tokens";
 import { amountColor } from "@/shared/ui/theme/money";
@@ -23,8 +23,11 @@ import { AppText } from "@/shared/ui/components/AppText";
 import { Button } from "@/shared/ui/components/Button";
 import { Card } from "@/shared/ui/components/Card";
 import { FlowHeader } from "@/shared/ui/components/FlowHeader";
+import { FilterChip } from "@/shared/ui/components/FilterChip";
+import { FormField } from "@/shared/ui/components/FormField";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
-import { CategoryIcon } from "@/shared/ui/components/CategoryIcon";
+import { MoneyAmount } from "@/shared/ui/components/MoneyAmount";
+import { useScreenPaddingX } from "@/shared/ui/components/Screen";
 
 const TITLE_MAX = 120;
 const NOTE_MAX = 280;
@@ -38,29 +41,27 @@ function parseAmountToMinor(raw: string, currency: string) {
   return majorToMinor(n, currency);
 }
 
+/** "Today, Aug 31 · 10:12 PM" - one line, no fragments. */
 function whenLabel(iso: string) {
   try {
     const d = parseISO(iso);
     if (Number.isNaN(d.getTime())) return "Now";
-    return format(d, "MMM d, yyyy · h:mm a");
+    const now = new Date();
+    const day = isSameDay(d, now)
+      ? "Today"
+      : isSameDay(d, subDays(now, 1))
+        ? "Yesterday"
+        : format(d, "EEE");
+    return `${day}, ${format(d, "MMM d")} · ${format(d, "h:mm a")}`;
   } catch {
     return "Now";
   }
 }
 
-/** Label above an inline field. Kept local: it is pure layout, not a new pattern. */
-function FieldLabel({ children }: { children: string }) {
-  return (
-    <AppText variant="xs" tone="muted" className="mb-2 uppercase">
-      {children}
-    </AppText>
-  );
-}
-
 /**
  * Step 2 of 2: everything that is not the amount.
  *
- * Title and note are real in-page TextInputs. They used to be pressable rows
+ * Title and note are real in-page text fields. They used to be pressable rows
  * that pushed their own routes, which made typing feel like the app was
  * navigating away. Only genuine step changes navigate now: the full category
  * browser and the native date/time picker.
@@ -69,6 +70,7 @@ export default function AddTransactionDetails() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const paddingX = useScreenPaddingX();
 
   const books = useBooksStore((s) => s.books);
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
@@ -122,17 +124,21 @@ export default function AddTransactionDetails() {
     [categories, bookId, kind]
   );
 
-  // Keep the selected chip visible even if it falls outside the first slice.
+  // A wrapping grid rather than a horizontal rail: nothing is hidden off the
+  // right edge, so the common categories are all visible at a glance. The
+  // selected chip is pulled to the front if it falls outside the first slice,
+  // and "View all" reaches every category regardless.
   const visibleOptions = useMemo(() => {
-    const head = options.slice(0, 12);
+    const head = options.slice(0, 8);
     if (categoryId && !head.some((c) => c.id === categoryId)) {
       const picked = options.find((c) => c.id === categoryId);
-      if (picked) return [picked, ...head];
+      if (picked) return [picked, ...head.slice(0, 7)];
     }
     return head;
   }, [options, categoryId]);
 
-  const canSave = amountMinor > 0 && Number.isSafeInteger(amountMinor) && Boolean(categoryId) && Boolean(selectedBook);
+  const canSave =
+    amountMinor > 0 && Number.isSafeInteger(amountMinor) && Boolean(categoryId) && Boolean(selectedBook);
 
   const onSave = async () => {
     if (isSaving) return;
@@ -184,181 +190,205 @@ export default function AddTransactionDetails() {
   };
 
   return (
-    <View className="flex-1 bg-app" style={{ paddingTop: insets.top + tokens.space[3] }}>
-      <View className="px-6">
-        <FlowHeader title="Details" onBack={() => router.back()} step={2} totalSteps={2} />
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: tokens.colors.app,
+        paddingTop: insets.top + tokens.layout.screenPadTop,
+      }}
+    >
+      <View style={{ paddingHorizontal: paddingX }}>
+        <FlowHeader
+          title="New transaction"
+          subtitle="Details · 2 of 2"
+          onBack={() => router.back()}
+          step={2}
+          totalSteps={2}
+        />
       </View>
 
       <KeyboardAvoidingView
-        className="flex-1"
+        style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         keyboardVerticalOffset={insets.top + 24}
       >
         <ScrollView
-          className="flex-1 px-6"
+          style={{ flex: 1 }}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="interactive"
-          contentContainerStyle={{ paddingTop: tokens.space[6], paddingBottom: tokens.space[8] }}
+          contentContainerStyle={{
+            paddingHorizontal: paddingX,
+            paddingTop: tokens.space[6],
+            paddingBottom: tokens.space[7],
+          }}
         >
           {/* Amount recap. Tapping returns to step 1 rather than editing here,
               so there is exactly one place a number can be typed. */}
-          <HapticPressable onPress={() => router.back()} haptic="selection" pressScale={0.99}>
-            <Card variant="surface" className="flex-row items-center justify-between">
-              <View className="flex-1 pr-3">
-                <AppText variant="xs" tone="muted" className="uppercase">
-                  {kind === "EXPENSE" ? "Expense" : "Income"}
-                </AppText>
-                <AppText
-                  variant="2xl"
-                  className="mt-1"
-                  numberOfLines={1}
-                  style={{ color: amountColor(kind) }}
-                >
-                  {formatCurrency(amountMinor, currency)}
-                </AppText>
-              </View>
-              <View className="h-10 w-10 items-center justify-center rounded-full border border-stroke bg-surfaceAlt">
-                <Ionicons name="pencil" size={16} color={tokens.colors.muted} />
-              </View>
-            </Card>
+          <HapticPressable
+            onPress={() => router.back()}
+            haptic="selection"
+            pressScale={0.995}
+            pressOpacity={1}
+            accessibilityRole="button"
+            accessibilityLabel="Edit amount"
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              borderRadius: tokens.radii.lg,
+              borderWidth: 1,
+              borderColor: `${amountColor(kind)}29`,
+              backgroundColor: `${amountColor(kind)}14`,
+              padding: tokens.space[4],
+            }}
+          >
+            <View style={{ flex: 1, paddingRight: tokens.space[3] }}>
+              <AppText variant="xs" style={{ color: amountColor(kind) }}>
+                {kind === "EXPENSE" ? "EXPENSE" : "INCOME"}
+              </AppText>
+              <MoneyAmount
+                value={formatCurrency(amountMinor, currency)}
+                kind={kind}
+                size="2xl"
+                style={{ marginTop: tokens.space[1] }}
+              />
+            </View>
+            <Ionicons name="pencil" size={18} color={amountColor(kind)} />
           </HapticPressable>
 
-          {/* Title - a plain in-page text field. */}
-          <View className="mt-6">
-            <FieldLabel>Title</FieldLabel>
-            <TextInput
-              value={title}
-              onChangeText={setTitle}
-              placeholder="Coffee, Uber, Rent…"
-              placeholderTextColor={tokens.colors.muted}
-              maxLength={TITLE_MAX}
-              autoCapitalize="sentences"
-              returnKeyType="done"
-              className="h-14 w-full rounded-lg border border-stroke bg-surface px-4"
-              style={[tokens.typography.base, { color: tokens.colors.text }]}
-            />
-          </View>
+          {/* Title */}
+          <FormField
+            label="Title"
+            value={title}
+            onChangeText={setTitle}
+            placeholder="Light bill, Coffee, Rent…"
+            maxLength={TITLE_MAX}
+            autoCapitalize="sentences"
+            returnKeyType="done"
+            containerStyle={{ marginTop: tokens.space[6] }}
+          />
 
-          {/* Category - inline chips, with the full browser one tap away. */}
-          <View className="mt-6">
-            <View className="mb-2 flex-row items-center justify-between">
-              <FieldLabel>Category</FieldLabel>
+          {/* Category */}
+          <View style={{ marginTop: tokens.space[6] }}>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: tokens.space[2],
+              }}
+            >
+              <AppText variant="xs" tone="muted">
+                CATEGORY
+              </AppText>
               <HapticPressable
                 onPress={() => router.push("/modals/add-transaction/category")}
                 haptic="selection"
-                className="pb-2"
+                style={{ minHeight: tokens.layout.minTap, justifyContent: "center" }}
               >
-                <AppText variant="sm" weight="semibold" style={{ color: tokens.semantic.primary }}>
-                  See all
+                <AppText variant="sm" weight="semibold" style={{ color: tokens.colors.accent }}>
+                  View all →
                 </AppText>
               </HapticPressable>
             </View>
 
             {visibleOptions.length === 0 ? (
-              <Card variant="surface">
+              <Card variant="surface" padding={16}>
                 <AppText variant="sm" tone="muted">
                   No {kind === "EXPENSE" ? "expense" : "income"} categories yet.
                 </AppText>
                 <Button
                   label="Create a category"
-                  variant="outline"
+                  variant="secondary"
                   size="md"
-                  className="mt-3"
+                  style={{ marginTop: tokens.space[3] }}
                   onPress={() =>
                     router.push({ pathname: "/modals/category-editor", params: { origin: "add-transaction" } })
                   }
                 />
               </Card>
             ) : (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-                <View className="flex-row" style={{ gap: tokens.space[2] }}>
-                  {visibleOptions.map((c) => {
-                    const active = c.id === categoryId;
-                    return (
-                      <HapticPressable
-                        key={c.id}
-                        onPress={() => setCategory(c.id, c.name)}
-                        haptic="selection"
-                        pressScale={0.98}
-                        className="h-12 flex-row items-center rounded-full border px-4"
-                        style={{
-                          borderColor: active ? tokens.semantic.primary : tokens.colors.stroke,
-                          backgroundColor: active ? tokens.colors.greenSoft : tokens.colors.surface,
-                        }}
-                        android_ripple={{ color: "#0B122012", borderless: true }}
-                      >
-                        <Ionicons name={c.icon as any} size={16} color={c.color} />
-                        <AppText
-                          variant="sm"
-                          weight="semibold"
-                          className="ml-2"
-                          style={{ color: active ? tokens.semantic.primary : tokens.colors.text }}
-                        >
-                          {c.name}
-                        </AppText>
-                      </HapticPressable>
-                    );
-                  })}
-                </View>
-              </ScrollView>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: tokens.space[2] }}>
+                {visibleOptions.map((c) => (
+                  <FilterChip
+                    key={c.id}
+                    label={c.name}
+                    icon={c.icon}
+                    iconColor={c.color}
+                    active={c.id === categoryId}
+                    onPress={() => setCategory(c.id, c.name)}
+                  />
+                ))}
+              </View>
             )}
 
             {attempted && !categoryId ? (
-              <AppText variant="sm" tone="danger" className="mt-2">
+              <AppText variant="sm" tone="danger" style={{ marginTop: tokens.space[2] }}>
                 Choose a category before saving.
               </AppText>
             ) : null}
           </View>
 
           {/* When - a native picker, so this one legitimately is its own step. */}
-          <View className="mt-6">
-            <FieldLabel>When</FieldLabel>
+          <View style={{ marginTop: tokens.space[6] }}>
+            <AppText variant="xs" tone="muted" style={{ marginBottom: tokens.space[2] }}>
+              DATE & TIME
+            </AppText>
             <HapticPressable
               onPress={() => router.push("/modals/add-transaction/datetime")}
               haptic="selection"
-              pressScale={0.99}
-              className="h-14 w-full flex-row items-center rounded-lg border border-stroke bg-surface px-4"
-              android_ripple={{ color: "#0B122012" }}
+              pressScale={0.995}
+              pressOpacity={1}
+              accessibilityRole="button"
+              android_ripple={{ color: tokens.colors.ripple }}
+              style={{
+                height: tokens.layout.controlHeight,
+                flexDirection: "row",
+                alignItems: "center",
+                borderRadius: tokens.radii.md,
+                borderWidth: 1,
+                borderColor: tokens.colors.stroke,
+                backgroundColor: tokens.colors.surface,
+                paddingHorizontal: tokens.space[4],
+              }}
             >
-              <CategoryIcon icon="calendar-outline" color={tokens.semantic.info} size={32} />
-              <AppText variant="base" className="ml-3 flex-1" numberOfLines={1}>
+              <Ionicons name="calendar-outline" size={20} color={tokens.colors.muted} />
+              <AppText variant="base" numberOfLines={1} style={{ flex: 1, marginLeft: tokens.space[3] }}>
                 {whenLabel(occurredAt)}
               </AppText>
               <Ionicons name="chevron-forward" size={18} color={tokens.colors.muted} />
             </HapticPressable>
           </View>
 
-          {/* Note - a plain in-page text field. */}
-          <View className="mt-6">
-            <FieldLabel>Note</FieldLabel>
-            <View className="rounded-lg border border-stroke bg-surface px-4 pb-3 pt-4">
-              <TextInput
-                value={note}
-                onChangeText={(next) => setNote(next.slice(0, NOTE_MAX))}
-                placeholder="Add context for this transaction"
-                placeholderTextColor={tokens.colors.muted}
-                multiline
-                textAlignVertical="top"
-                maxLength={NOTE_MAX}
-                style={[tokens.typography.base, { color: tokens.colors.text, minHeight: 96 }]}
-              />
-              <AppText variant="xs" tone="muted" className="mt-2 self-end">
-                {note.length}/{NOTE_MAX}
-              </AppText>
-            </View>
-          </View>
+          {/* Note */}
+          <FormField
+            label="Note"
+            hint="Optional"
+            value={note}
+            onChangeText={(next) => setNote(next.slice(0, NOTE_MAX))}
+            placeholder="Add a note…"
+            multiline
+            showCount
+            maxLength={NOTE_MAX}
+            containerStyle={{ marginTop: tokens.space[6] }}
+          />
 
           {submitError ? (
-            <AppText variant="sm" tone="danger" className="mt-4">
+            <AppText variant="sm" tone="danger" style={{ marginTop: tokens.space[4] }}>
               {submitError}
             </AppText>
           ) : null}
         </ScrollView>
 
         <View
-          className="border-t border-stroke bg-app px-6 pt-4"
-          style={{ paddingBottom: insets.bottom + tokens.space[4] }}
+          style={{
+            borderTopWidth: 1,
+            borderTopColor: tokens.colors.divider,
+            backgroundColor: tokens.colors.app,
+            paddingHorizontal: paddingX,
+            paddingTop: tokens.space[4],
+            paddingBottom: insets.bottom + tokens.space[4],
+          }}
         >
           <Button
             label={isSaving ? "Saving…" : "Save transaction"}

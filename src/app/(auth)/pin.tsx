@@ -71,7 +71,7 @@ function LegacyPinScreen() {
         <HapticPressable
           onPress={handleBack}
           style={styles.backButton}
-          android_ripple={{ color: "#0B122012", borderless: true }}
+          android_ripple={{ color: tokens.colors.ripple, borderless: true }}
         >
           <Ionicons name="chevron-back" size={20} color={tokens.colors.text} />
         </HapticPressable>
@@ -119,7 +119,7 @@ function LegacyPinScreen() {
             haptic="selection"
             pressScale={0.98}
             style={styles.biometricButton}
-            android_ripple={{ color: "#0B122012" }}
+            android_ripple={{ color: tokens.colors.ripple }}
           >
             <Ionicons name="finger-print" size={30} color={tokens.colors.accent} />
             <AppText variant="base" weight="semibold" style={{ marginLeft: 12, color: tokens.colors.accent }}>

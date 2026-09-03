@@ -29,8 +29,8 @@ export function ActionRow({
   showChevron = !!onPress,
 }: Props) {
   const content = (
-    <View style={{ minHeight: 72, flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 10 }}>
-      <CategoryIcon icon={icon} color={iconColor} size={48} />
+    <View style={{ minHeight: 72, flexDirection: "row", alignItems: "center", paddingHorizontal: tokens.space[4], paddingVertical: tokens.space[3] }}>
+      <CategoryIcon icon={icon} color={iconColor} size={40} rounded="lg" />
       <View style={{ flex: 1, marginLeft: 14 }}>
         <AppText variant="base" weight="semibold" numberOfLines={1}>
           {label}
@@ -48,7 +48,7 @@ export function ActionRow({
       </View>
       {showChevron ? (
         <View style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}>
-          <Ionicons name="chevron-forward" size={22} color={tokens.colors.muted} />
+          <Ionicons name="chevron-forward" size={18} color={tokens.colors.muted} />
         </View>
       ) : null}
     </View>
@@ -57,7 +57,7 @@ export function ActionRow({
   if (!onPress) return content;
 
   return (
-    <HapticPressable onPress={onPress} haptic="selection" pressScale={0.99} android_ripple={{ color: "#0B12200F" }}>
+    <HapticPressable onPress={onPress} haptic="selection" pressScale={0.99} android_ripple={{ color: tokens.colors.ripple }}>
       {content}
     </HapticPressable>
   );

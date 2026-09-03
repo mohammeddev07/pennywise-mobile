@@ -178,7 +178,7 @@ export default function BudgetEditor() {
           <HapticPressable
             onPress={() => router.back()}
             className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
-            android_ripple={{ color: "#0B122012", borderless: true }}
+            android_ripple={{ color: tokens.colors.ripple, borderless: true }}
           >
             <Ionicons name="chevron-back" size={20} color={tokens.colors.text} />
           </HapticPressable>
@@ -215,7 +215,7 @@ export default function BudgetEditor() {
           </View>
         ) : !hydrated ? (
           <View className="mt-2 gap-3">
-            <Skeleton height={80} borderRadius={24} />
+            <Skeleton height={80} borderRadius={20} />
             <Skeleton height={56} borderRadius={16} />
             <Skeleton height={56} borderRadius={16} />
           </View>
@@ -269,7 +269,6 @@ export default function BudgetEditor() {
                 onChangeText={setValue}
                 placeholder={currencyMinorUnitDigits(currency) === 0 ? "0" : "0.00"}
                 keyboardType={currencyMinorUnitDigits(currency) === 0 ? "number-pad" : "decimal-pad"}
-                inputClassName="text-lg"
                 error={
                   value.length > 0 && parsedAmountMinor === null
                     ? `Enter a valid ${currency} amount.`

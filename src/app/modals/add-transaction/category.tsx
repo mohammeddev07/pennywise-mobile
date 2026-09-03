@@ -16,6 +16,7 @@ import { Card } from "@/shared/ui/components/Card";
 import { EmptyState } from "@/shared/ui/components/EmptyState";
 import { Skeleton } from "@/shared/ui/components/Skeleton";
 import { Input } from "@/shared/ui/components/Input";
+import { FilterChip } from "@/shared/ui/components/FilterChip";
 
 type CatMeta = {
   id: string;
@@ -31,46 +32,6 @@ function safeTime(iso?: string) {
   if (!iso) return 0;
   const t = Date.parse(iso);
   return Number.isFinite(t) ? t : 0;
-}
-
-function CatPill({
-  item,
-  active,
-  onPress,
-}: {
-  item: CatMeta;
-  active: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <HapticPressable
-      onPress={onPress}
-      haptic="selection"
-      pressScale={0.99}
-      className="mr-3 h-11 px-4 rounded-full border bg-surface flex-row items-center"
-      style={{
-        borderColor: active ? tokens.colors.accent : tokens.colors.stroke,
-        backgroundColor: active ? `${tokens.colors.accent}14` : tokens.colors.surface,
-      }}
-      android_ripple={{ color: "#0B122012", borderless: true }}
-    >
-      <View
-        className="h-7 w-7 items-center justify-center rounded-full border border-stroke"
-        style={{ backgroundColor: `${item.color}22` }}
-      >
-        <Ionicons name={item.icon as any} size={14} color={item.color} />
-      </View>
-
-      <AppText
-        variant="sm"
-        className="ml-2"
-        weight="semibold"
-        numberOfLines={1}
-      >
-        {item.name}
-      </AppText>
-    </HapticPressable>
-  );
 }
 
 function CatCard({
@@ -277,7 +238,7 @@ export default function AddTransactionCategory() {
           <HapticPressable
             onPress={() => router.back()}
             className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
-            android_ripple={{ color: "#0B122012", borderless: true }}
+            android_ripple={{ color: tokens.colors.ripple, borderless: true }}
           >
             <Ionicons name="chevron-back" size={20} color={tokens.colors.text} />
           </HapticPressable>
@@ -288,7 +249,7 @@ export default function AddTransactionCategory() {
             haptic="selection"
             pressScale={0.98}
             className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
-            android_ripple={{ color: "#0B122012", borderless: true }}
+            android_ripple={{ color: tokens.colors.ripple, borderless: true }}
           >
             <Ionicons name="add" size={20} color={tokens.colors.accent} />
           </HapticPressable>
@@ -316,7 +277,7 @@ export default function AddTransactionCategory() {
               haptic="selection"
               pressScale={0.98}
               className="mt-2 self-end min-h-11 px-4 items-center justify-center rounded-full border border-stroke bg-surface"
-              android_ripple={{ color: "#0B122012", borderless: true }}
+              android_ripple={{ color: tokens.colors.ripple, borderless: true }}
             >
               <AppText variant="sm" tone="muted">
                 Clear
@@ -335,23 +296,25 @@ export default function AddTransactionCategory() {
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                   <View className="flex-row">
                     <View className="mr-3">
-                      <Skeleton height={44} width={120} borderRadius={24} />
+                      <Skeleton height={44} width={120} borderRadius={20} />
                     </View>
                     <View className="mr-3">
-                      <Skeleton height={44} width={150} borderRadius={24} />
+                      <Skeleton height={44} width={150} borderRadius={20} />
                     </View>
                     <View className="mr-3">
-                      <Skeleton height={44} width={110} borderRadius={24} />
+                      <Skeleton height={44} width={110} borderRadius={20} />
                     </View>
                   </View>
                 </ScrollView>
               ) : recent.length > 0 ? (
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-                  <View className="flex-row">
+                  <View className="flex-row" style={{ gap: tokens.space[2] }}>
                     {recent.map((c) => (
-                      <CatPill
+                      <FilterChip
                         key={`recent_${c.id}_${c.name}`}
-                        item={c}
+                        label={c.name}
+                        icon={c.icon}
+                        iconColor={c.color}
                         active={c.id === selected}
                         onPress={() => choose(c.id, c.name)}
                       />
@@ -376,26 +339,26 @@ export default function AddTransactionCategory() {
             <View>
               <View className="flex-row" style={{ gap: GUTTER }}>
                 <View style={{ flex: 1 }}>
-                  <Skeleton height={112} borderRadius={24} />
+                  <Skeleton height={112} borderRadius={20} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Skeleton height={112} borderRadius={24} />
-                </View>
-              </View>
-              <View className="mt-2 flex-row" style={{ gap: GUTTER }}>
-                <View style={{ flex: 1 }}>
-                  <Skeleton height={112} borderRadius={24} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Skeleton height={112} borderRadius={24} />
+                  <Skeleton height={112} borderRadius={20} />
                 </View>
               </View>
               <View className="mt-2 flex-row" style={{ gap: GUTTER }}>
                 <View style={{ flex: 1 }}>
-                  <Skeleton height={112} borderRadius={24} />
+                  <Skeleton height={112} borderRadius={20} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Skeleton height={112} borderRadius={24} />
+                  <Skeleton height={112} borderRadius={20} />
+                </View>
+              </View>
+              <View className="mt-2 flex-row" style={{ gap: GUTTER }}>
+                <View style={{ flex: 1 }}>
+                  <Skeleton height={112} borderRadius={20} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Skeleton height={112} borderRadius={20} />
                 </View>
               </View>
 

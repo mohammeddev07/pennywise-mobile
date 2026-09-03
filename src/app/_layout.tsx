@@ -145,7 +145,7 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
           <DataBootstrap />
-          <StatusBar style="dark" />
+          <StatusBar style="light" />
           <View style={{ flex: 1 }}>
             <Stack
               screenOptions={{

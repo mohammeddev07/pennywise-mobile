@@ -2,10 +2,9 @@ import React, { useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-import { tokens } from "@/shared/ui/theme/tokens";
+import { fonts, tokens } from "@/shared/ui/theme/tokens";
 import { AppText } from "@/shared/ui/components/AppText";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
-
 
 export type Key = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "." | "back";
 type DigitKey = Exclude<Key, "back">;
@@ -31,6 +30,11 @@ const ROWS: DigitKey[][] = [
   [".", "0"],
 ];
 
+/**
+ * Keys sit on a soft surface with no outline: twelve rings was the busiest
+ * element on the amount screen, but a filled key still reads as a target.
+ * Pressing lifts the fill one step rather than adding a border.
+ */
 export function NumericKeypad({
   onPress,
   onDelete,
@@ -63,12 +67,7 @@ export function NumericKeypad({
             />
           ))}
           {rowIndex === ROWS.length - 1 ? (
-            <KeyBtn
-              label="back"
-              disabled={disabled}
-              muted
-              onPress={deleteKey}
-            />
+            <KeyBtn label="back" disabled={disabled} muted onPress={deleteKey} />
           ) : null}
         </View>
       ))}
@@ -89,28 +88,29 @@ function KeyBtn({
 }) {
   const [pressed, setPressed] = useState(false);
   const isBackspace = label === "back";
-  // Circle-in-touch-area keeps every keypad target generous without making the UI feel heavy.
+
   return (
     <HapticPressable
       onPress={onPress}
       disabled={disabled}
       haptic="selection"
-      pressScale={0.96}
+      pressScale={0.94}
       pressOpacity={1}
       onPressIn={() => setPressed(true)}
       onPressOut={() => setPressed(false)}
+      accessibilityRole="button"
+      accessibilityLabel={isBackspace ? "Delete" : label}
       style={styles.keyTouch}
-      android_ripple={{ color: "#0B122012", borderless: true }}
+      android_ripple={{ color: tokens.colors.ripple, borderless: true }}
     >
-      <View style={[styles.keyCircle, pressed && !disabled ? styles.keyCirclePressed : null]}>
+      <View style={[styles.key, pressed && !disabled ? styles.keyPressed : null]}>
         {isBackspace ? (
-          <Ionicons name="backspace-outline" size={22} color={tokens.colors.accent} />
+          <Ionicons name="backspace-outline" size={24} color={tokens.colors.muted} />
         ) : (
           <AppText
-            variant={label === "." ? "lg" : "2xl"}
             style={[
-              label === "." ? tokens.typography.lg : tokens.typography["2xl"],
-              { color: muted ? tokens.colors.muted : tokens.colors.text },
+              styles.keyLabel,
+              { color: muted ? tokens.colors.subtle : tokens.colors.text },
             ]}
           >
             {label}
@@ -124,32 +124,31 @@ function KeyBtn({
 const styles = StyleSheet.create({
   container: {
     width: "100%",
-    alignItems: "center",
-    gap: tokens.space[4],
+    gap: tokens.space[2],
   },
   row: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    gap: tokens.space[6],
+    gap: tokens.space[2],
   },
   keyTouch: {
-    width: 72,
-    height: 72,
-    alignItems: "center",
-    justifyContent: "center",
+    flex: 1,
+    height: 60,
   },
-  keyCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: tokens.radii.pill,
-    borderWidth: 1,
-    borderColor: tokens.colors.stroke,
+  key: {
+    flex: 1,
+    borderRadius: tokens.radii.md,
     backgroundColor: tokens.colors.surface,
     alignItems: "center",
     justifyContent: "center",
   },
-  keyCirclePressed: {
-    backgroundColor: tokens.colors.surfaceAlt,
+  keyPressed: {
+    backgroundColor: tokens.colors.surfacePressed,
+  },
+  keyLabel: {
+    fontSize: 26,
+    lineHeight: 32,
+    fontFamily: fonts.medium,
+    fontVariant: ["tabular-nums"],
   },
 });

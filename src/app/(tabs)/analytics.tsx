@@ -1,33 +1,54 @@
 import { useEffect, useMemo, useState } from "react";
 import { ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
-import { format } from "date-fns";
+import { addMonths, differenceInCalendarDays, endOfMonth, format, isSameMonth, parseISO, startOfMonth } from "date-fns";
 import { useRouter } from "expo-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 
 import { tokens } from "@/shared/ui/theme/tokens";
 import { useCategoriesStore } from "@/features/categories/store";
 import { useBooksStore } from "@/features/books/store";
+import { useTransactionsStore } from "@/features/transactions/store";
 import { useBookCurrency } from "@/features/books/useBookCurrency";
 import { AppText } from "@/shared/ui/components/AppText";
+import { BreakdownRow } from "@/shared/ui/components/BreakdownRow";
 import { Card } from "@/shared/ui/components/Card";
 import { EmptyState } from "@/shared/ui/components/EmptyState";
+import { IconButton } from "@/shared/ui/components/IconButton";
+import { MoneyAmount } from "@/shared/ui/components/MoneyAmount";
+import { ScreenHeader } from "@/shared/ui/components/ScreenHeader";
+import { SectionHeader } from "@/shared/ui/components/SectionHeader";
 import { Skeleton } from "@/shared/ui/components/Skeleton";
+import { StatBlock } from "@/shared/ui/components/StatBlock";
+import { TrendChart, type TrendPoint } from "@/shared/ui/components/TrendChart";
+import { useScreenPaddingX, useTabBarClearance } from "@/shared/ui/components/Screen";
 import { formatCurrency } from "@/shared/utils/formatCurrency";
+import { balanceColor } from "@/shared/ui/theme/money";
 import * as summaryApi from "@/shared/api/summary";
 
-function currentMonthKey() {
-  const d = new Date();
+const TREND_MONTHS = 6;
+
+function monthKey(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function safeDate(iso: string) {
+  try {
+    const d = parseISO(iso);
+    return Number.isNaN(d.getTime()) ? null : d;
+  } catch {
+    return null;
+  }
 }
 
 export default function AnalyticsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const paddingX = useScreenPaddingX();
+  const tabClearance = useTabBarClearance();
 
   const categories = useCategoriesStore((s) => s.categories);
-  const books = useBooksStore((s) => s.books);
+  const transactions = useTransactionsStore((s) => s.transactions);
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
 
   const catsPersist = (useCategoriesStore as any).persist;
@@ -75,8 +96,12 @@ export default function AnalyticsScreen() {
   };
 
   const hydrated = catsHydrated && booksHydrated;
-  const month = useMemo(() => currentMonthKey(), []);
-  const monthLabel = useMemo(() => format(new Date(), "MMMM yyyy"), []);
+
+  const thisMonth = useMemo(() => startOfMonth(new Date()), []);
+  const [selectedMonth, setSelectedMonth] = useState(() => startOfMonth(new Date()));
+  const month = monthKey(selectedMonth);
+  const monthLabel = format(selectedMonth, "MMMM yyyy");
+  const isCurrentMonth = isSameMonth(selectedMonth, thisMonth);
   const bookCurrency = useBookCurrency(selectedBookId);
 
   const summaryQuery = useQuery({
@@ -84,6 +109,32 @@ export default function AnalyticsScreen() {
     queryFn: () => summaryApi.getMonthlySummary(selectedBookId, month),
     enabled: Boolean(selectedBookId),
   });
+
+  // The trend is six real monthly summaries, not an extrapolation of what
+  // happens to be cached locally. React Query dedupes these against the
+  // summary the rest of the app already fetches.
+  const trendMonths = useMemo(
+    () => Array.from({ length: TREND_MONTHS }, (_, i) => addMonths(selectedMonth, -(TREND_MONTHS - 1 - i))),
+    [selectedMonth]
+  );
+
+  const trendQueries = useQueries({
+    queries: trendMonths.map((d) => ({
+      queryKey: ["summary", selectedBookId, monthKey(d)],
+      queryFn: () => summaryApi.getMonthlySummary(selectedBookId, monthKey(d)),
+      enabled: Boolean(selectedBookId),
+    })),
+  });
+
+  const trend = useMemo<TrendPoint[]>(
+    () =>
+      trendMonths.map((d, i) => ({
+        label: format(d, "MMM"),
+        value: trendQueries[i]?.data?.expenseTotalMinor ?? 0,
+        current: i === trendMonths.length - 1,
+      })),
+    [trendMonths, trendQueries]
+  );
 
   const totals = useMemo(() => {
     const summary = summaryQuery.data;
@@ -95,148 +146,243 @@ export default function AnalyticsScreen() {
     };
   }, [summaryQuery.data]);
 
-  const topCategories = useMemo(() => {
+  const breakdown = useMemo(() => {
     const rows =
       summaryQuery.data?.byCategory
-        .filter((item) => item.type === "EXPENSE")
+        .filter((item) => item.type === "EXPENSE" && item.totalMinor > 0)
         .map((item) => {
           const hit = categories.find((c) => c.id === item.categoryId);
           return {
+            id: item.categoryId,
             name: item.categoryName,
             cents: item.totalMinor,
-            icon: (hit?.icon as any) ?? ("pricetag-outline" as any),
-            color: hit?.color ?? tokens.colors.muted,
+            icon: hit?.icon,
+            color: hit?.color ?? tokens.colors.accent,
           };
         })
         .sort((a, b) => b.cents - a.cents) ?? [];
     const total = rows.reduce((sum, row) => sum + row.cents, 0);
-    return { rows, totalExpenseCents: total };
+    return { rows, total };
   }, [categories, summaryQuery.data]);
+
+  // Largest single expense comes from loaded records, so it is only shown when
+  // one is actually present for the month being viewed.
+  const largestExpense = useMemo(() => {
+    const inMonth = transactions.filter((tx) => {
+      if (tx.bookId !== selectedBookId || tx.type !== "EXPENSE") return false;
+      const when = safeDate(tx.occurredOn || tx.occurredAt);
+      return when ? isSameMonth(when, selectedMonth) : false;
+    });
+    if (inMonth.length === 0) return null;
+    return inMonth.reduce((max, tx) => (tx.amountMinor > max.amountMinor ? tx : max), inMonth[0]);
+  }, [selectedBookId, selectedMonth, transactions]);
+
+  const dailyAverage = useMemo(() => {
+    if (!totals) return null;
+    // Month-to-date for the current month, full month for a past one, so the
+    // average is never diluted by days that have not happened yet.
+    const days = isCurrentMonth
+      ? Math.max(1, differenceInCalendarDays(new Date(), selectedMonth) + 1)
+      : Math.max(1, differenceInCalendarDays(endOfMonth(selectedMonth), selectedMonth) + 1);
+    return Math.round(totals.expenseCents / days);
+  }, [isCurrentMonth, selectedMonth, totals]);
+
+  const savingsRate = useMemo(() => {
+    if (!totals || totals.incomeCents <= 0) return null;
+    return Math.round((totals.netCents / totals.incomeCents) * 100);
+  }, [totals]);
 
   const currency = summaryQuery.data?.currencyCode ?? bookCurrency;
   const hasActivity = Boolean(totals && (totals.incomeCents !== 0 || totals.expenseCents !== 0));
 
   return (
-    <View className="flex-1 bg-app" style={{ paddingTop: insets.top + 12 }}>
-      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: (insets.bottom || 0) + 24 }}>
-        <View className="px-6">
-          <AppText variant="3xl">Insights</AppText>
-          <AppText variant="sm" tone="muted" className="mt-1">
-            Verified monthly totals for {monthLabel}.
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: tokens.colors.app,
+        paddingTop: insets.top + tokens.layout.screenPadTop,
+      }}
+    >
+      <ScrollView
+        style={{ flex: 1 }}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingHorizontal: paddingX, paddingBottom: tabClearance }}
+      >
+        <ScreenHeader title="Insights" />
+
+        {/* Month selector */}
+        <View
+          style={{
+            marginTop: tokens.space[4],
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <IconButton
+            icon="chevron-back"
+            size={tokens.layout.minTap}
+            accessibilityLabel="Previous month"
+            onPress={() => setSelectedMonth((m) => addMonths(m, -1))}
+          />
+          <AppText variant="base" weight="semibold">
+            {monthLabel}
           </AppText>
+          <IconButton
+            icon="chevron-forward"
+            size={tokens.layout.minTap}
+            accessibilityLabel="Next month"
+            disabled={isCurrentMonth}
+            onPress={() => setSelectedMonth((m) => (isCurrentMonth ? m : addMonths(m, 1)))}
+          />
         </View>
 
         {hydrationError ? (
-          <View className="px-6 mt-8">
+          <View style={{ marginTop: tokens.space[8] }}>
             <EmptyState
-              title="Couldn’t load analytics"
+              title="Couldn’t load insights"
               message="Retry to refresh transactions and categories."
               actionLabel="Retry"
+              tone="danger"
               onAction={retryHydration}
-              className="px-0"
             />
           </View>
         ) : !hydrated || summaryQuery.isPending ? (
-          <View className="px-6 mt-8 gap-3">
-            <Skeleton height={160} borderRadius={24} />
-            <Skeleton height={220} borderRadius={24} />
+          <View style={{ marginTop: tokens.space[7], gap: tokens.space[4] }}>
+            <Skeleton height={120} borderRadius={16} />
+            <Skeleton height={190} borderRadius={20} />
+            <Skeleton height={200} borderRadius={20} />
           </View>
         ) : summaryQuery.isError || !totals ? (
-          <View className="px-6 mt-10">
+          <View style={{ marginTop: tokens.space[8] }}>
             <EmptyState
               title="Couldn’t load this month’s summary"
               message="Totals stay hidden until they can be verified with the server."
               actionLabel="Retry"
+              tone="danger"
               onAction={() => {
                 void summaryQuery.refetch();
               }}
-              className="px-0"
             />
           </View>
         ) : !hasActivity ? (
-          <View className="px-6 mt-10">
+          <View style={{ marginTop: tokens.space[8] }}>
             <EmptyState
-              title={`No activity in ${monthLabel}`}
-              message="Add an income or expense to see this month’s summary."
+              iconName="stats-chart-outline"
+              title="Not enough activity yet"
+              message="Add a few transactions to start seeing insights."
               actionLabel="Add transaction"
               onAction={() => router.push("/modals/add-transaction")}
-              className="px-0"
             />
           </View>
         ) : (
           <>
-            <View className="px-6 mt-8">
-              <Card variant="surface">
-                <AppText variant="xs" tone="muted" className="uppercase">
-                  Net this month
-                </AppText>
-                <AppText variant="amount" className="mt-2">
-                  {formatCurrency(totals.netCents, currency)}
-                </AppText>
+            {/* Net */}
+            <View style={{ marginTop: tokens.space[7] }}>
+              <AppText variant="xs" tone="muted">
+                NET THIS MONTH
+              </AppText>
+              <MoneyAmount
+                value={formatCurrency(totals.netCents, currency)}
+                tone="neutral"
+                size="amount"
+                color={balanceColor(totals.netCents)}
+                style={{ marginTop: tokens.space[2] }}
+              />
 
-                <View className="mt-3 flex-row items-center">
-                  <View className="flex-row items-center">
-                    <Ionicons name="arrow-down" size={16} color={tokens.colors.accent} />
-                    <AppText variant="sm" className="ml-2" style={{ color: tokens.colors.accent }}>
-                      +{formatCurrency(totals.incomeCents, currency)} income
-                    </AppText>
-                  </View>
+              <View style={{ flexDirection: "row", marginTop: tokens.space[6], gap: tokens.space[4] }}>
+                <StatBlock label="Income" value={formatCurrency(totals.incomeCents, currency)} tone="income" />
+                <StatBlock label="Spent" value={formatCurrency(totals.expenseCents, currency)} tone="expense" />
+              </View>
 
-                  <View className="ml-5 flex-row items-center">
-                    <Ionicons name="arrow-up" size={16} color={tokens.colors.danger} />
-                    <AppText variant="sm" className="ml-2" style={{ color: tokens.colors.danger }}>
-                      -{formatCurrency(totals.expenseCents, currency)} spend
-                    </AppText>
-                  </View>
+              {savingsRate !== null ? (
+                <View
+                  style={{
+                    alignSelf: "flex-start",
+                    marginTop: tokens.space[4],
+                    paddingHorizontal: tokens.space[3],
+                    paddingVertical: 6,
+                    borderRadius: tokens.radii.pill,
+                    backgroundColor: savingsRate >= 0 ? tokens.colors.greenSoft : tokens.colors.redSoft,
+                  }}
+                >
+                  <AppText
+                    variant="xs"
+                    style={{ color: savingsRate >= 0 ? tokens.colors.accent : tokens.colors.danger }}
+                  >
+                    {savingsRate}% SAVINGS RATE
+                  </AppText>
                 </View>
-              </Card>
+              ) : null}
             </View>
 
-            <View className="px-6 mt-8">
-              <AppText variant="lg">Top categories</AppText>
-              <AppText variant="xs" tone="muted" className="mt-1">
-                By spending
-              </AppText>
+            {/* Trend */}
+            <Card variant="surface" padding={16} style={{ marginTop: tokens.space[7] }}>
+              <SectionHeader
+                title="Spending trend"
+                variant="title"
+                action={
+                  <AppText variant="sm" tone="muted">
+                    last {TREND_MONTHS} months
+                  </AppText>
+                }
+              />
+              <View style={{ marginTop: tokens.space[3] }}>
+                <TrendChart
+                  data={trend}
+                  height={180}
+                  formatValue={(minor) => formatCurrency(minor, currency, 0)}
+                  accessibilityLabel={`Spending over the last ${TREND_MONTHS} months`}
+                />
+              </View>
+            </Card>
 
-              <Card variant="surface" className="mt-3 p-0 overflow-hidden">
-                {topCategories.rows.map((c, idx) => {
-                  const pct = topCategories.totalExpenseCents <= 0 ? 0 : c.cents / topCategories.totalExpenseCents;
-                  const barColor = c.color === tokens.colors.muted ? tokens.colors.accent : c.color;
-
-                  return (
-                    <View key={c.name}>
-                      <View className="px-4 py-3 flex-row items-center justify-between">
-                        <View className="flex-row items-center flex-1 pr-3">
-                          <View
-                            className="h-10 w-10 items-center justify-center rounded-lg border border-stroke"
-                            style={{ backgroundColor: `${c.color}22` }}
-                          >
-                            <Ionicons name={c.icon} size={18} color={c.color} />
-                          </View>
-
-                          <View className="ml-3 flex-1">
-                            <AppText variant="base" weight="semibold" numberOfLines={1}>
-                              {c.name}
-                            </AppText>
-                            <View className="mt-2 h-2 w-full rounded-full bg-stroke overflow-hidden">
-                              <View
-                                className="h-2 rounded-full"
-                                style={{ width: `${Math.max(4, Math.round(pct * 100))}%`, backgroundColor: barColor }}
-                              />
-                            </View>
-                          </View>
-                        </View>
-
-                        <AppText variant="base" weight="semibold">
-                          {formatCurrency(c.cents, currency)}
-                        </AppText>
-                      </View>
-
-                      {idx !== topCategories.rows.length - 1 ? <View className="h-px bg-stroke" /> : null}
-                    </View>
-                  );
-                })}
+            {/* Breakdown */}
+            {breakdown.rows.length > 0 ? (
+              <Card variant="surface" padding={16} style={{ marginTop: tokens.space[4] }}>
+                <SectionHeader title="Where it went" variant="title" />
+                <View style={{ marginTop: tokens.space[1] }}>
+                  {breakdown.rows.map((row) => (
+                    <BreakdownRow
+                      key={row.id}
+                      name={row.name}
+                      icon={row.icon}
+                      color={row.color}
+                      amount={formatCurrency(row.cents, currency)}
+                      share={breakdown.total > 0 ? row.cents / breakdown.total : 0}
+                    />
+                  ))}
+                </View>
               </Card>
+            ) : null}
+
+            {/* Bottom stats */}
+            <View style={{ marginTop: tokens.space[4], flexDirection: "row", gap: tokens.space[3] }}>
+              <Card variant="surface" padding={16} style={{ flex: 1 }}>
+                <AppText variant="xl" weight="bold" numberOfLines={1} style={{ fontVariant: ["tabular-nums"] }}>
+                  {formatCurrency(dailyAverage ?? 0, currency)}
+                </AppText>
+                <AppText variant="sm" tone="muted" style={{ marginTop: tokens.space[1] }}>
+                  Daily average
+                </AppText>
+              </Card>
+
+              {largestExpense ? (
+                <Card variant="surface" padding={16} style={{ flex: 1 }}>
+                  <AppText variant="xl" weight="bold" numberOfLines={1} style={{ fontVariant: ["tabular-nums"] }}>
+                    {formatCurrency(largestExpense.amountMinor, currency)}
+                  </AppText>
+                  <AppText variant="sm" tone="muted" style={{ marginTop: tokens.space[1] }}>
+                    Largest expense
+                  </AppText>
+                  <AppText variant="xs" tone="subtle" style={{ marginTop: tokens.space[1] }}>
+                    {format(
+                      safeDate(largestExpense.occurredOn || largestExpense.occurredAt) ?? new Date(),
+                      "MMM d"
+                    ).toUpperCase()}
+                  </AppText>
+                </Card>
+              ) : null}
             </View>
           </>
         )}

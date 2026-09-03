@@ -6,7 +6,7 @@ import { tokens } from "@/shared/ui/theme/tokens";
 
 export function alphaColor(color: string | undefined, alpha = "22") {
   if (typeof color === "string" && /^#[0-9A-Fa-f]{6}$/.test(color)) return `${color}${alpha}`;
-  return tokens.colors.greenSoft;
+  return tokens.colors.neutralSoft;
 }
 
 export function CategoryIcon({
@@ -27,6 +27,8 @@ export function CategoryIcon({
         height: size,
         borderRadius: rounded === "full" ? tokens.radii.pill : tokens.radii.md,
         backgroundColor: alphaColor(color, "24"),
+        borderWidth: 1,
+        borderColor: tokens.colors.stroke,
         alignItems: "center",
         justifyContent: "center",
       }}

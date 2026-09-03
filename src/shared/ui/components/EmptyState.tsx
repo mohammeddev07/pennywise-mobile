@@ -1,37 +1,80 @@
 import React, { type ReactNode } from "react";
 import { View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import clsx from "clsx";
 
 import { AppText } from "@/shared/ui/components/AppText";
 import { Button } from "@/shared/ui/components/Button";
+import { tokens } from "@/shared/ui/theme/tokens";
 
 type Props = {
   title: string;
   message?: string;
+  /** Custom illustration. A muted glyph is used when omitted. */
   icon?: ReactNode;
+  iconName?: keyof typeof Ionicons.glyphMap;
   actionLabel?: string;
   onAction?: () => void;
+  /** Errors get a red glyph; ordinary emptiness stays neutral. */
+  tone?: "neutral" | "danger";
   className?: string;
 };
 
-export function EmptyState({ title, message, icon, actionLabel, onAction, className }: Props) {
-  return (
-    <View className={clsx("w-full items-center justify-center px-6", className)}>
-      {icon ? <View className="mb-4">{icon}</View> : null}
+/**
+ * The shared empty / error state. Loading is `Skeleton`, success is
+ * `SuccessState` - between them every feature has the same four states.
+ */
+export function EmptyState({
+  title,
+  message,
+  icon,
+  iconName,
+  actionLabel,
+  onAction,
+  tone = "neutral",
+  className,
+}: Props) {
+  const glyphColor = tone === "danger" ? tokens.colors.danger : tokens.colors.subtle;
 
-      <AppText variant="lg" className="text-center">
+  return (
+    <View className={clsx("w-full items-center justify-center", className)}>
+      {icon ?? (
+        <View
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: tokens.radii.pill,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: tone === "danger" ? tokens.colors.redSoft : tokens.colors.neutralSoft,
+            marginBottom: tokens.space[4],
+          }}
+        >
+          <Ionicons
+            name={iconName ?? (tone === "danger" ? "alert-circle-outline" : "sparkles-outline")}
+            size={24}
+            color={glyphColor}
+          />
+        </View>
+      )}
+
+      <AppText variant="lg" style={{ textAlign: "center" }}>
         {title}
       </AppText>
 
       {message ? (
-        <AppText variant="base" tone="muted" className="text-center mt-4">
+        <AppText
+          variant="sm"
+          tone="muted"
+          style={{ textAlign: "center", marginTop: tokens.space[2], maxWidth: 320 }}
+        >
           {message}
         </AppText>
       ) : null}
 
       {actionLabel && onAction ? (
-        <View className="mt-6 w-full">
-          <Button label={actionLabel} onPress={onAction} size="md" />
+        <View style={{ marginTop: tokens.space[6], width: "100%", maxWidth: 320 }}>
+          <Button label={actionLabel} onPress={onAction} size="md" variant="secondary" />
         </View>
       ) : null}
     </View>

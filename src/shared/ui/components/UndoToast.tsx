@@ -44,19 +44,20 @@ export function UndoToast() {
           left: 0,
           right: 0,
           bottom: (insets.bottom || 0) + 12,
-          paddingHorizontal: 18,
+          paddingHorizontal: tokens.layout.screenPaddingX,
         },
         wrapStyle,
       ]}
     >
       <View
         style={{
-          borderRadius: 24,
+          borderRadius: tokens.radii.lg,
           overflow: "hidden",
           borderWidth: 1,
           borderColor: tokens.colors.stroke,
-          backgroundColor: tokens.colors.surface,
+          backgroundColor: tokens.colors.surfaceAlt,
           paddingVertical: 12,
+          ...tokens.elevation.toast.ios,
           paddingHorizontal: 14,
           flexDirection: "row",
           alignItems: "center",
@@ -69,9 +70,7 @@ export function UndoToast() {
             borderRadius: 17,
             alignItems: "center",
             justifyContent: "center",
-            backgroundColor: `${tokens.colors.accent}22`,
-            borderWidth: 1,
-            borderColor: tokens.colors.stroke,
+            backgroundColor: tokens.colors.redSoft,
           }}
         >
           <Ionicons name="alert-circle-outline" size={18} color={tokens.colors.danger} />
@@ -90,7 +89,7 @@ export function UndoToast() {
           onPress={hide}
           haptic="selection"
           className="ml-2 h-10 w-10 items-center justify-center rounded-full"
-          android_ripple={{ color: "#0B122012", borderless: true }}
+          android_ripple={{ color: tokens.colors.ripple, borderless: true }}
         >
           <Ionicons name="close" size={18} color={tokens.colors.muted} />
         </HapticPressable>

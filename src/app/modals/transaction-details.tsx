@@ -194,7 +194,7 @@ export default function TransactionDetailsModal() {
           <HapticPressable
             onPress={() => router.back()}
             className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
-            android_ripple={{ color: "#0B122012", borderless: true }}
+            android_ripple={{ color: tokens.colors.ripple, borderless: true }}
           >
             <Ionicons name="chevron-back" size={20} color={tokens.colors.text} />
           </HapticPressable>
@@ -204,7 +204,7 @@ export default function TransactionDetailsModal() {
             <HapticPressable
               onPress={onEdit}
               className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
-              android_ripple={{ color: "#0B122012", borderless: true }}
+              android_ripple={{ color: tokens.colors.ripple, borderless: true }}
             >
               <Ionicons name="create-outline" size={20} color={tokens.colors.accent} />
             </HapticPressable>
@@ -241,8 +241,8 @@ export default function TransactionDetailsModal() {
           </View>
         ) : !hydrated ? (
           <View className="mt-2 gap-3">
-            <Skeleton height={180} borderRadius={24} />
-            <Skeleton height={240} borderRadius={24} />
+            <Skeleton height={180} borderRadius={20} />
+            <Skeleton height={240} borderRadius={20} />
           </View>
         ) : !tx ? (
           <View className="flex-1 justify-center">
@@ -293,7 +293,7 @@ export default function TransactionDetailsModal() {
               <AppText variant="lg">Transaction Details</AppText>
             </View>
 
-            <Card variant="surface" className="mt-3 p-0 overflow-hidden">
+            <Card variant="surface" padding={0} className="mt-3" style={{ overflow: "hidden" }}>
               <DetailRow label="Title" value={tx.title || "—"} icon="create-outline" muted={!tx.title} />
               <View className="h-px bg-stroke" />
               <DetailRow label="Date" value={dateLabel} icon="calendar-outline" />

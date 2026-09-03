@@ -1,3 +1,9 @@
+/**
+ * Mirror of src/shared/ui/theme/tokens.ts.
+ *
+ * NativeWind classes and the `tokens` object are two views of one design
+ * system - when a value changes here it must change there too, and vice versa.
+ */
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: [
@@ -10,46 +16,50 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // Core light app backgrounds
-        app: "#F8FAFC",
-        ink: "#0B1220",
-        surface: "#FFFFFF",
-        card: "#FFFFFF",
-        surfaceAlt: "#F3F7F4",
+        // Elevation ladder
+        app: "#0B0D0F",
+        surface: "#121518",
+        card: "#121518",
+        surfaceAlt: "#181C20",
+        surfacePressed: "#20252A",
+        ink: "#0B0D0F",
+        onAccent: "#0B0D0F",
 
-        // Strokes & text
-        stroke: "#E6EAF0",
-        text: "#0B1220",
-        muted: "#7A8596",
+        // Hairlines
+        stroke: "#FFFFFF12",
+        divider: "#FFFFFF0F",
 
-        // Accent
-        accent: "#00C313",
-        accentPressed: "#00A80F",
-        accentSoft: "#EAFBEA",
+        // Text ladder
+        text: "#F5F7F8",
+        muted: "#98A2AD",
+        subtle: "#66707A",
 
-        // Optional utility
-        danger: "#FF4D57",
-        dangerSoft: "#FFE9EA",
+        // Brand
+        accent: "#00C805",
+        accentPressed: "#00A804",
+        accentSoft: "#00C8051F",
 
-        backgroundLight: "#F8FAFC",
-        textLight: "#0B1220",
-        textMutedLight: "#7A8596",
+        // Money / status
+        income: "#51D99B",
+        incomeSoft: "#51D99B1F",
+        danger: "#FF6B67",
+        dangerSoft: "#FF6B671F",
+        warning: "#F5A524",
+        warningSoft: "#F5A5241F",
+        success: "#51D99B",
 
-        warning: "#F59E0B",
-        warningSoft: "#FFF4DD",
-        success: "#00C313",
-        greenSoft: "#EAFBEA",
-        redSoft: "#FFE9EA",
-        amberSoft: "#FFF4DD",
-        blueSoft: "#EEF5FF",
-        purpleSoft: "#F2EEFF",
-        neutralSoft: "#F2F4F7",
+        greenSoft: "#00C8051F",
+        redSoft: "#FF6B671F",
+        amberSoft: "#F5A5241F",
+        blueSoft: "#5B8CFF1F",
+        purpleSoft: "#8B5CF61F",
+        neutralSoft: "#FFFFFF0D",
       },
       borderRadius: {
         DEFAULT: "8px",
-        lg: "16px",
-        xl: "24px",
-        "2xl": "32px",
+        lg: "16px", // inputs / buttons
+        xl: "20px", // cards
+        "2xl": "28px", // bottom navigation / sheets
         full: "9999px",
       },
     },

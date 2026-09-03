@@ -1,20 +1,21 @@
 import React, { type PropsWithChildren } from "react";
 import { View, type ViewProps } from "react-native";
-import clsx from "clsx";
 import { tokens } from "@/shared/ui/theme/tokens";
 
 type Props = ViewProps &
   PropsWithChildren<{
+    /** `surface` and `card` are the same step; `soft` is one step brighter. */
     variant?: "card" | "surface" | "soft";
-    padding?: 0 | 16 | 24;
-    elevated?: boolean;
+    padding?: 0 | 16 | 20 | 24;
+    /** Drop the hairline when the card is already separated by whitespace. */
+    bordered?: boolean;
     className?: string;
   }>;
 
 export function Card({
   variant = "card",
   padding = 16,
-  elevated = true,
+  bordered = true,
   className,
   children,
   style,
@@ -23,13 +24,18 @@ export function Card({
   return (
     <View
       {...rest}
-      className={clsx(
-        "border border-stroke rounded-xl",
-        variant === "soft" ? "bg-surfaceAlt" : variant === "card" ? "bg-card" : "bg-surface",
-        padding === 0 ? "" : padding === 24 ? "p-6" : "p-4", // 24 / 16
-        className
-      )}
-      style={[elevated ? tokens.elevation.card.ios : null, style]}
+      className={className}
+      style={[
+        {
+          borderRadius: tokens.radii.lg,
+          backgroundColor:
+            variant === "soft" ? tokens.colors.surfaceAlt : tokens.colors.surface,
+          borderWidth: bordered ? 1 : 0,
+          borderColor: tokens.colors.stroke,
+          padding,
+        },
+        style,
+      ]}
     >
       {children}
     </View>

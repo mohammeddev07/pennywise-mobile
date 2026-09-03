@@ -12,20 +12,22 @@ import { TransactionRow } from "@/shared/ui/components/TransactionRow";
 import { useBooksStore } from "@/features/books/store";
 import { useCategoriesStore } from "@/features/categories/store";
 import { useBookCurrency } from "@/features/books/useBookCurrency";
-import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { EmptyState } from "@/shared/ui/components/EmptyState";
 import { AppText } from "@/shared/ui/components/AppText";
-import { Input } from "@/shared/ui/components/Input";
+import { FilterChip } from "@/shared/ui/components/FilterChip";
+import { FormField } from "@/shared/ui/components/FormField";
+import { IconButton } from "@/shared/ui/components/IconButton";
+import { MoneyAmount } from "@/shared/ui/components/MoneyAmount";
+import { ScreenHeader } from "@/shared/ui/components/ScreenHeader";
 import { Skeleton } from "@/shared/ui/components/Skeleton";
-import { Card } from "@/shared/ui/components/Card";
+import { useScreenPaddingX, useTabBarClearance } from "@/shared/ui/components/Screen";
 import { formatCurrency } from "@/shared/utils/formatCurrency";
-import { balanceColor } from "@/shared/ui/theme/money";
-import { SummaryStat } from "@/shared/ui/components/SummaryStat";
+import { amountColor, balanceColor } from "@/shared/ui/theme/money";
 
 type RangeKey = "today" | "week" | "month" | "all";
 
 type Row =
-  | { type: "header"; id: string; title: string }
+  | { type: "header"; id: string; title: string; netMinor: number }
   | { type: "tx"; id: string; tx: Transaction };
 
 function inRange(tx: Transaction, range: RangeKey, month: Date) {
@@ -70,92 +72,33 @@ function transactionDayKey(tx: Transaction) {
   return date ? format(date, "yyyy-MM-dd") : "";
 }
 
-function RangeChip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+/**
+ * Day separator: the label on the left, that day's net on the right.
+ *
+ * Groups are made with a header, spacing and a divider rather than a rounded
+ * container per day - a long history reads as one list instead of a stack of
+ * boxes.
+ */
+function DayHeader({ title, netMinor, currency }: { title: string; netMinor: number; currency: string }) {
   return (
-    <HapticPressable
-      onPress={onPress}
-      haptic="selection"
-      pressScale={0.985}
-      className="rounded-full border px-4 min-h-11 items-center justify-center"
-      android_ripple={{ color: "#0B122012" }}
+    <View
       style={{
-        borderColor: active ? tokens.colors.greenSoft : tokens.colors.stroke,
-        backgroundColor: active ? tokens.colors.greenSoft : tokens.colors.surface,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        paddingTop: tokens.space[6],
+        paddingBottom: tokens.space[2],
       }}
     >
-      <AppText variant="sm" weight="semibold" style={{ color: active ? tokens.colors.accent : tokens.colors.text }}>
-        {label}
+      <AppText variant="xs" tone="muted">
+        {title.toUpperCase()}
       </AppText>
-    </HapticPressable>
-  );
-}
-
-function CategoryChip({
-  label,
-  icon,
-  color,
-  active,
-  onPress,
-}: {
-  label: string;
-  icon?: string;
-  color?: string;
-  active: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <HapticPressable
-      onPress={onPress}
-      haptic="selection"
-      pressScale={0.985}
-      className="mr-2 h-11 px-4 rounded-full border flex-row items-center"
-      android_ripple={{ color: "#0B122012", borderless: true }}
-      style={{
-        borderColor: active ? tokens.colors.accent : tokens.colors.stroke,
-        backgroundColor: active ? `${tokens.colors.accent}14` : tokens.colors.surface,
-      }}
-    >
-      {icon ? (
-        <View
-          className="h-6 w-6 items-center justify-center rounded-full border border-stroke mr-2"
-          style={{ backgroundColor: `${color ?? tokens.colors.muted}22` }}
-        >
-          <Ionicons name={icon as any} size={12} color={color ?? tokens.colors.muted} />
-        </View>
-      ) : null}
-
-      <AppText variant="sm" weight="semibold" style={{ color: active ? tokens.colors.accent : tokens.colors.text }}>
-        {label}
-      </AppText>
-
-      {active ? (
-        <Ionicons name="close" size={14} color={tokens.colors.accent} style={{ marginLeft: 6 }} />
-      ) : null}
-    </HapticPressable>
-  );
-}
-
-function IconButton({ icon, onPress, disabled }: { icon: keyof typeof Ionicons.glyphMap; onPress: () => void; disabled?: boolean }) {
-  return (
-    <HapticPressable
-      onPress={onPress}
-      disabled={disabled}
-      haptic="selection"
-      pressScale={0.98}
-      className="h-11 w-11 items-center justify-center rounded-full border border-stroke bg-surface"
-      android_ripple={{ color: "#0B122012", borderless: true }}
-    >
-      <Ionicons name={icon} size={18} color={disabled ? tokens.colors.muted : tokens.colors.text} />
-    </HapticPressable>
-  );
-}
-
-
-function SectionHeader({ title }: { title: string }) {
-  return (
-    <View className="pt-4 pb-2">
-      <AppText variant="xs" tone="muted" className="uppercase">
-        {title}
+      <AppText
+        variant="xs"
+        style={{ color: amountColor(netMinor < 0 ? "EXPENSE" : "INCOME") }}
+      >
+        {netMinor < 0 ? "−" : "+"}
+        {formatCurrency(Math.abs(netMinor), currency, 0)}
       </AppText>
     </View>
   );
@@ -163,10 +106,11 @@ function SectionHeader({ title }: { title: string }) {
 
 export default function TransactionsScreen() {
   const insets = useSafeAreaInsets();
+  const paddingX = useScreenPaddingX();
+  const tabClearance = useTabBarClearance();
 
   const transactions = useTransactionsStore((s) => s.transactions);
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
-  const books = useBooksStore((s) => s.books);
   const categories = useCategoriesStore((s) => s.categories);
 
   const txPersist = (useTransactionsStore as any).persist;
@@ -226,6 +170,7 @@ export default function TransactionsScreen() {
   const [range, setRange] = useState<RangeKey>("today");
   const [selectedMonth, setSelectedMonth] = useState(() => startOfMonth(new Date()));
   const [query, setQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
 
   useEffect(() => {
@@ -241,7 +186,7 @@ export default function TransactionsScreen() {
   }, [categories, selectedBookId]);
 
   const activeCategory = useMemo(() => {
-    return categoryFilter ? bookCategories.find((c) => c.id === categoryFilter) ?? null : null;
+    return categoryFilter ? (bookCategories.find((c) => c.id === categoryFilter) ?? null) : null;
   }, [bookCategories, categoryFilter]);
 
   const rangeTransactions = useMemo(() => {
@@ -259,12 +204,7 @@ export default function TransactionsScreen() {
     return categoryTransactions.filter((tx) => {
       if (!q) return true;
 
-      const hay = [
-        tx.title ?? "",
-        tx.categoryName ?? "",
-        tx.note ?? "",
-        tx.type ?? "",
-      ]
+      const hay = [tx.title ?? "", tx.categoryName ?? "", tx.note ?? "", tx.type ?? ""]
         .join(" ")
         .toLowerCase();
 
@@ -296,6 +236,15 @@ export default function TransactionsScreen() {
       return db - da;
     });
 
+    // Day nets are computed up front so the header can show them without
+    // scanning forward while rendering.
+    const netByDay = new Map<string, number>();
+    for (const tx of sorted) {
+      const key = transactionDayKey(tx) || "unknown";
+      const delta = tx.type === "INCOME" ? tx.amountMinor : -tx.amountMinor;
+      netByDay.set(key, (netByDay.get(key) ?? 0) + delta);
+    }
+
     const out: Row[] = [];
     let lastKey = "";
 
@@ -305,7 +254,12 @@ export default function TransactionsScreen() {
 
       if (key !== lastKey) {
         lastKey = key;
-        out.push({ type: "header", id: `h_${key}`, title: d ? dayTitle(d) : "Unknown date" });
+        out.push({
+          type: "header",
+          id: `h_${key}`,
+          title: d ? dayTitle(d) : "Unknown date",
+          netMinor: netByDay.get(key) ?? 0,
+        });
       }
 
       out.push({ type: "tx", id: tx.id, tx });
@@ -314,14 +268,14 @@ export default function TransactionsScreen() {
     return out;
   }, [filtered]);
 
-  const rangeLabel =
+  const summaryLabel =
     range === "today"
-      ? "Today · loaded activity"
+      ? "Net today"
       : range === "week"
-        ? "Last 7 days · loaded activity"
+        ? "Net, last 7 days"
         : range === "month"
-          ? `${format(selectedMonth, "MMMM yyyy")} · loaded activity`
-          : "Latest loaded activity";
+          ? `Net, ${format(selectedMonth, "MMMM")}`
+          : "Net, loaded activity";
 
   const emptyTitle = query.trim()
     ? "No matches"
@@ -330,17 +284,17 @@ export default function TransactionsScreen() {
       : activeCategory
         ? `No ${activeCategory.name} activity`
         : range === "today"
-          ? "No loaded activity today"
+          ? "Nothing today"
           : range === "week"
-            ? "No loaded activity in the last 7 days"
+            ? "Nothing in the last 7 days"
             : range === "month"
-              ? `No loaded activity in ${format(selectedMonth, "MMMM")}`
+              ? `Nothing in ${format(selectedMonth, "MMMM")}`
               : "No loaded transactions";
 
   const emptyMessage = query.trim()
     ? "Try a different search or clear the filter."
     : bookTransactions.length === 0
-      ? "Log your first expense or income and it will appear here."
+      ? "Your transactions will appear here."
       : activeCategory
         ? `Try a different category, or clear the "${activeCategory.name}" filter.`
         : range === "today"
@@ -350,149 +304,193 @@ export default function TransactionsScreen() {
             : "Only the latest loaded records are available in this version.";
 
   return (
-    <View className="flex-1 bg-app" style={{ paddingTop: insets.top + 12 }}>
-      <View className="px-6">
-        <View className="flex-row items-start justify-between">
-          <View className="flex-1">
-            <AppText variant="2xl">Transactions</AppText>
-            <AppText variant="sm" tone="muted" className="mt-1">
-              {rangeLabel}
-            </AppText>
-          </View>
-        </View>
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: tokens.colors.app,
+        paddingTop: insets.top + tokens.layout.screenPadTop,
+      }}
+    >
+      <View style={{ paddingHorizontal: paddingX }}>
+        <ScreenHeader
+          title="Activity"
+          right={
+            <IconButton
+              icon={searchOpen ? "close" : "search"}
+              accessibilityLabel={searchOpen ? "Close search" : "Search transactions"}
+              onPress={() => {
+                setSearchOpen((open) => {
+                  if (open) setQuery("");
+                  return !open;
+                });
+              }}
+            />
+          }
+        />
 
-        <Card variant="surface" className="mt-5">
-          <View className="flex-row items-center justify-between">
-            <View>
-              <AppText variant="xs" tone="muted" className="uppercase">
-                Net of loaded items
-              </AppText>
-              <AppText
-                variant="2xl"
-                className="mt-1"
-                style={{ color: balanceColor(totals.netCents) }}
-              >
-                {formatCurrency(totals.netCents, currency)}
-              </AppText>
-            </View>
+        {searchOpen ? (
+          <FormField
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search transactions"
+            autoCorrect={false}
+            autoCapitalize="none"
+            autoFocus
+            pill
+            leftIcon={<Ionicons name="search" size={18} color={tokens.colors.muted} />}
+            containerStyle={{ marginTop: tokens.space[4] }}
+          />
+        ) : null}
 
-            <HapticPressable
-              onPress={() => router.push("/modals/add-transaction")}
-              haptic="impactLight"
-              className="h-12 w-12 items-center justify-center rounded-full bg-accent"
-              android_ripple={{ color: "#FFFFFF22", borderless: true }}
-            >
-              <Ionicons name="add" size={24} color={tokens.colors.white} />
-            </HapticPressable>
-          </View>
-        </Card>
+        {/* Range */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ gap: tokens.space[2], paddingRight: paddingX }}
+          style={{ marginTop: tokens.space[4] }}
+        >
+          <FilterChip label="Today" active={range === "today"} onPress={() => setRange("today")} />
+          <FilterChip label="7 days" active={range === "week"} onPress={() => setRange("week")} />
+          <FilterChip label="Month" active={range === "month"} onPress={() => setRange("month")} />
+          <FilterChip label="Recent" active={range === "all"} onPress={() => setRange("all")} />
+        </ScrollView>
 
-        <View className="mt-3 flex-row" style={{ gap: 8 }}>
-          <SummaryStat compact label="Income" value={formatCurrency(totals.incomeCents, currency)} tone="income" />
-          <SummaryStat compact label="Expense" value={formatCurrency(totals.expenseCents, currency)} tone="expense" />
-          <SummaryStat compact label="Items" value={String(totals.count)} tone="neutral" />
-        </View>
-
-        <View className="mt-4 flex-row items-center" style={{ gap: 8 }}>
-          <RangeChip label="Today" active={range === "today"} onPress={() => setRange("today")} />
-          <RangeChip label="7 Days" active={range === "week"} onPress={() => setRange("week")} />
-          <RangeChip label="Month" active={range === "month"} onPress={() => setRange("month")} />
-          <RangeChip label="Recent" active={range === "all"} onPress={() => setRange("all")} />
-        </View>
-
+        {/* Category */}
         {bookCategories.length > 0 ? (
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            className="mt-3"
             keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{ gap: tokens.space[2], paddingRight: paddingX }}
+            style={{ marginTop: tokens.space[2] }}
           >
-            <View className="flex-row">
-              <CategoryChip
-                label="All categories"
-                active={!categoryFilter}
-                onPress={() => setCategoryFilter(null)}
+            <FilterChip
+              label="All categories"
+              active={!categoryFilter}
+              onPress={() => setCategoryFilter(null)}
+            />
+            {bookCategories.map((c) => (
+              <FilterChip
+                key={c.id}
+                label={c.name}
+                icon={c.icon}
+                iconColor={c.color}
+                active={categoryFilter === c.id}
+                clearable
+                onPress={() => setCategoryFilter((cur) => (cur === c.id ? null : c.id))}
               />
-              {bookCategories.map((c) => (
-                <CategoryChip
-                  key={c.id}
-                  label={c.name}
-                  icon={c.icon}
-                  color={c.color}
-                  active={categoryFilter === c.id}
-                  onPress={() => setCategoryFilter((cur) => (cur === c.id ? null : c.id))}
-                />
-              ))}
-            </View>
+            ))}
           </ScrollView>
         ) : null}
 
+        {/* Month stepper, only while browsing a month */}
         {range === "month" ? (
-          <View className="mt-3 flex-row items-center justify-between rounded-lg border border-stroke bg-surface p-2">
-            <IconButton icon="chevron-back" onPress={() => setSelectedMonth((m) => addMonths(m, -1))} />
-            <View className="items-center">
-              <AppText variant="lg">{format(selectedMonth, "MMMM yyyy")}</AppText>
-              <AppText variant="xs" tone="muted" className="mt-0.5">
-                Tap arrows to review another month
-              </AppText>
-            </View>
-            <IconButton icon="chevron-forward" onPress={() => setSelectedMonth((m) => addMonths(m, 1))} />
+          <View
+            style={{
+              marginTop: tokens.space[3],
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <IconButton
+              icon="chevron-back"
+              size={tokens.layout.minTap}
+              accessibilityLabel="Previous month"
+              onPress={() => setSelectedMonth((m) => addMonths(m, -1))}
+            />
+            <AppText variant="base" weight="semibold">
+              {format(selectedMonth, "MMMM yyyy")}
+            </AppText>
+            <IconButton
+              icon="chevron-forward"
+              size={tokens.layout.minTap}
+              accessibilityLabel="Next month"
+              onPress={() => setSelectedMonth((m) => addMonths(m, 1))}
+            />
           </View>
         ) : null}
 
-        <Input
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Search transactions"
-          autoCorrect={false}
-          autoCapitalize="none"
-          variant="search"
-          leftIcon={<Ionicons name="search" size={22} color={tokens.colors.muted} />}
-          containerClassName="mt-3"
-        />
+        {/* Summary. Quiet by design: the list is the subject of this screen. */}
+        <View style={{ marginTop: tokens.space[6] }}>
+          <AppText variant="xs" tone="muted">
+            {summaryLabel.toUpperCase()}
+          </AppText>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "baseline",
+              gap: tokens.space[2],
+              marginTop: tokens.space[1],
+            }}
+          >
+            <MoneyAmount
+              value={formatCurrency(totals.netCents, currency)}
+              tone="neutral"
+              size="xl"
+              color={balanceColor(totals.netCents)}
+            />
+            <AppText variant="sm" tone="muted">
+              · {totals.count} {totals.count === 1 ? "transaction" : "transactions"}
+            </AppText>
+          </View>
+        </View>
       </View>
 
-      <View className="flex-1 px-6 mt-3">
+      <View style={{ flex: 1, paddingHorizontal: paddingX }}>
         {hydrationError ? (
-          <View className="flex-1 justify-center">
+          <View style={{ flex: 1, justifyContent: "center" }}>
             <EmptyState
               title="Couldn’t load transactions"
               message="Retry to refresh your transaction history."
               actionLabel="Retry"
+              tone="danger"
               onAction={retryHydration}
-              className="px-0"
             />
           </View>
         ) : !isHydrated ? (
-          <View className="gap-3 pt-2">
-            <Skeleton height={120} borderRadius={24} />
-            <Skeleton height={120} borderRadius={24} />
-            <Skeleton height={120} borderRadius={24} />
+          <View style={{ gap: tokens.space[3], paddingTop: tokens.space[6] }}>
+            <Skeleton height={68} borderRadius={16} />
+            <Skeleton height={68} borderRadius={16} />
+            <Skeleton height={68} borderRadius={16} />
           </View>
         ) : rows.length === 0 ? (
-          <View className="flex-1 justify-center">
+          <View style={{ flex: 1, justifyContent: "center" }}>
             <EmptyState
+              iconName="receipt-outline"
               title={emptyTitle}
               message={emptyMessage}
               actionLabel="Add transaction"
               onAction={() => router.push("/modals/add-transaction")}
-              className="px-0"
             />
           </View>
         ) : (
           <FlashList
             data={rows}
             keyExtractor={(r) => r.id}
-            renderItem={({ item }) => {
-              if (item.type === "header") return <SectionHeader title={item.title} />;
-              return <TransactionRow item={item.tx} />;
+            renderItem={({ item, index }) => {
+              if (item.type === "header") {
+                return <DayHeader title={item.title} netMinor={item.netMinor} currency={currency} />;
+              }
+
+              // A divider only between two transactions, never under the last
+              // row of a day - the next day's header already separates them.
+              const next = rows[index + 1];
+              const showDivider = next?.type === "tx";
+
+              return (
+                <View>
+                  <TransactionRow item={item.tx} embedded showDay={false} />
+                  {showDivider ? (
+                    <View style={{ height: 1, backgroundColor: tokens.colors.divider }} />
+                  ) : null}
+                </View>
+              );
             }}
-            ItemSeparatorComponent={() => <View className="h-2" />}
-            contentContainerStyle={{
-              paddingBottom: (insets.bottom || 0) + 24,
-              paddingTop: 4,
-            }}
+            contentContainerStyle={{ paddingBottom: tabClearance }}
             showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
           />
         )}
       </View>

@@ -107,8 +107,8 @@ function render(size, coinR, ground, style) {
             c = mix(GREEN_TOP, GREEN_BOTTOM, x * 0.35 + y * 0.65);
             alpha = 255;
           } else if (ground === "rounded" && inRoundedRect(x, y, 0.08, 0.08, 0.84, 0.84, 0.22)) {
-            // Splash sits on a near-white background, so the mark needs its own
-            // ground: a white coin alone would be invisible there.
+            // Splash sits on the app's dark ground, so the mark carries its own
+            // green tile: a white coin alone would float unanchored there.
             c = mix(GREEN_TOP, GREEN_BOTTOM, x * 0.35 + y * 0.65);
             alpha = 255;
           }
@@ -148,7 +148,7 @@ const targets = [
   { file: "adaptive-icon.png", size: 1024, coinR: 0.26, ground: "none", style: "coin" },
   // Android 13+ themed icon: flat silhouette the launcher re-tints.
   { file: "adaptive-icon-monochrome.png", size: 1024, coinR: 0.26, ground: "none", style: "mono" },
-  // Splash: rendered on the app's near-white background, so it carries its own
+  // Splash: rendered on the app's dark background, so it carries its own
   // rounded green tile rather than relying on the splash backgroundColor.
   { file: "splash-icon.png", size: 1024, coinR: 0.28, ground: "rounded", style: "coin" },
   { file: "favicon.png", size: 48, coinR: 0.42, ground: "gradient", style: "coin" },
