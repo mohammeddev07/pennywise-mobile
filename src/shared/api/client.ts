@@ -2,10 +2,17 @@ import axios from "axios";
 import { router } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 
+import { mockAdapter } from "@/shared/api/mockAdapter";
+
 export const ACCESS_TOKEN_KEY = "access_token";
 export const BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? "http://localhost:8080/api";
+export const USE_MOCK_API = process.env.EXPO_PUBLIC_MOCK_API === "true";
 
-export const apiClient = axios.create({ baseURL: BASE_URL, timeout: 15_000 });
+export const apiClient = axios.create({
+  baseURL: BASE_URL,
+  timeout: 15_000,
+  ...(USE_MOCK_API ? { adapter: mockAdapter } : {}),
+});
 
 let unauthorizedCleanup: Promise<void> | null = null;
 
