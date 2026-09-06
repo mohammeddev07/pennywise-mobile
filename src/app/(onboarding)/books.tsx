@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { Redirect, router } from "expo-router";
 
 import { AppText } from "@/shared/ui/components/AppText";
@@ -12,6 +11,7 @@ import { Button } from "@/shared/ui/components/Button";
 import { tokens } from "@/shared/ui/theme/tokens";
 import { useBooksStore } from "@/features/books/store";
 import { useSettingsStore } from "@/features/settings/store";
+import { Icon } from "@/shared/ui/components/Icon";
 
 export default function BooksRoute() {
   return <Redirect href="/(onboarding)/currency" />;
@@ -136,7 +136,7 @@ function LegacyBooksScreen() {
                       </AppText>
                     </View>
 
-                    <Ionicons
+                    <Icon
                       name={active ? "checkmark-circle" : "chevron-forward"}
                       size={18}
                       color={active ? tokens.colors.accent : tokens.colors.muted}

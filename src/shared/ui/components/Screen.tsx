@@ -8,20 +8,27 @@ import {
   type ViewStyle,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
 
-import { tokens } from "@/shared/ui/theme/tokens";
+import { tokens, type AmbientTone } from "@/shared/ui/theme/tokens";
 
 type Props = PropsWithChildren<{
   scroll?: boolean;
   padded?: boolean;
   /** `tab` clears the floating bottom navigation. */
   bottom?: "tab" | "normal" | number;
+  /**
+   * Ambient wash at the top edge. Never above ~10% alpha, always fading to the
+   * base background - it tints a screen to its mode (expense vs income) so the
+   * mode reads even before the numbers do. `none` is the default.
+   */
+  ambient?: AmbientTone;
   style?: StyleProp<ViewStyle>;
   contentContainerStyle?: ScrollViewProps["contentContainerStyle"];
   showsVerticalScrollIndicator?: boolean;
 }>;
 
-/** Horizontal gutter. 20 everywhere, tightened to 16 on small handsets. */
+/** Horizontal gutter. 24 everywhere, tightened to 20 on small handsets. */
 export function useScreenPaddingX() {
   const { width } = useWindowDimensions();
   return width < 360 ? tokens.layout.screenPaddingXCompact : tokens.layout.screenPaddingX;
@@ -33,16 +40,30 @@ export function useTabBarClearance() {
   return (insets.bottom || 0) + tokens.layout.tabBarHeight + tokens.space[3] + tokens.space[6];
 }
 
+/** The top wash. Sits behind content, never intercepts touches. */
+function Ambient({ tone }: { tone: AmbientTone }) {
+  if (tone === "none") return null;
+
+  return (
+    <LinearGradient
+      pointerEvents="none"
+      colors={tokens.ambient[tone] as unknown as [string, string]}
+      style={{ position: "absolute", top: 0, left: 0, right: 0, height: 320 }}
+    />
+  );
+}
+
 /**
- * The app scaffold: safe-area top padding, the shared gutter, and the right
- * amount of bottom clearance. Every screen starts here so page margins and
- * title positions cannot drift between tabs.
+ * The app scaffold: safe-area top padding, the shared gutter, the ambient
+ * wash, and the right amount of bottom clearance. Every screen starts here so
+ * page margins and title positions cannot drift between tabs.
  */
 export function Screen({
   children,
   scroll,
   padded = true,
   bottom = "normal",
+  ambient = "none",
   style,
   contentContainerStyle,
   showsVerticalScrollIndicator = false,
@@ -68,6 +89,7 @@ export function Screen({
   if (scroll) {
     return (
       <View style={[base, style]}>
+        <Ambient tone={ambient} />
         <ScrollView
           showsVerticalScrollIndicator={showsVerticalScrollIndicator}
           contentContainerStyle={[
@@ -82,8 +104,11 @@ export function Screen({
   }
 
   return (
-    <View style={[base, { paddingHorizontal: horizontal, paddingBottom: bottomPad }, style]}>
-      {children}
+    <View style={[base, style]}>
+      <Ambient tone={ambient} />
+      <View style={{ flex: 1, paddingHorizontal: horizontal, paddingBottom: bottomPad }}>
+        {children}
+      </View>
     </View>
   );
 }

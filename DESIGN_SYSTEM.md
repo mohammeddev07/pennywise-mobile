@@ -17,14 +17,21 @@ screen picked one. These rules end that.
 1. **Never re-declare tokens locally.** A screen must not define
    `const COLORS = {...}`, `const SPACING = {...}` or `const RADIUS = {...}`.
    Import `tokens` and read `tokens.colors.x` / `tokens.space[4]` directly.
-2. **Never hardcode a font family string.** `fontFamily: "Inter_600SemiBold"` is
-   banned. Use `<AppText weight="semibold">`, or `fonts.semibold` for a raw
-   `Text`/`TextInput`. On Android a named family makes `fontWeight` a no-op, so
-   weight _must_ travel through the family — this is a correctness rule, not a
-   preference.
+2. **Never hardcode a font family string.** `fontFamily: "Sora_700Bold"` is
+   banned. Use `<AppText weight="semibold">`, or `fonts.semibold` / `numerals.bold`
+   for a raw `Text`/`TextInput`. On Android a named family makes `fontWeight` a
+   no-op, so weight _must_ travel through the family — this is a correctness
+   rule, not a preference.
 3. **Never read a money color directly.** Income/expense color comes from
    `amountColor()` in `src/shared/ui/theme/money.ts`. Never
    `tokens.semantic.expense` at a call site.
+4. **Never import an icon library.** The app has exactly one icon set, behind
+   `src/shared/ui/components/Icon.tsx`. Importing `lucide-react-native` (or
+   anything else) directly at a call site is banned — add the name to `Icon`'s
+   map instead.
+5. **Never render an amount in the UI face.** Money goes through `MoneyAmount`
+   or `HeroAmount`; a currency figure typed straight into an `<AppText>` will
+   come out in Schibsted Grotesk and break the type rule below.
 
 Styling idiom: **NativeWind classes for static styling** (they map to
 `tailwind.config.js`, which mirrors the tokens), **`tokens.*` in a `style` prop
@@ -117,27 +124,55 @@ neutral when positive, because green on every positive balance is noise.
 
 ## 3. Typography
 
-Inter, loaded in `src/app/_layout.tsx`. Weight is always carried by the family.
+**Two faces, split by content type. This is the rule the system hangs on:**
 
-| Variant   | Size / line | Weight             | Use                                |
-| --------- | ----------- | ------------------ | ---------------------------------- |
-| `xs`      | 12 / 16     | semibold, +tracking | Overlines, metadata, field labels  |
-| `sm`      | 14 / 20     | regular             | Secondary text, chips, helper text |
-| `base`    | 16 / 22     | regular             | Body; `weight="semibold"` for rows |
-| `lg`      | 18 / 24     | semibold            | Card and section titles            |
-| `xl`      | 20 / 28     | semibold            | Section headings                   |
-| `2xl`     | 28 / 34     | bold                | Page titles, amount recap          |
-| `3xl`     | 30 / 38     | bold                | Largest page title                 |
-| `amount`  | 40 / 46     | bold, tabular       | Money display                      |
-| `display` | 58 / 64     | bold, tabular       | Hero amount: balance, add step 1   |
+> If the content is a currency amount it is **Sora**.
+> If it is a word it is **Schibsted Grotesk**.
+
+Never mix the two inside one text node. The single exception is the hero
+amount's `$` prefix, which `HeroAmount` renders as its own node — still Sora,
+at roughly half the digit size, in the tertiary color.
+
+Both families load in `src/app/_layout.tsx`. Weight is always carried by the
+family name (`fonts.*` for words, `numerals.*` for numbers).
+
+### Words — Schibsted Grotesk
+
+| Variant | Size / line | Weight              | Use                                |
+| ------- | ----------- | ------------------- | ---------------------------------- |
+| `xs`    | 11 / 15     | semibold, +2 track  | Overlines, metadata, field labels  |
+| `sm`    | 13 / 19     | regular             | Secondary text, chips, helper text |
+| `base`  | 15 / 21     | regular             | Body; `weight="semibold"` for rows |
+| `lg`    | 17 / 23     | bold                | Card and section titles            |
+| `xl`    | 20 / 27     | bold                | Section headings                   |
+| `2xl`   | 26 / 32     | bold                | Screen titles                      |
+| `3xl`   | 30 / 38     | bold                | Largest page title                 |
 
 `xs` is written in caps at the call site (`SectionHeader` does this for you) —
 it is the overline, not small body text. There is no smaller variant: tiny
 low-contrast grey text is banned.
 
-`amount` and `display` set `fontVariant: ["tabular-nums"]` so digits do not
-reflow while the keypad edits the value, and carry negative tracking so large
-numbers stay optical rather than airy.
+### Numbers — Sora
+
+Reached through `MoneyAmount size=…` rather than a text variant, because every
+money figure must also pick up its sign and semantic color:
+
+| `size`    | Size / line | Use                                        |
+| --------- | ----------- | ------------------------------------------ |
+| `sm`      | 13 / 19     | Day subtotals, chart tooltips              |
+| `base`    | 15 / 21     | List rows, breakdown amounts               |
+| `lg`      | 17 / 23     | Compact stats (Home income/spent)          |
+| `xl`      | 20 / 27     | Insights stat tiles                        |
+| `2xl`     | 26 / 32     | Amount recap on add step 2                 |
+| `amount`  | 44 / 50     | Net figures, the success receipt           |
+| `display` | 62 / 64     | Hero balance (`HeroAmount`)                |
+
+The keypad hero is display-L (72) and steps down past six digits —
+`amountFontSize()` in `tokens.ts` owns that rule.
+
+Every money size sets `fontVariant: ["tabular-nums"]` so digits do not reflow
+while a value counts up or the keypad edits it, and carries negative tracking so
+large numbers stay optical rather than airy.
 
 Weight override: `<AppText variant="base" weight="semibold">`. Available
 weights: `light` `regular` `medium` `semibold` `bold` `extrabold`.
@@ -151,11 +186,12 @@ Anything else is a bug.
 
 | Context                    | Value                  |
 | -------------------------- | ---------------------- |
-| Screen horizontal padding  | 20 (16 under 360dp)    |
-| Card padding               | 16 (20 for hero cards) |
+| Screen horizontal padding  | 24 (20 under 360dp)    |
+| Card padding               | 20                     |
 | Dense row vertical padding | 12                     |
 | Gap between form fields    | 24                     |
-| Section gap                | 32                     |
+| Section gap                | 28–32                  |
+| List row height            | 72                     |
 | Chip / horizontal list gap | 8                      |
 | Bottom tab clearance       | `useTabBarClearance()` |
 
@@ -166,25 +202,42 @@ everywhere at once.
 
 ## 5. Radius
 
-Allowed values only: **`8, 16, 20, 28, 9999`** — `tokens.radii`.
+Allowed values only: **`14, 18, 22, 28, 32, 9999`** — `tokens.radii`.
+**Nothing in the app corners tighter than 14.**
 
 | Element                              | Radius                 |
 | ------------------------------------ | ---------------------- |
-| Inputs, buttons, keypad keys         | 16 (`md`)              |
-| Cards, list containers               | 20 (`lg`)              |
-| Bottom navigation, sheets            | 28 (`xl`)              |
-| Pills, chips, icon buttons, segments | 9999 (`pill`)          |
+| Small chips, tiny tiles              | 14 (`sm`)              |
+| Keypad keys                          | 18 (`key`)             |
+| Inputs, fields                       | 22 (`md`)              |
+| Cards, list containers               | 28 (`lg`)              |
+| Sheets                               | 32 (`xl`)              |
+| Pills, buttons, chips, the dock      | 9999 (`pill`)          |
 
 Visually equivalent components must share a radius. If two things look like the
 same kind of object, they are the same radius.
 
-## 6. Elevation
+## 6. Depth — layers and glow, never shadows
 
-`tokens.elevation.{card,sheet,toast,tabBar}`. On a dark ground a shadow is
-nearly invisible, so `card` paints nothing — cards are separated by surface
-color, a hairline, and whitespace. Shadows survive only on floating chrome
-(bottom navigation, toast, sheet) where content scrolls underneath. Never add a
-shadow inline, and not every section needs a card.
+**There are zero black drop shadows in the app.** `tokens.elevation.*` paints
+nothing and is kept only so existing call sites stay valid.
+
+Depth comes from three things:
+
+1. **The four-layer surface stack** — `app` → `surface` → `surfaceAlt` →
+   `surfacePressed`. Nothing may invent a background between two steps.
+2. **A 1px top-edge highlight** (`colors.edgeHighlight`) on a raised surface —
+   a card's top border, a keypad key's lit edge. Never a full outline.
+3. **Glow, reserved for the accent** — `tokens.glow.{accent,accentSoft,success,danger}`,
+   with a zero offset so the light reads as a bloom.
+
+Glow is allowed on exactly four things: the add button, a live primary CTA,
+the success check, and the highlighted chart bar. An ordinary card, row, chip
+or secondary button never blooms, and a disabled button never blooms.
+
+The bottom navigation is the one place that blurs what scrolls beneath it.
+
+Not every section needs a card.
 
 ## 7. Touch targets
 
@@ -196,9 +249,62 @@ never fade into the background.
 
 ## 7b. Motion
 
-`tokens.motion`: `fast` 150ms, `base` 200ms, `slow` 250ms. Animation
-communicates an interaction; it does not decorate. No looping, pulsing, or
-bouncing, and no permanent glow.
+`tokens.motion` carries the durations, `tokens.spring` the spring presets
+(`snappy` 380/22 · `gentle` 260/28 · `bouncy` 260/12, plus per-control tunings).
+
+Animation communicates an interaction; it does not decorate. **Cause precedes
+effect** — the pressed control moves first, the screen answers. Nothing exceeds
+400ms except the success moment (~650ms, choreographed in beats). No looping,
+pulsing, or bouncing.
+
+Counting figures use `useCountUp`, which animates **only on a data change** —
+900ms on mount, 600ms when a save moves the number. Returning to a tab never
+re-counts.
+
+## 7c. Haptics
+
+**Haptics confirm writes, never reads.** `HapticPressable` defaults to `none`,
+so a control that commits something must opt in. The full policy lives in
+`tokens.haptics`:
+
+| Fires                                | Feedback              |
+| ------------------------------------ | --------------------- |
+| Keypad key / backspace               | `impactLight`         |
+| Expense ↔ Income toggle              | `impactMedium`        |
+| Category chip select                 | `selection`           |
+| Save success                         | `notificationSuccess` |
+| Destructive confirm                  | `notificationWarning` |
+| Invalid action (Continue at $0)      | `notificationError`   |
+
+**Explicitly silent:** tab navigation, scrolling, opening and closing screens,
+filter and time chips, chevron rows, back and close buttons, chart taps, text
+field focus, and the success screen's own buttons (the save already fired).
+
+## 7d. Icons
+
+One family: **Lucide**, stroke 2.2, round caps and joins, behind
+`shared/ui/components/Icon.tsx`. Sizes come from `tokens.icon`: 22 in the tab
+bar and headers, 19 in list rows, 16 in chips and inline.
+
+`Icon` speaks the Ionicons name vocabulary the app already stores — a category
+row persists `icon: "fast-food-outline"` and the API returns it that way — so
+the map translates rather than forcing a data migration. Unknown names fall
+back to the tag glyph.
+
+A category icon never floats bare: it sits in a 30–44px circle tinted with its
+own color at ~13% alpha, glyph stroked in the full value (`CategoryIcon`).
+
+## 7e. Emoji
+
+Emoji appear in **exactly four places** and nowhere else:
+
+1. The Home greeting prefix (🌅 morning · ☀️ afternoon · 🌙 evening).
+2. The success sub-line sparkle (✨).
+3. Empty states (🌵 nothing here yet · 🌱 not enough data yet).
+4. The note field placeholder.
+
+**Never** in category chips (icons own identity), buttons, the tab bar,
+amounts, settings rows or date headers.
 
 ---
 
@@ -321,8 +427,16 @@ these sources at build time. To change the mark, edit the shape functions in
 ## 12. Review checklist
 
 - [ ] No local `COLORS` / `SPACING` / `RADIUS` map
-- [ ] No `"Inter_*"` string outside `tokens.ts` and `_layout.tsx`
-- [ ] Money color via `amountColor` / `balanceColor`, rendered by `MoneyAmount`
+- [ ] No `"Sora_*"` / `"SchibstedGrotesk_*"` string outside `tokens.ts` and `_layout.tsx`
+- [ ] Every currency figure rendered by `MoneyAmount` / `HeroAmount` — so it is
+      Sora, tabular and signed. No amount typed into a bare `AppText`
+- [ ] Money color via `amountColor` / `balanceColor`
+- [ ] No direct `lucide-react-native` import outside `Icon.tsx`
+- [ ] Icon sizes from `tokens.icon`; one stroke weight
+- [ ] No black drop shadow anywhere; glow only on the add button, a live
+      primary CTA, the success check and the highlighted chart bar
+- [ ] Haptic fires only on a write; reads are silent
+- [ ] Emoji only in the four sanctioned places
 - [ ] Gutter from `useScreenPaddingX()`, tab clearance from `useTabBarClearance()`
 - [ ] No screen-local chip, field, row, stat or tab bar — use the shared one
 - [ ] Radius on the allowed scale, and equal for visually equivalent components

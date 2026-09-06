@@ -1,13 +1,13 @@
 import { useCallback } from "react";
 import { BackHandler, View } from "react-native";
 import { router, useFocusEffect } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
 
 import { Button } from "@/shared/ui/components/Button";
 import { AppText } from "@/shared/ui/components/AppText";
 import { Card } from "@/shared/ui/components/Card";
 import { CharacterWidget } from "@/shared/ui/components/CharacterWidget";
 import { tokens } from "@/shared/ui/theme/tokens";
+import { Icon } from "@/shared/ui/components/Icon";
 
 export default function WelcomeScreen() {
   useFocusEffect(
@@ -48,7 +48,7 @@ export default function WelcomeScreen() {
             ["bar-chart-outline", "Review monthly summaries"],
           ].map(([icon, label]) => (
             <View key={label} className="flex-row items-center rounded-lg border border-stroke bg-card px-4 py-3">
-              <Ionicons name={icon as any} size={18} color={tokens.colors.accent} />
+              <Icon name={icon as any} size={18} color={tokens.colors.accent} />
               <AppText variant="sm" className="ml-3">
                 {label}
               </AppText>

@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { ScrollView, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { FlashList } from "@shopify/flash-list";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
+import Animated, { FadeInDown } from "react-native-reanimated";
 import { addMonths, format, isSameDay, parseISO, startOfMonth, subDays } from "date-fns";
 
 import { tokens } from "@/shared/ui/theme/tokens";
@@ -22,7 +22,8 @@ import { ScreenHeader } from "@/shared/ui/components/ScreenHeader";
 import { Skeleton } from "@/shared/ui/components/Skeleton";
 import { useScreenPaddingX, useTabBarClearance } from "@/shared/ui/components/Screen";
 import { formatCurrency } from "@/shared/utils/formatCurrency";
-import { amountColor, balanceColor } from "@/shared/ui/theme/money";
+import { balanceColor } from "@/shared/ui/theme/money";
+import { Icon } from "@/shared/ui/components/Icon";
 
 type RangeKey = "today" | "week" | "month" | "all";
 
@@ -85,7 +86,7 @@ function DayHeader({ title, netMinor, currency }: { title: string; netMinor: num
       style={{
         flexDirection: "row",
         alignItems: "center",
-        justifyContent: "space-between",
+        gap: tokens.space[3],
         paddingTop: tokens.space[6],
         paddingBottom: tokens.space[2],
       }}
@@ -93,13 +94,17 @@ function DayHeader({ title, netMinor, currency }: { title: string; netMinor: num
       <AppText variant="xs" tone="muted">
         {title.toUpperCase()}
       </AppText>
-      <AppText
-        variant="xs"
-        style={{ color: amountColor(netMinor < 0 ? "EXPENSE" : "INCOME") }}
-      >
-        {netMinor < 0 ? "−" : "+"}
-        {formatCurrency(Math.abs(netMinor), currency, 0)}
-      </AppText>
+
+      {/* The rule carries the day's subtotal out to the right edge, so a group
+          reads as one band without needing a container around it. */}
+      <View style={{ flex: 1, height: 1, backgroundColor: tokens.colors.divider }} />
+
+      <MoneyAmount
+        value={formatCurrency(Math.abs(netMinor), currency, 0)}
+        kind={netMinor < 0 ? "EXPENSE" : "INCOME"}
+        size="sm"
+        weight="semibold"
+      />
     </View>
   );
 }
@@ -337,7 +342,7 @@ export default function TransactionsScreen() {
             autoCapitalize="none"
             autoFocus
             pill
-            leftIcon={<Ionicons name="search" size={18} color={tokens.colors.muted} />}
+            leftIcon={<Icon name="search" size={tokens.icon.row} color={tokens.colors.muted} />}
             containerStyle={{ marginTop: tokens.space[4] }}
           />
         ) : null}
@@ -451,13 +456,14 @@ export default function TransactionsScreen() {
           </View>
         ) : !isHydrated ? (
           <View style={{ gap: tokens.space[3], paddingTop: tokens.space[6] }}>
-            <Skeleton height={68} borderRadius={16} />
-            <Skeleton height={68} borderRadius={16} />
-            <Skeleton height={68} borderRadius={16} />
+            <Skeleton height={tokens.layout.listRowHeight} borderRadius={tokens.radii.md} />
+            <Skeleton height={tokens.layout.listRowHeight} borderRadius={tokens.radii.md} />
+            <Skeleton height={tokens.layout.listRowHeight} borderRadius={tokens.radii.md} />
           </View>
         ) : rows.length === 0 ? (
           <View style={{ flex: 1, justifyContent: "center" }}>
             <EmptyState
+              emoji={bookTransactions.length === 0 ? "\u{1F335}" : undefined}
               iconName="receipt-outline"
               title={emptyTitle}
               message={emptyMessage}
@@ -480,12 +486,19 @@ export default function TransactionsScreen() {
               const showDivider = next?.type === "tx";
 
               return (
-                <View>
+                // Rows stagger in a few frames apart so a long history settles
+                // as a list rather than snapping in as a block. The delay is
+                // capped so nothing further down the screen waits on it.
+                <Animated.View
+                  entering={FadeInDown.duration(tokens.motion.base).delay(
+                    Math.min(index, 8) * tokens.motion.listStagger
+                  )}
+                >
                   <TransactionRow item={item.tx} embedded showDay={false} />
                   {showDivider ? (
                     <View style={{ height: 1, backgroundColor: tokens.colors.divider }} />
                   ) : null}
-                </View>
+                </Animated.View>
               );
             }}
             contentContainerStyle={{ paddingBottom: tabClearance }}

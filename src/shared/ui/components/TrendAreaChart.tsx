@@ -132,7 +132,7 @@ export function TrendAreaChart({
               return (
                 <HapticPressable
                   key={`${point.label}-${index}`}
-                  haptic="selection"
+                  haptic="none"
                   pressScale={1}
                   pressOpacity={1}
                   onPress={() => setSelected((cur) => (cur === index ? null : index))}

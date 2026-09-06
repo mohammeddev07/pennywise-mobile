@@ -1,22 +1,28 @@
 import React, { type ReactNode } from "react";
 import { View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import Animated, { useAnimatedStyle, useDerivedValue, withTiming } from "react-native-reanimated";
 
 import { tokens } from "@/shared/ui/theme/tokens";
 import { AppText } from "@/shared/ui/components/AppText";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
+import { Icon, type IconName } from "./Icon";
 
 type Props = {
   title: string;
   /** Sub-label under the title, e.g. "Amount · 1 of 2". */
   subtitle?: string;
   onBack: () => void;
-  backIcon?: keyof typeof Ionicons.glyphMap;
+  backIcon?: IconName;
   /** 1-based position in the flow. Omit for single-screen modals. */
   step?: number;
   totalSteps?: number;
   rightAction?: ReactNode;
+  /**
+   * Color of the progress fill. The add flow passes the money color of the
+   * selected direction so the whole screen - toggle, amount, CTA and progress
+   * - agrees on what is being recorded.
+   */
+  progressColor?: string;
 };
 
 /**
@@ -34,6 +40,7 @@ export function FlowHeader({
   step,
   totalSteps,
   rightAction,
+  progressColor = tokens.colors.accent,
 }: Props) {
   const showProgress = typeof step === "number" && typeof totalSteps === "number" && totalSteps > 1;
   const ratio = showProgress ? (step as number) / (totalSteps as number) : 0;
@@ -49,7 +56,8 @@ export function FlowHeader({
       <View style={{ flexDirection: "row", alignItems: "center" }}>
         <HapticPressable
           onPress={onBack}
-          haptic="selection"
+          // Closing or stepping back is a read - silent.
+          haptic="none"
           pressScale={0.94}
           accessibilityRole="button"
           accessibilityLabel={backIcon === "close" ? "Close" : "Back"}
@@ -65,7 +73,7 @@ export function FlowHeader({
             borderColor: tokens.colors.stroke,
           }}
         >
-          <Ionicons name={backIcon} size={20} color={tokens.colors.text} />
+          <Icon name={backIcon} size={tokens.icon.nav} color={tokens.colors.text} />
         </HapticPressable>
 
         <View style={{ flex: 1, paddingHorizontal: tokens.space[3] }}>
@@ -103,7 +111,7 @@ export function FlowHeader({
         >
           <Animated.View
             style={[
-              { height: 3, borderRadius: tokens.radii.pill, backgroundColor: tokens.colors.accent },
+              { height: 3, borderRadius: tokens.radii.pill, backgroundColor: progressColor },
               fill,
             ]}
           />

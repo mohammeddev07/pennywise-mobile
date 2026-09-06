@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { Keyboard, Platform, ScrollView, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
@@ -32,6 +31,7 @@ import {
   minorToMajor,
 } from "@/shared/utils/formatCurrency";
 import { useUndoToastStore } from "@/shared/ui/state/useUndoToastStore";
+import { Icon } from "@/shared/ui/components/Icon";
 
 function minorToAmount(amountMinor: number, currency: string) {
   const amount = minorToMajor(Math.abs(amountMinor), currency);
@@ -186,7 +186,7 @@ export default function EditTransactionModal() {
             className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
             android_ripple={{ color: tokens.colors.ripple, borderless: true }}
           >
-            <Ionicons name="chevron-back" size={20} color={tokens.colors.text} />
+            <Icon name="chevron-back" size={20} color={tokens.colors.text} />
           </HapticPressable>
         }
         footer={
@@ -251,6 +251,7 @@ export default function EditTransactionModal() {
                   currencySymbol={currencySymbol(currency)}
                   fractionDigits={fractionDigits}
                   helperText={formatCurrency(amountCents, currency)}
+                  helperIsMoney
                   error={
                     attemptedSave && (!Number.isSafeInteger(amountCents) || amountCents <= 0)
                       ? "Enter a valid amount greater than zero."

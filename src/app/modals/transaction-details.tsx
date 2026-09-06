@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { Alert, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
@@ -19,7 +18,10 @@ import { AppText } from "@/shared/ui/components/AppText";
 import { Card } from "@/shared/ui/components/Card";
 import { EmptyState } from "@/shared/ui/components/EmptyState";
 import { Skeleton } from "@/shared/ui/components/Skeleton";
-import { formatSignedCurrency } from "@/shared/utils/formatCurrency";
+import { formatCurrency } from "@/shared/utils/formatCurrency";
+import { CategoryIcon } from "@/shared/ui/components/CategoryIcon";
+import { MoneyAmount } from "@/shared/ui/components/MoneyAmount";
+import { Icon, type IconName } from "@/shared/ui/components/Icon";
 
 function safeDate(iso: string) {
   try {
@@ -39,13 +41,13 @@ function DetailRow({
 }: {
   label: string;
   value: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: IconName;
   muted?: boolean;
 }) {
   return (
     <View className="px-4 py-3 flex-row items-center">
       <View className="h-10 w-10 items-center justify-center rounded-lg border border-stroke bg-card">
-        <Ionicons name={icon} size={18} color={tokens.colors.muted} />
+        <Icon name={icon} size={18} color={tokens.colors.muted} />
       </View>
 
       <View className="ml-3 flex-1">
@@ -196,7 +198,7 @@ export default function TransactionDetailsModal() {
             className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
             android_ripple={{ color: tokens.colors.ripple, borderless: true }}
           >
-            <Ionicons name="chevron-back" size={20} color={tokens.colors.text} />
+            <Icon name="chevron-back" size={20} color={tokens.colors.text} />
           </HapticPressable>
         }
         rightAction={
@@ -206,7 +208,7 @@ export default function TransactionDetailsModal() {
               className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
               android_ripple={{ color: tokens.colors.ripple, borderless: true }}
             >
-              <Ionicons name="create-outline" size={20} color={tokens.colors.accent} />
+              <Icon name="create-outline" size={20} color={tokens.colors.accent} />
             </HapticPressable>
           ) : null
         }
@@ -255,12 +257,7 @@ export default function TransactionDetailsModal() {
         ) : (
           <>
             <Card variant="surface" className="mt-2 items-center overflow-hidden">
-              <View
-                className="h-24 w-24 items-center justify-center rounded-full"
-                style={{ backgroundColor: `${categoryMeta.color}22` }}
-              >
-                <Ionicons name={categoryMeta.icon} size={44} color={categoryMeta.color} />
-              </View>
+              <CategoryIcon icon={categoryMeta.icon} color={categoryMeta.color} size={96} />
 
               <View className="mt-5 rounded-full px-4 py-2" style={{ backgroundColor: amountSoftColor(tx.type) }}>
                 <AppText variant="sm" weight="semibold" style={{ color: amountColor(tx.type) }}>
@@ -276,16 +273,17 @@ export default function TransactionDetailsModal() {
                 {categoryMeta.name}
               </AppText>
 
-              <AppText
-                variant="amount"
-                className="mt-4"
-                style={{ color: amountColor(tx.type) }}
-              >
-                {formatSignedCurrency(tx.type === "INCOME" ? tx.amountMinor : -tx.amountMinor, currency)}
-              </AppText>
+              {/* Through MoneyAmount like every other figure, so the sign and
+                  the money color come from one place. */}
+              <MoneyAmount
+                value={formatCurrency(tx.amountMinor, currency)}
+                kind={tx.type}
+                size="amount"
+                style={{ marginTop: tokens.space[4] }}
+              />
 
               <AppText variant="base" tone="muted" className="mt-2">
-                {dateLabel} • {timeLabel}
+                {dateLabel} · {timeLabel}
               </AppText>
             </Card>
 

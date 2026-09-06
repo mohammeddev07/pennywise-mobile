@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { View, ScrollView } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import { format, isSameDay, parseISO, subDays } from "date-fns";
@@ -14,7 +15,7 @@ import { TransactionRow } from "@/shared/ui/components/TransactionRow";
 import { IconButton } from "@/shared/ui/components/IconButton";
 import { SectionHeader } from "@/shared/ui/components/SectionHeader";
 import { StatBlock } from "@/shared/ui/components/StatBlock";
-import { MoneyAmount } from "@/shared/ui/components/MoneyAmount";
+import { HeroAmount, MoneyAmount } from "@/shared/ui/components/MoneyAmount";
 import { TrendAreaChart, type AreaPoint } from "@/shared/ui/components/TrendAreaChart";
 import { BreakdownRow } from "@/shared/ui/components/BreakdownRow";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
@@ -26,20 +27,27 @@ import { useTransactionsStore } from "@/features/transactions/store";
 import { useBudgetsStore } from "@/features/budgets/store";
 import { useSettingsStore } from "@/features/settings/store";
 import * as summaryApi from "@/shared/api/summary";
-import { formatCurrency } from "@/shared/utils/formatCurrency";
+import { currencySymbol, formatCurrency, formatCurrencyDigits } from "@/shared/utils/formatCurrency";
 import { balanceColor } from "@/shared/ui/theme/money";
 import { useUndoToastStore } from "@/shared/ui/state/useUndoToastStore";
+import { withAlpha } from "@/shared/ui/theme/color";
+import { useCountUp } from "@/shared/ui/utils/useCountUp";
 
 function nowMonthKey() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
+/**
+ * The greeting is one of exactly four places the product allows an emoji (the
+ * others are the success sub-line, empty states and the note placeholder), and
+ * it doubles as a non-text cue for the time of day.
+ */
 function greeting(now = new Date()) {
   const h = now.getHours();
-  if (h < 12) return "Good morning";
-  if (h < 18) return "Good afternoon";
-  return "Good evening";
+  if (h < 12) return { emoji: "\u{1F305}", text: "Good morning" };
+  if (h < 18) return { emoji: "\u2600\uFE0F", text: "Good afternoon" };
+  return { emoji: "\u{1F319}", text: "Good evening" };
 }
 
 function safeDate(iso: string) {
@@ -70,9 +78,25 @@ function BudgetPreview({ item, currency }: { item: BudgetItem; currency: string 
       <AppText variant="sm" weight="semibold" numberOfLines={1}>
         {item.categoryName}
       </AppText>
-      <AppText variant="xs" tone="muted" style={{ marginTop: tokens.space[1] }} numberOfLines={1}>
-        {formatCurrency(item.spentMinor, currency, 0)} SPENT
-      </AppText>
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "baseline",
+          gap: tokens.space[1],
+          marginTop: tokens.space[1],
+        }}
+      >
+        <MoneyAmount
+          value={formatCurrency(item.spentMinor, currency, 0)}
+          tone="neutral"
+          size="sm"
+          weight="semibold"
+          color={tokens.colors.muted}
+        />
+        <AppText variant="xs" tone="muted" numberOfLines={1}>
+          SPENT
+        </AppText>
+      </View>
 
       <View
         style={{
@@ -93,11 +117,24 @@ function BudgetPreview({ item, currency }: { item: BudgetItem; currency: string 
         />
       </View>
 
-      <AppText variant="sm" weight="semibold" style={{ marginTop: tokens.space[3], color: barColor }}>
-        {over
-          ? `${formatCurrency(Math.abs(remaining), currency, 0)} over`
-          : `${formatCurrency(remaining, currency, 0)} left`}
-      </AppText>
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "baseline",
+          gap: tokens.space[1],
+          marginTop: tokens.space[3],
+        }}
+      >
+        <MoneyAmount
+          value={formatCurrency(Math.abs(remaining), currency, 0)}
+          tone="neutral"
+          size="sm"
+          color={barColor}
+        />
+        <AppText variant="sm" weight="semibold" style={{ color: barColor }}>
+          {over ? "over" : "left"}
+        </AppText>
+      </View>
     </Card>
   );
 }
@@ -287,28 +324,37 @@ export default function Home() {
   const expenseMinor = summaryQuery.data?.expenseTotalMinor;
   const balanceMinor = balanceQuery.data?.balanceMinor;
 
+  // The balance counts up when it first lands and again when a save changes
+  // it - never on a plain re-render, so returning to the tab is silent.
+  const countedBalance = useCountUp(balanceMinor);
+
+  const { emoji, text: greetingText } = greeting();
+
   return (
-    <Screen scroll bottom="tab">
+    <Screen scroll bottom="tab" ambient="accent">
       {/* Greeting */}
       <View style={{ flexDirection: "row", alignItems: "center" }}>
-        <View
+        <LinearGradient
+          colors={[withAlpha(tokens.colors.income, 1), tokens.colors.accentPressed]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
           style={{
-            width: 44,
-            height: 44,
+            width: 48,
+            height: 48,
             borderRadius: tokens.radii.pill,
-            backgroundColor: tokens.colors.accent,
             alignItems: "center",
             justifyContent: "center",
+            ...tokens.glow.accentSoft,
           }}
         >
           <AppText variant="base" weight="bold" style={{ color: tokens.colors.onAccent }}>
             {displayName.slice(0, 1).toUpperCase()}
           </AppText>
-        </View>
+        </LinearGradient>
 
         <View style={{ flex: 1, marginLeft: tokens.space[3] }}>
           <AppText variant="sm" tone="muted">
-            {greeting()}
+            {emoji} {greetingText}
           </AppText>
           <AppText variant="lg" numberOfLines={1}>
             {displayName}
@@ -388,13 +434,22 @@ export default function Home() {
                     </AppText>
                   </View>
                 </View>
-                <MoneyAmount
-                  value={formatCurrency(balanceMinor, dashboardCurrency)}
-                  tone="neutral"
-                  size="display"
-                  color={balanceColor(balanceMinor)}
-                  style={{ marginTop: tokens.space[2] }}
-                />
+                <View style={{ marginTop: tokens.space[2] }}>
+                  {/*
+                    The hero splits the currency symbol out at half size in the
+                    tertiary color - the one place the system allows two sizes
+                    in one figure - so the digits carry all the weight.
+                    `countedBalance` animates; the accessibility label states
+                    the settled value so a screen reader never reads a
+                    mid-animation number.
+                  */}
+                  <HeroAmount
+                    value={formatCurrencyDigits(countedBalance, dashboardCurrency)}
+                    symbol={currencySymbol(dashboardCurrency)}
+                    color={balanceColor(balanceMinor)}
+                    accessibilityLabel={`Total balance ${formatCurrency(balanceMinor, dashboardCurrency)}`}
+                  />
+                </View>
 
                 {incomeMinor === undefined || expenseMinor === undefined ? (
                   <View style={{ marginTop: tokens.space[6] }}>
@@ -404,7 +459,7 @@ export default function Home() {
                   <View
                     style={{
                       flexDirection: "row",
-                      marginTop: tokens.space[6],
+                      marginTop: tokens.space[5],
                       gap: tokens.space[4],
                     }}
                   >
@@ -429,9 +484,18 @@ export default function Home() {
             <SectionHeader
               title="This week"
               action={
-                <AppText variant="sm" tone="muted" style={{ fontVariant: ["tabular-nums"] }}>
-                  {formatCurrency(weekTotal, dashboardCurrency)} spent
-                </AppText>
+                <View style={{ flexDirection: "row", alignItems: "baseline", gap: tokens.space[1] }}>
+                  <MoneyAmount
+                    value={formatCurrency(weekTotal, dashboardCurrency)}
+                    tone="neutral"
+                    size="sm"
+                    weight="semibold"
+                    color={tokens.colors.muted}
+                  />
+                  <AppText variant="sm" tone="muted">
+                    spent
+                  </AppText>
+                </View>
               }
             />
             <View style={{ marginTop: tokens.space[4] }}>
@@ -452,7 +516,7 @@ export default function Home() {
                 action={
                   <HapticPressable
                     onPress={() => router.push("/(tabs)/analytics")}
-                    haptic="selection"
+                    haptic="none"
                     style={{ minHeight: tokens.layout.minTap, justifyContent: "center" }}
                   >
                     <AppText variant="sm" weight="semibold" style={{ color: tokens.colors.accent }}>
@@ -483,7 +547,7 @@ export default function Home() {
               action={
                 <HapticPressable
                   onPress={() => router.push("/(tabs)/transactions")}
-                  haptic="selection"
+                  haptic="none"
                   style={{ minHeight: tokens.layout.minTap, justifyContent: "center" }}
                 >
                   <AppText variant="sm" weight="semibold" style={{ color: tokens.colors.accent }}>
@@ -525,7 +589,7 @@ export default function Home() {
                 action={
                   <HapticPressable
                     onPress={() => router.push("/(tabs)/categories")}
-                    haptic="selection"
+                    haptic="none"
                     style={{ minHeight: tokens.layout.minTap, justifyContent: "center" }}
                   >
                     <AppText variant="sm" weight="semibold" style={{ color: tokens.colors.accent }}>

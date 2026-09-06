@@ -1,17 +1,17 @@
 import React from "react";
 import { View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 
 import { AppText } from "@/shared/ui/components/AppText";
 import { CategoryIcon } from "@/shared/ui/components/CategoryIcon";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { tokens } from "@/shared/ui/theme/tokens";
+import { Icon, type IconName } from "./Icon";
 
 type Props = {
   label: string;
   value?: string;
   subtitle?: string;
-  icon?: keyof typeof Ionicons.glyphMap | string;
+  icon?: IconName | string;
   iconColor?: string;
   onPress?: () => void;
   muted?: boolean;
@@ -48,7 +48,7 @@ export function ActionRow({
       </View>
       {showChevron ? (
         <View style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}>
-          <Ionicons name="chevron-forward" size={18} color={tokens.colors.muted} />
+          <Icon name="chevron-forward" size={18} color={tokens.colors.muted} />
         </View>
       ) : null}
     </View>
@@ -57,7 +57,7 @@ export function ActionRow({
   if (!onPress) return content;
 
   return (
-    <HapticPressable onPress={onPress} haptic="selection" pressScale={0.99} android_ripple={{ color: tokens.colors.ripple }}>
+    <HapticPressable onPress={onPress} haptic="none" pressScale={0.99} android_ripple={{ color: tokens.colors.ripple }}>
       {content}
     </HapticPressable>
   );

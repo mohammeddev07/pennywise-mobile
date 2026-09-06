@@ -1,16 +1,16 @@
 import React from "react";
 import { View, Text } from "react-native";
-import { MaterialIcons } from "@expo/vector-icons";
 
 import { tokens } from "@/shared/ui/theme/tokens";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
+import { Icon, type IconName } from "./Icon";
 
 type Props = {
   title: string;
   body: string;
 
-  /** MaterialIcons name */
-  icon?: React.ComponentProps<typeof MaterialIcons>["name"];
+  /** Name from the app's Lucide icon set. */
+  icon?: IconName;
 
   /** Optional inline action */
   actionLabel?: string;
@@ -37,13 +37,13 @@ export function TipCard({ title, body, icon = "tips-and-updates", actionLabel, o
             style={{
               height: 40,
               width: 40,
-              borderRadius: 999,
+              borderRadius: tokens.radii.pill,
               alignItems: "center",
               justifyContent: "center",
               backgroundColor: tokens.colors.greenSoft,
             }}
           >
-            <MaterialIcons name={icon} size={20} color={tokens.colors.accent} />
+            <Icon name={icon} size={20} color={tokens.colors.accent} />
           </View>
 
           <View style={{ flex: 1 }}>
@@ -53,7 +53,7 @@ export function TipCard({ title, body, icon = "tips-and-updates", actionLabel, o
             {actionLabel && onAction ? (
               <HapticPressable
                 onPress={onAction}
-                haptic="selection"
+                haptic="none"
                 pressScale={0.985}
                 className="mt-4 self-start rounded-full px-4 py-2"
                 style={{ backgroundColor: tokens.colors.greenSoft }}
@@ -70,12 +70,12 @@ export function TipCard({ title, body, icon = "tips-and-updates", actionLabel, o
         {onClose ? (
           <HapticPressable
             onPress={onClose}
-            haptic="selection"
+            haptic="none"
             className="h-9 w-9 items-center justify-center rounded-full"
             android_ripple={{ color: tokens.colors.ripple, borderless: true }}
             style={{ backgroundColor: tokens.colors.neutralSoft }}
           >
-            <MaterialIcons name="close" size={18} color={tokens.colors.muted} />
+            <Icon name="close" size={18} color={tokens.colors.muted} />
           </HapticPressable>
         ) : null}
       </View>

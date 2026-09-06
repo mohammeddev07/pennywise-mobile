@@ -28,6 +28,7 @@ module.exports = {
         // Hairlines
         stroke: "#FFFFFF12",
         divider: "#FFFFFF0F",
+        edgeHighlight: "#FFFFFF14",
 
         // Text ladder
         text: "#F5F7F8",
@@ -54,13 +55,42 @@ module.exports = {
         blueSoft: "#5B8CFF1F",
         purpleSoft: "#8B5CF61F",
         neutralSoft: "#FFFFFF0D",
+
+        // Category identity. Icon stroke at full value, tile fill at ~13%.
+        catFood: "#FFB35C",
+        catGroceries: "#9BD881",
+        catPersonalCare: "#7FD4E8",
+        catRent: "#B49CFF",
+        catTransport: "#7EA6FF",
+        catFun: "#FF9ECF",
+        catHealth: "#6FE5C9",
+        catOther: "#A8B0BC",
+      },
+      fontFamily: {
+        // Words. Schibsted Grotesk.
+        sans: ["SchibstedGrotesk_400Regular"],
+        medium: ["SchibstedGrotesk_500Medium"],
+        semibold: ["SchibstedGrotesk_600SemiBold"],
+        bold: ["SchibstedGrotesk_700Bold"],
+        extrabold: ["SchibstedGrotesk_800ExtraBold"],
+        // Numbers. Sora - currency amounts only.
+        num: ["Sora_400Regular"],
+        numSemibold: ["Sora_600SemiBold"],
+        numBold: ["Sora_700Bold"],
       },
       borderRadius: {
-        DEFAULT: "8px",
-        lg: "16px", // inputs / buttons
-        xl: "20px", // cards
-        "2xl": "28px", // bottom navigation / sheets
+        // Nothing in the app corners tighter than 14.
+        DEFAULT: "14px",
+        sm: "14px", // small chips, tiny tiles
+        key: "18px", // keypad keys
+        lg: "22px", // inputs / fields
+        xl: "28px", // cards
+        "2xl": "32px", // sheets
         full: "9999px",
+      },
+      spacing: {
+        gutter: "24px",
+        card: "20px",
       },
     },
   },

@@ -1,6 +1,5 @@
 import React from "react";
 import { View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 
 import { AppText } from "@/shared/ui/components/AppText";
 import { MoneyAmount } from "@/shared/ui/components/MoneyAmount";
@@ -12,8 +11,11 @@ type Tone = "income" | "expense" | "neutral";
  * A compact figure + label, used instead of a card wherever two or three
  * numbers sit side by side (Home's income/spent, Activity's totals).
  *
- * Deliberately borderless: these are statistics, not objects, and giving each
- * one a card was most of what made the old dashboard feel busy.
+ * Deliberately borderless and sparkline-free: these are statistics, not
+ * objects, and giving each one a card with its own mini chart was most of what
+ * made the old dashboard feel busy. The amount leads and the word follows
+ * it - "+$271.00 Income" - so the figure is what the eye lands on and the
+ * sign carries the direction without depending on the color.
  */
 export function StatBlock({
   label,
@@ -31,31 +33,19 @@ export function StatBlock({
 
   return (
     <View style={{ flex: 1, alignItems: align === "center" ? "center" : "flex-start" }}>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: tokens.space[1] }}>
+      <View style={{ flexDirection: "row", alignItems: "baseline", gap: tokens.space[2] }}>
         {kind ? (
-          <Ionicons
-            name={tone === "income" ? "arrow-down" : "arrow-up"}
-            size={13}
-            color={tone === "income" ? tokens.semantic.income : tokens.semantic.expense}
-          />
-        ) : null}
-        <AppText variant="xs" tone="muted" numberOfLines={1}>
-          {label.toUpperCase()}
+          <MoneyAmount value={value} kind={kind} size="lg" />
+        ) : (
+          <AppText variant="lg" weight="bold" numberOfLines={1} style={{ fontVariant: ["tabular-nums"] }}>
+            {value}
+          </AppText>
+        )}
+
+        <AppText variant="sm" tone="muted" numberOfLines={1}>
+          {label}
         </AppText>
       </View>
-
-      {kind ? (
-        <MoneyAmount value={value} kind={kind} size="lg" style={{ marginTop: tokens.space[1] }} />
-      ) : (
-        <AppText
-          variant="lg"
-          weight="bold"
-          numberOfLines={1}
-          style={{ marginTop: tokens.space[1], fontVariant: ["tabular-nums"] }}
-        >
-          {value}
-        </AppText>
-      )}
     </View>
   );
 }

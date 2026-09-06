@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ScrollView, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { FlashList } from "@shopify/flash-list";
 import { useFocusEffect, useRouter } from "expo-router";
 
@@ -17,6 +16,7 @@ import { EmptyState } from "@/shared/ui/components/EmptyState";
 import { Skeleton } from "@/shared/ui/components/Skeleton";
 import { Input } from "@/shared/ui/components/Input";
 import { FilterChip } from "@/shared/ui/components/FilterChip";
+import { Icon } from "@/shared/ui/components/Icon";
 
 type CatMeta = {
   id: string;
@@ -59,7 +59,7 @@ function CatCard({
             className="h-10 w-10 items-center justify-center rounded-lg border border-stroke"
             style={{ backgroundColor: `${item.color}22` }}
           >
-            <Ionicons name={item.icon as any} size={18} color={item.color} />
+            <Icon name={item.icon as any} size={18} color={item.color} />
           </View>
 
           {active ? (
@@ -67,7 +67,7 @@ function CatCard({
               className="h-8 w-8 items-center justify-center rounded-full border"
               style={{ borderColor: `${tokens.colors.accent}55`, backgroundColor: `${tokens.colors.accent}18` }}
             >
-              <Ionicons name="checkmark" size={16} color={tokens.colors.accent} />
+              <Icon name="checkmark" size={16} color={tokens.colors.accent} />
             </View>
           ) : null}
         </View>
@@ -240,18 +240,18 @@ export default function AddTransactionCategory() {
             className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
             android_ripple={{ color: tokens.colors.ripple, borderless: true }}
           >
-            <Ionicons name="chevron-back" size={20} color={tokens.colors.text} />
+            <Icon name="chevron-back" size={20} color={tokens.colors.text} />
           </HapticPressable>
         }
         rightAction={
           <HapticPressable
             onPress={goCreate}
-            haptic="selection"
+            haptic="none"
             pressScale={0.98}
             className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
             android_ripple={{ color: tokens.colors.ripple, borderless: true }}
           >
-            <Ionicons name="add" size={20} color={tokens.colors.accent} />
+            <Icon name="add" size={20} color={tokens.colors.accent} />
           </HapticPressable>
         }
       >
@@ -274,7 +274,7 @@ export default function AddTransactionCategory() {
           {query.length > 0 ? (
             <HapticPressable
               onPress={() => setQuery("")}
-              haptic="selection"
+              haptic="none"
               pressScale={0.98}
               className="mt-2 self-end min-h-11 px-4 items-center justify-center rounded-full border border-stroke bg-surface"
               android_ripple={{ color: tokens.colors.ripple, borderless: true }}
@@ -363,7 +363,7 @@ export default function AddTransactionCategory() {
               </View>
 
               <View className="mt-4">
-                <HapticPressable onPress={retryHydrate} haptic="selection" className="py-2">
+                <HapticPressable onPress={retryHydrate} haptic="none" className="py-2">
                   <AppText variant="sm" className="text-accent" weight="semibold">
                     Retry loading
                   </AppText>

@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
+import * as Haptics from "expo-haptics";
 import { format, isSameDay, parseISO, subDays } from "date-fns";
 
 import { tokens } from "@/shared/ui/theme/tokens";
@@ -28,6 +29,7 @@ import { FormField } from "@/shared/ui/components/FormField";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { MoneyAmount } from "@/shared/ui/components/MoneyAmount";
 import { useScreenPaddingX } from "@/shared/ui/components/Screen";
+import { Icon } from "@/shared/ui/components/Icon";
 
 const TITLE_MAX = 120;
 const NOTE_MAX = 280;
@@ -141,9 +143,12 @@ export default function AddTransactionDetails() {
     amountMinor > 0 && Number.isSafeInteger(amountMinor) && Boolean(categoryId) && Boolean(selectedBook);
 
   const onSave = async () => {
+    // Guarding on `isSaving` is what stops a double submit: the request is
+    // idempotent server-side, but a second tap must not start a second one.
     if (isSaving) return;
     if (!canSave) {
       setAttempted(true);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
       return;
     }
 
@@ -197,6 +202,16 @@ export default function AddTransactionDetails() {
         paddingTop: insets.top + tokens.layout.screenPadTop,
       }}
     >
+      {/* The mode wash carries over from step 1, so the flow never changes
+          its mind about what is being recorded. */}
+      <LinearGradient
+        pointerEvents="none"
+        colors={
+          (kind === "EXPENSE" ? tokens.ambient.expense : tokens.ambient.income) as unknown as [string, string]
+        }
+        style={{ position: "absolute", top: 0, left: 0, right: 0, height: 360 }}
+      />
+
       <View style={{ paddingHorizontal: paddingX }}>
         <FlowHeader
           title="New transaction"
@@ -204,6 +219,7 @@ export default function AddTransactionDetails() {
           onBack={() => router.back()}
           step={2}
           totalSteps={2}
+          progressColor={amountColor(kind)}
         />
       </View>
 
@@ -227,7 +243,7 @@ export default function AddTransactionDetails() {
               so there is exactly one place a number can be typed. */}
           <HapticPressable
             onPress={() => router.back()}
-            haptic="selection"
+            haptic="none"
             pressScale={0.995}
             pressOpacity={1}
             accessibilityRole="button"
@@ -253,7 +269,7 @@ export default function AddTransactionDetails() {
                 style={{ marginTop: tokens.space[1] }}
               />
             </View>
-            <Ionicons name="pencil" size={18} color={amountColor(kind)} />
+            <Icon name="pencil" size={tokens.icon.row} color={amountColor(kind)} />
           </HapticPressable>
 
           {/* Title */}
@@ -283,7 +299,7 @@ export default function AddTransactionDetails() {
               </AppText>
               <HapticPressable
                 onPress={() => router.push("/modals/add-transaction/category")}
-                haptic="selection"
+                haptic="none"
                 style={{ minHeight: tokens.layout.minTap, justifyContent: "center" }}
               >
                 <AppText variant="sm" weight="semibold" style={{ color: tokens.colors.accent }}>
@@ -316,6 +332,9 @@ export default function AddTransactionDetails() {
                     icon={c.icon}
                     iconColor={c.color}
                     active={c.id === categoryId}
+                    // Picking a category commits a choice, so it ticks. Filter
+                    // chips elsewhere in the app stay silent.
+                    role="category"
                     onPress={() => setCategory(c.id, c.name)}
                   />
                 ))}
@@ -336,7 +355,7 @@ export default function AddTransactionDetails() {
             </AppText>
             <HapticPressable
               onPress={() => router.push("/modals/add-transaction/datetime")}
-              haptic="selection"
+              haptic="none"
               pressScale={0.995}
               pressOpacity={1}
               accessibilityRole="button"
@@ -352,11 +371,11 @@ export default function AddTransactionDetails() {
                 paddingHorizontal: tokens.space[4],
               }}
             >
-              <Ionicons name="calendar-outline" size={20} color={tokens.colors.muted} />
+              <Icon name="calendar-outline" size={tokens.icon.row} color={tokens.colors.muted} />
               <AppText variant="base" numberOfLines={1} style={{ flex: 1, marginLeft: tokens.space[3] }}>
                 {whenLabel(occurredAt)}
               </AppText>
-              <Ionicons name="chevron-forward" size={18} color={tokens.colors.muted} />
+              <Icon name="chevron-forward" size={tokens.icon.chip} color={tokens.colors.muted} />
             </HapticPressable>
           </View>
 
@@ -396,6 +415,7 @@ export default function AddTransactionDetails() {
             loading={isSaving}
             disabled={isSaving}
             size="lg"
+            tone={kind === "EXPENSE" ? "expense" : "accent"}
           />
         </View>
       </KeyboardAvoidingView>

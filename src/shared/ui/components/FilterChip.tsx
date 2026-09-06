@@ -1,10 +1,17 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
 
 import { AppText } from "@/shared/ui/components/AppText";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { tokens } from "@/shared/ui/theme/tokens";
+import { Icon } from "./Icon";
 
 /**
  * The single chip in the product.
@@ -13,6 +20,9 @@ import { tokens } from "@/shared/ui/theme/tokens";
  * that is dismissed by pressing it again. Screens must not hand-roll a second chip - if a new need appears,
  * it becomes a prop here so every chip keeps the same height, radius and
  * selected treatment.
+ *
+ * `role` decides the haptic, and only the haptic. Picking a category is a
+ * commit, so it ticks; narrowing a filter is a read, so it stays silent.
  */
 export function FilterChip({
   label,
@@ -23,6 +33,7 @@ export function FilterChip({
   clearable,
   /** `accent` selects in brand green; `income`/`expense` select semantically. */
   tone = "accent",
+  role = "filter",
   style,
 }: {
   label: string;
@@ -33,8 +44,19 @@ export function FilterChip({
   /** Show a × on the selected chip, for filters that toggle off on press. */
   clearable?: boolean;
   tone?: "accent" | "income" | "expense";
+  /** `category` ticks on select; `filter` is silent. */
+  role?: "filter" | "category";
   style?: object;
 }) {
+  const pop = useSharedValue(1);
+
+  useEffect(() => {
+    if (!active) return;
+    pop.value = withSequence(withTiming(1.12, { duration: 90 }), withSpring(1, tokens.spring.chipIcon));
+  }, [active, pop]);
+
+  const iconPop = useAnimatedStyle(() => ({ transform: [{ scale: pop.value }] }));
+
   const selectedColor =
     tone === "income"
       ? tokens.semantic.income
@@ -45,7 +67,7 @@ export function FilterChip({
   return (
     <HapticPressable
       onPress={onPress}
-      haptic="selection"
+      haptic={role === "category" ? "selection" : "none"}
       pressScale={0.97}
       android_ripple={{ color: tokens.colors.ripple, borderless: true }}
       style={[
@@ -53,27 +75,30 @@ export function FilterChip({
           minHeight: tokens.layout.minTap,
           paddingHorizontal: tokens.space[4],
           borderRadius: tokens.radii.pill,
-          borderWidth: 1,
+          // A selected chip is read by its ring as much as its fill, so the
+          // border is a touch heavier than a card hairline.
+          borderWidth: 1.5,
           flexDirection: "row",
           alignItems: "center",
-          borderColor: active ? `${selectedColor}59` : tokens.colors.stroke,
-          backgroundColor: active ? `${selectedColor}1F` : tokens.colors.surface,
+          borderColor: active ? `${selectedColor}66` : tokens.colors.stroke,
+          backgroundColor: active ? `${selectedColor}1A` : tokens.colors.surfaceAlt,
         },
         style,
       ]}
     >
       {icon ? (
-        <Ionicons
-          name={icon as any}
-          size={16}
-          color={active ? selectedColor : (iconColor ?? tokens.colors.muted)}
-          style={{ marginRight: tokens.space[2] }}
-        />
+        <Animated.View style={[{ marginRight: tokens.space[2] }, iconPop]}>
+          <Icon
+            name={icon as any}
+            size={tokens.icon.chip}
+            color={active ? selectedColor : (iconColor ?? tokens.colors.muted)}
+          />
+        </Animated.View>
       ) : null}
 
       <AppText
         variant="sm"
-        weight="semibold"
+        weight={active ? "bold" : "semibold"}
         numberOfLines={1}
         style={{ color: active ? selectedColor : tokens.colors.text }}
       >
@@ -82,7 +107,7 @@ export function FilterChip({
 
       {active && clearable ? (
         <View style={{ marginLeft: tokens.space[2] }}>
-          <Ionicons name="close" size={14} color={selectedColor} />
+          <Icon name="close" size={14} color={selectedColor} />
         </View>
       ) : null}
     </HapticPressable>

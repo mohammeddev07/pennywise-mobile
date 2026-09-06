@@ -1,9 +1,13 @@
 import React, { useState } from "react";
 import { View } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import Animated, { FadeInDown } from "react-native-reanimated";
 
 import { AppText } from "@/shared/ui/components/AppText";
+import { MoneyAmount } from "@/shared/ui/components/MoneyAmount";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { tokens } from "@/shared/ui/theme/tokens";
+import { withAlpha } from "@/shared/ui/theme/color";
 
 export type TrendPoint = {
   /** Axis label, e.g. "M" or "Aug". */
@@ -19,9 +23,13 @@ export type TrendPoint = {
  * trend.
  *
  * Inactive bars are muted and only the current/selected bar carries brand
- * color, so the chart reads at a glance instead of presenting seven equally
- * loud columns. There is no grid and no y-axis: the tooltip on touch carries
- * the exact figure when it is actually wanted.
+ * color - a lit gradient with a soft bloom - so the chart reads at a glance
+ * instead of presenting seven equally loud columns. A day with no activity is
+ * dimmer again, so an empty column is visibly empty rather than merely short.
+ *
+ * There is no grid and no y-axis: the tooltip on touch carries the exact
+ * figure when it is actually wanted. Bars stagger in a couple of frames apart
+ * on entry, which is the only motion here.
  */
 export function TrendChart({
   data,
@@ -59,7 +67,8 @@ export function TrendChart({
           return (
             <HapticPressable
               key={`${point.label}-${index}`}
-              haptic="selection"
+              // Reading a value off the chart is a read - silent.
+              haptic="none"
               pressScale={1}
               pressOpacity={1}
               onPress={() => setSelected((cur) => (cur === index ? null : index))}
@@ -81,21 +90,34 @@ export function TrendChart({
                     zIndex: 2,
                   }}
                 >
-                  <AppText variant="xs" weight="semibold" numberOfLines={1}>
-                    {formatValue(point.value)}
-                  </AppText>
+                  <MoneyAmount value={formatValue(point.value)} tone="neutral" size="sm" />
                 </View>
               ) : null}
 
-              <View
-                style={{
-                  width: "100%",
-                  maxWidth: 28,
-                  height: barHeight,
-                  borderRadius: tokens.radii.sm,
-                  backgroundColor: isActive ? tokens.colors.accent : tokens.colors.surfaceAlt,
-                }}
-              />
+              <Animated.View
+                entering={FadeInDown.duration(tokens.motion.base).delay(index * tokens.motion.listStagger)}
+                style={[
+                  {
+                    width: "100%",
+                    maxWidth: 28,
+                    height: barHeight,
+                    borderRadius: tokens.radii.sm,
+                    overflow: "hidden",
+                    backgroundColor:
+                      point.value === 0 ? tokens.colors.surface : tokens.colors.surfacePressed,
+                  },
+                  isActive ? tokens.glow.accentSoft : null,
+                ]}
+              >
+                {isActive ? (
+                  <LinearGradient
+                    colors={[withAlpha(tokens.colors.income, 1), tokens.colors.accent]}
+                    start={{ x: 0.5, y: 0 }}
+                    end={{ x: 0.5, y: 1 }}
+                    style={{ flex: 1 }}
+                  />
+                ) : null}
+              </Animated.View>
 
               <AppText
                 variant="xs"

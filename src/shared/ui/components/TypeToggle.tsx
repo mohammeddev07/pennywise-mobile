@@ -10,6 +10,10 @@ import type { TransactionKind } from "@/shared/types/models";
  * A thin binding over `SegmentedControl` rather than its own control: the
  * selected half takes the money color, so the choice matches the color the
  * amount is about to render in.
+ *
+ * The arrows are not decoration - they are the non-color channel for the
+ * choice, so the mode is still readable to someone who cannot separate the
+ * red from the green.
  */
 export function TypeToggle({
   value,
@@ -25,6 +29,9 @@ export function TypeToggle({
       value={value}
       onChange={onChange}
       disabled={disabled}
+      // Flipping the mode is a decision, not navigation: it earns a Medium
+      // impact where an ordinary segment would only tick.
+      haptic="impactMedium"
       items={[
         { label: "Expense", value: "EXPENSE", icon: "arrow-up", color: amountColor("EXPENSE") },
         { label: "Income", value: "INCOME", icon: "arrow-down", color: amountColor("INCOME") },

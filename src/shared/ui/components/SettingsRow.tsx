@@ -1,10 +1,11 @@
 import React, { type ReactNode } from "react";
 import { View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 
 import { AppText } from "@/shared/ui/components/AppText";
+import { MoneyAmount } from "@/shared/ui/components/MoneyAmount";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { tokens } from "@/shared/ui/theme/tokens";
+import { Icon, type IconName } from "./Icon";
 
 type Props = {
   label: string;
@@ -13,8 +14,13 @@ type Props = {
   locked?: boolean;
   onPress?: () => void;
   tone?: "default" | "danger";
-  icon?: keyof typeof Ionicons.glyphMap;
+  icon?: IconName;
   right?: ReactNode;
+  /**
+   * Renders `value` as a currency figure - Sora with tabular figures - rather
+   * than as body text. A settings row holding an amount is still an amount.
+   */
+  valueIsMoney?: boolean;
 };
 
 /**
@@ -23,7 +29,16 @@ type Props = {
  * one whose value is fixed. A locked row is rendered, not hidden - the value
  * still matters even though it cannot change.
  */
-export function SettingsRow({ label, value, locked, onPress, tone = "default", icon, right }: Props) {
+export function SettingsRow({
+  label,
+  value,
+  locked,
+  onPress,
+  tone = "default",
+  icon,
+  right,
+  valueIsMoney,
+}: Props) {
   const color = tone === "danger" ? tokens.colors.danger : tokens.colors.text;
 
   const content = (
@@ -48,7 +63,7 @@ export function SettingsRow({ label, value, locked, onPress, tone = "default", i
             backgroundColor: tone === "danger" ? tokens.colors.redSoft : tokens.colors.neutralSoft,
           }}
         >
-          <Ionicons name={icon} size={17} color={tone === "danger" ? tokens.colors.danger : tokens.colors.muted} />
+          <Icon name={icon} size={17} color={tone === "danger" ? tokens.colors.danger : tokens.colors.muted} />
         </View>
       ) : null}
 
@@ -57,17 +72,28 @@ export function SettingsRow({ label, value, locked, onPress, tone = "default", i
           {label}
         </AppText>
         {value ? (
-          <AppText variant="sm" tone="muted" numberOfLines={1} style={{ marginTop: 2 }}>
-            {value}
-          </AppText>
+          valueIsMoney ? (
+            <MoneyAmount
+              value={value}
+              tone="neutral"
+              size="sm"
+              weight="semibold"
+              color={tokens.colors.muted}
+              style={{ marginTop: 2 }}
+            />
+          ) : (
+            <AppText variant="sm" tone="muted" numberOfLines={1} style={{ marginTop: 2 }}>
+              {value}
+            </AppText>
+          )
         ) : null}
       </View>
 
       {right ??
         (locked ? (
-          <Ionicons name="lock-closed" size={16} color={tokens.colors.subtle} />
+          <Icon name="lock-closed" size={tokens.icon.chip} color={tokens.colors.subtle} />
         ) : onPress ? (
-          <Ionicons name="chevron-forward" size={18} color={tokens.colors.muted} />
+          <Icon name="chevron-forward" size={tokens.icon.row} color={tokens.colors.muted} />
         ) : null)}
     </View>
   );
@@ -77,7 +103,8 @@ export function SettingsRow({ label, value, locked, onPress, tone = "default", i
   return (
     <HapticPressable
       onPress={onPress}
-      haptic="selection"
+      // A chevron row navigates - explicitly silent.
+      haptic="none"
       pressScale={0.995}
       android_ripple={{ color: tokens.colors.ripple }}
     >

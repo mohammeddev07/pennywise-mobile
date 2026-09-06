@@ -1,8 +1,8 @@
 import React from "react";
 import { View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 
 import { tokens } from "@/shared/ui/theme/tokens";
+import { Icon, type IconName } from "./Icon";
 
 export function alphaColor(color: string | undefined, alpha = "22") {
   if (typeof color === "string" && /^#[0-9A-Fa-f]{6}$/.test(color)) return `${color}${alpha}`;
@@ -12,10 +12,10 @@ export function alphaColor(color: string | undefined, alpha = "22") {
 export function CategoryIcon({
   icon,
   color = tokens.colors.accent,
-  size = 56,
+  size = 40,
   rounded = "full",
 }: {
-  icon: keyof typeof Ionicons.glyphMap | string;
+  icon: IconName | string;
   color?: string;
   size?: number;
   rounded?: "full" | "lg";
@@ -26,14 +26,15 @@ export function CategoryIcon({
         width: size,
         height: size,
         borderRadius: rounded === "full" ? tokens.radii.pill : tokens.radii.md,
-        backgroundColor: alphaColor(color, "24"),
-        borderWidth: 1,
-        borderColor: tokens.colors.stroke,
+        // A category icon never floats bare: it sits in a circle filled with
+        // its own color at ~13% alpha, with the glyph stroked in the full
+        // value. No hairline - the tint is the shape.
+        backgroundColor: alphaColor(color, "22"),
         alignItems: "center",
         justifyContent: "center",
       }}
     >
-      <Ionicons name={icon as any} size={Math.round(size * 0.42)} color={color} />
+      <Icon name={icon as any} size={Math.round(size * 0.48)} color={color} />
     </View>
   );
 }

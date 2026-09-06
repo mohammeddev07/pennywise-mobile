@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { View } from "react-native";
 import { router } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
 
 import { Button, LinkButton } from "@/shared/ui/components/Button";
 import { Input } from "@/shared/ui/components/Input";
@@ -11,6 +10,7 @@ import { tokens } from "@/shared/ui/theme/tokens";
 import { useAuthStore } from "@/features/auth/store";
 import { useBooksStore } from "@/features/books/store";
 import { getAuthErrorMessage } from "@/shared/api/errors";
+import { Icon } from "@/shared/ui/components/Icon";
 
 function isEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
@@ -61,11 +61,11 @@ export default function LoginScreen() {
       <View className="flex-row items-center">
         <HapticPressable
           onPress={handleBack}
-          haptic="selection"
+          haptic="none"
           className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
           android_ripple={{ color: tokens.colors.ripple, borderless: true }}
         >
-          <Ionicons name="chevron-back" size={20} color={tokens.colors.text} />
+          <Icon name="chevron-back" size={20} color={tokens.colors.text} />
         </HapticPressable>
 
         <AppText variant="xl" className="ml-3">

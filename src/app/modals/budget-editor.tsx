@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { Ionicons } from "@expo/vector-icons";
 
 import { tokens } from "@/shared/ui/theme/tokens";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
@@ -12,6 +11,7 @@ import { useBooksStore } from "@/features/books/store";
 import { useCategoriesStore } from "@/features/categories/store";
 import { Sheet } from "@/shared/ui/components/Sheet";
 import { AppText } from "@/shared/ui/components/AppText";
+import { MoneyAmount } from "@/shared/ui/components/MoneyAmount";
 import { Card } from "@/shared/ui/components/Card";
 import { Input } from "@/shared/ui/components/Input";
 import { EmptyState } from "@/shared/ui/components/EmptyState";
@@ -24,6 +24,7 @@ import {
   majorToMinor,
   minorToMajor,
 } from "@/shared/utils/formatCurrency";
+import { Icon } from "@/shared/ui/components/Icon";
 
 function localMonthKey() {
   const date = new Date();
@@ -180,7 +181,7 @@ export default function BudgetEditor() {
             className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
             android_ripple={{ color: tokens.colors.ripple, borderless: true }}
           >
-            <Ionicons name="chevron-back" size={20} color={tokens.colors.text} />
+            <Icon name="chevron-back" size={20} color={tokens.colors.text} />
           </HapticPressable>
         }
         footer={category?.type === "EXPENSE" ? (
@@ -242,7 +243,7 @@ export default function BudgetEditor() {
             <Card variant="surface" className="mt-2">
               <View className="flex-row items-center">
                 <View className="h-20 w-20 items-center justify-center rounded-full bg-amberSoft">
-                  <Ionicons name="pie-chart-outline" size={36} color={tokens.colors.warning} />
+                  <Icon name="pie-chart-outline" size={36} color={tokens.colors.warning} />
                 </View>
                 <View className="ml-4 flex-1">
                   <AppText variant="2xl">
@@ -257,9 +258,18 @@ export default function BudgetEditor() {
               <AppText variant="xs" tone="muted" className="uppercase">
                 Monthly budget
               </AppText>
-              <AppText variant="xl" className="mt-2">
-                {existing ? formatCurrency(existing.amountMinor, currency) : "No budget set"}
-              </AppText>
+              {existing ? (
+                <MoneyAmount
+                  value={formatCurrency(existing.amountMinor, currency)}
+                  tone="neutral"
+                  size="xl"
+                  style={{ marginTop: tokens.space[2] }}
+                />
+              ) : (
+                <AppText variant="xl" className="mt-2">
+                  No budget set
+                </AppText>
+              )}
             </Card>
 
             <View className="mt-6">

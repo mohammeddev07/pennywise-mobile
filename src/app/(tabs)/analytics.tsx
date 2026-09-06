@@ -268,6 +268,7 @@ export default function AnalyticsScreen() {
         ) : !hasActivity ? (
           <View style={{ marginTop: tokens.space[8] }}>
             <EmptyState
+              emoji="\u{1F331}"
               iconName="stats-chart-outline"
               title="Not enough activity yet"
               message="Add a few transactions to start seeing insights."
@@ -359,9 +360,11 @@ export default function AnalyticsScreen() {
             {/* Bottom stats */}
             <View style={{ marginTop: tokens.space[4], flexDirection: "row", gap: tokens.space[3] }}>
               <Card variant="surface" padding={16} style={{ flex: 1 }}>
-                <AppText variant="xl" weight="bold" numberOfLines={1} style={{ fontVariant: ["tabular-nums"] }}>
-                  {formatCurrency(dailyAverage ?? 0, currency)}
-                </AppText>
+                <MoneyAmount
+                  value={formatCurrency(dailyAverage ?? 0, currency)}
+                  tone="neutral"
+                  size="xl"
+                />
                 <AppText variant="sm" tone="muted" style={{ marginTop: tokens.space[1] }}>
                   Daily average
                 </AppText>
@@ -369,9 +372,11 @@ export default function AnalyticsScreen() {
 
               {largestExpense ? (
                 <Card variant="surface" padding={16} style={{ flex: 1 }}>
-                  <AppText variant="xl" weight="bold" numberOfLines={1} style={{ fontVariant: ["tabular-nums"] }}>
-                    {formatCurrency(largestExpense.amountMinor, currency)}
-                  </AppText>
+                  <MoneyAmount
+                    value={formatCurrency(largestExpense.amountMinor, currency)}
+                    tone="neutral"
+                    size="xl"
+                  />
                   <AppText variant="sm" tone="muted" style={{ marginTop: tokens.space[1] }}>
                     Largest expense
                   </AppText>

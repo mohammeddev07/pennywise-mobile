@@ -1,8 +1,8 @@
 import React, { type ReactNode, useState } from "react";
-import { Ionicons } from "@expo/vector-icons";
 
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { tokens } from "@/shared/ui/theme/tokens";
+import { Icon, type IconName } from "./Icon";
 
 type Tone = "default" | "primary" | "danger" | "soft";
 
@@ -15,14 +15,16 @@ export function IconButton({
   children,
   size = tokens.layout.iconTap,
   accessibilityLabel,
+  haptic = "none",
 }: {
-  icon?: keyof typeof Ionicons.glyphMap;
+  icon?: IconName;
   onPress: () => void;
   tone?: Tone;
   disabled?: boolean;
   children?: ReactNode;
   size?: number;
   accessibilityLabel?: string;
+  haptic?: "none" | "selection" | "impactLight" | "impactMedium";
 }) {
   const [pressed, setPressed] = useState(false);
 
@@ -52,7 +54,9 @@ export function IconButton({
     <HapticPressable
       onPress={onPress}
       disabled={disabled}
-      haptic="selection"
+      // Silent by default: back, close and chevron actions are reads. A caller
+      // that wraps a write passes its own haptic.
+      haptic={haptic}
       pressScale={0.94}
       pressOpacity={1}
       accessibilityRole="button"
@@ -74,7 +78,7 @@ export function IconButton({
         justifyContent: "center",
       }}
     >
-      {children ?? (icon ? <Ionicons name={icon} size={size >= 56 ? 24 : 20} color={color} /> : null)}
+      {children ?? (icon ? <Icon name={icon} size={size >= 56 ? 24 : tokens.icon.nav} color={color} /> : null)}
     </HapticPressable>
   );
 }

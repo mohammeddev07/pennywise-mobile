@@ -2,9 +2,11 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useWindowDimensions, View } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
+import * as Haptics from "expo-haptics";
 
 import { NumericKeypad, type Key } from "@/shared/ui/NumericKeypad";
-import { tokens } from "@/shared/ui/theme/tokens";
+import { amountFontSize, tokens } from "@/shared/ui/theme/tokens";
 import { amountColor } from "@/shared/ui/theme/money";
 import { useBooksStore } from "@/features/books/store";
 import { useBookCurrency } from "@/features/books/useBookCurrency";
@@ -70,11 +72,12 @@ export default function AddTransactionAmount() {
 
   const formattedAmount = formatForTicker(amount, currencySymbol(currency), fractionDigits);
 
-  // The hero is 58px by default, but OdometerAmount lays digits out at a fixed
-  // width each, so a long amount would run past the screen edge. Scale the type
-  // down just enough to fit rather than letting it clip or wrap.
+  // Display-L is 72px and steps down past six digits, but OdometerAmount lays
+  // digits out at a fixed width each, so a long amount could still run past the
+  // screen edge on a narrow handset. Take the smaller of the two limits rather
+  // than letting the figure clip or wrap.
   const heroFontSize = useMemo(() => {
-    const base = tokens.typography.display.fontSize;
+    const base = amountFontSize(formattedAmount);
     const available = width - paddingX * 2;
     const estimated = formattedAmount.length * base * 0.6;
     if (estimated <= available) return base;
@@ -83,6 +86,7 @@ export default function AddTransactionAmount() {
 
   const valueNum = Number(amount || "0") || 0;
   const canContinue = valueNum > 0 && Boolean(selectedBook);
+  const isExpense = kind === "EXPENSE";
 
   const close = () => {
     resetDraft();
@@ -96,6 +100,12 @@ export default function AddTransactionAmount() {
     router.push("/modals/add-transaction/details");
   };
 
+  // An invalid action is the one failure the product reports by feel: pressing
+  // Continue at zero says no without moving the screen.
+  const rejectContinue = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+  };
+
   return (
     <View
       style={{
@@ -104,6 +114,17 @@ export default function AddTransactionAmount() {
         paddingTop: insets.top + tokens.layout.screenPadTop,
       }}
     >
+      {/*
+        The screen itself carries the mode. A wash no stronger than 10% at the
+        top edge means expense and income are legible from across the room,
+        without asking the amount's color to do the work alone.
+      */}
+      <LinearGradient
+        pointerEvents="none"
+        colors={(isExpense ? tokens.ambient.expense : tokens.ambient.income) as unknown as [string, string]}
+        style={{ position: "absolute", top: 0, left: 0, right: 0, height: 360 }}
+      />
+
       <View style={{ paddingHorizontal: paddingX }}>
         <FlowHeader
           title="New transaction"
@@ -112,6 +133,7 @@ export default function AddTransactionAmount() {
           backIcon="close"
           step={1}
           totalSteps={2}
+          progressColor={amountColor(kind)}
         />
       </View>
 
@@ -166,7 +188,18 @@ export default function AddTransactionAmount() {
               decimalAllowed={fractionDigits > 0}
               disabled={!selectedBook}
             />
-            <Button label="Continue" onPress={goNext} disabled={!canContinue} size="lg" />
+            {/*
+              The CTA is the mode's color, not the brand's: in expense mode it
+              is coral, so the commitment matches what is about to be recorded.
+            */}
+            <Button
+              label="Continue"
+              onPress={goNext}
+              disabled={!canContinue}
+              onDisabledPress={rejectContinue}
+              size="lg"
+              tone={isExpense ? "expense" : "accent"}
+            />
           </View>
         </>
       )}

@@ -6,7 +6,7 @@ type Props = ViewProps &
   PropsWithChildren<{
     /** `surface` and `card` are the same step; `soft` is one step brighter. */
     variant?: "card" | "surface" | "soft";
-    padding?: 0 | 16 | 20 | 24;
+    padding?: 0 | 12 | 16 | 20 | 24;
     /** Drop the hairline when the card is already separated by whitespace. */
     bordered?: boolean;
     className?: string;
@@ -14,7 +14,7 @@ type Props = ViewProps &
 
 export function Card({
   variant = "card",
-  padding = 16,
+  padding = tokens.layout.cardPadding,
   bordered = true,
   className,
   children,
@@ -34,6 +34,9 @@ export function Card({
           borderColor: tokens.colors.stroke,
           padding,
         },
+        // The 1px top-edge highlight is what lifts a surface off the layer
+        // beneath it. It replaces the drop shadow the system does not use.
+        bordered ? { borderTopColor: tokens.colors.edgeHighlight } : null,
         style,
       ]}
     >

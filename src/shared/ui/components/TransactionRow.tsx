@@ -1,5 +1,4 @@
 import { Alert, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { format, isSameDay, parseISO, subDays } from "date-fns";
 import { useRouter } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
@@ -137,21 +136,23 @@ export function TransactionRow({
     <HapticPressable
       onPress={() => router.push({ pathname: "/modals/transaction-details", params: { id: item.id } })}
       onLongPress={openActions}
-      haptic="selection"
+      // Opening the detail screen is a read - silent. The write it may lead to
+      // fires its own confirmation.
+      haptic="none"
       pressScale={0.995}
       pressOpacity={1}
       accessibilityRole="button"
       accessibilityLabel={`${primary}, ${isIncome ? "income" : "expense"} ${formatCurrency(item.amountMinor, currency)}, ${meta}`}
       android_ripple={{ color: tokens.colors.ripple }}
       style={{
-        minHeight: 68,
+        minHeight: tokens.layout.listRowHeight,
         flexDirection: "row",
         alignItems: "center",
         paddingVertical: tokens.space[3],
         paddingHorizontal: embedded ? 0 : tokens.space[4],
       }}
     >
-      <CategoryIcon icon={tileIcon} color={tileColor} size={40} rounded="lg" />
+      <CategoryIcon icon={tileIcon} color={tileColor} size={40} rounded="full" />
 
       <View style={{ flex: 1, marginLeft: tokens.space[3], paddingRight: tokens.space[3] }}>
         <AppText variant="base" weight="semibold" numberOfLines={1}>
@@ -162,7 +163,7 @@ export function TransactionRow({
         </AppText>
       </View>
 
-      <MoneyAmount value={formatCurrency(item.amountMinor, currency)} kind={item.type} size="base" weight="semibold" />
+      <MoneyAmount value={formatCurrency(item.amountMinor, currency)} kind={item.type} size="base" weight="bold" />
     </HapticPressable>
   );
 

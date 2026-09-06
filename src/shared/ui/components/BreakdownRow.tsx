@@ -1,9 +1,10 @@
 import React from "react";
 import { View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 
 import { AppText } from "@/shared/ui/components/AppText";
 import { tokens } from "@/shared/ui/theme/tokens";
+import { CategoryIcon } from "@/shared/ui/components/CategoryIcon";
+import { MoneyAmount } from "@/shared/ui/components/MoneyAmount";
 
 /**
  * A category's share of spending as a horizontal comparison bar.
@@ -32,19 +33,14 @@ export function BreakdownRow({
     <View style={{ paddingVertical: tokens.space[3] }}>
       <View style={{ flexDirection: "row", alignItems: "center" }}>
         {icon ? (
-          <Ionicons name={icon as any} size={16} color={color} style={{ marginRight: tokens.space[2] }} />
+          <View style={{ marginRight: tokens.space[3] }}>
+            <CategoryIcon icon={icon} color={color} size={30} />
+          </View>
         ) : null}
         <AppText variant="base" weight="semibold" numberOfLines={1} style={{ flex: 1 }}>
           {name}
         </AppText>
-        <AppText
-          variant="base"
-          weight="semibold"
-          numberOfLines={1}
-          style={{ fontVariant: ["tabular-nums"] }}
-        >
-          {amount}
-        </AppText>
+        <MoneyAmount value={amount} tone="neutral" size="base" weight="bold" />
       </View>
 
       <View

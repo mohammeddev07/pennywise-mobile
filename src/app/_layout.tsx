@@ -9,17 +9,23 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
 import { Text, TextInput, View } from "react-native";
+import { useFonts } from "expo-font";
 import {
-  useFonts,
-  Inter_300Light,
-  Inter_400Regular,
-  Inter_500Medium,
-  Inter_600SemiBold,
-  Inter_700Bold,
-  Inter_800ExtraBold,
-} from "@expo-google-fonts/inter";
+  Sora_400Regular,
+  Sora_500Medium,
+  Sora_600SemiBold,
+  Sora_700Bold,
+  Sora_800ExtraBold,
+} from "@expo-google-fonts/sora";
+import {
+  SchibstedGrotesk_400Regular,
+  SchibstedGrotesk_500Medium,
+  SchibstedGrotesk_600SemiBold,
+  SchibstedGrotesk_700Bold,
+  SchibstedGrotesk_800ExtraBold,
+} from "@expo-google-fonts/schibsted-grotesk";
 
-import { tokens } from "@/shared/ui/theme/tokens";
+import { fonts, tokens } from "@/shared/ui/theme/tokens";
 import { UndoToast } from "@/shared/ui/components/UndoToast";
 import { useAuthStore } from "@/features/auth/store";
 import { useBooksStore } from "@/features/books/store";
@@ -36,8 +42,10 @@ function applyDefaultFont() {
   TextAny.defaultProps = TextAny.defaultProps || {};
   TextInputAny.defaultProps = TextInputAny.defaultProps || {};
 
-  TextAny.defaultProps.style = [{ fontFamily: "Inter_400Regular" }, TextAny.defaultProps.style].filter(Boolean);
-  TextInputAny.defaultProps.style = [{ fontFamily: "Inter_400Regular" }, TextInputAny.defaultProps.style].filter(Boolean);
+  // Words default to Schibsted Grotesk. Currency amounts opt into Sora
+  // explicitly, via AppText variant="amount*" / "display*" or `numerals.*`.
+  TextAny.defaultProps.style = [{ fontFamily: fonts.regular }, TextAny.defaultProps.style].filter(Boolean);
+  TextInputAny.defaultProps.style = [{ fontFamily: fonts.regular }, TextInputAny.defaultProps.style].filter(Boolean);
 }
 
 function currentMonthKey() {
@@ -89,12 +97,18 @@ export default function RootLayout() {
   const sessionBootstrapStarted = useRef(false);
 
   const [fontsLoaded, fontError] = useFonts({
-    Inter_300Light,
-    Inter_400Regular,
-    Inter_500Medium,
-    Inter_600SemiBold,
-    Inter_700Bold,
-    Inter_800ExtraBold,
+    // UI face - every word in the app.
+    SchibstedGrotesk_400Regular,
+    SchibstedGrotesk_500Medium,
+    SchibstedGrotesk_600SemiBold,
+    SchibstedGrotesk_700Bold,
+    SchibstedGrotesk_800ExtraBold,
+    // Display face - currency amounts only.
+    Sora_400Regular,
+    Sora_500Medium,
+    Sora_600SemiBold,
+    Sora_700Bold,
+    Sora_800ExtraBold,
   });
 
   const queryClient = useMemo(

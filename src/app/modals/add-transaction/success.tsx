@@ -3,7 +3,7 @@ import { View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
-import Animated, { FadeInDown } from "react-native-reanimated";
+import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import { format, isSameDay, parseISO, subDays } from "date-fns";
 
 import { tokens } from "@/shared/ui/theme/tokens";
@@ -16,6 +16,7 @@ import { SuccessCheck } from "@/shared/ui/components/SuccessCheck";
 import { useScreenPaddingX } from "@/shared/ui/components/Screen";
 import type { TransactionKind } from "@/features/transactions/store";
 import { useAddTransactionDraftStore } from "@/features/transactions/addDraftStore";
+import { useBooksStore } from "@/features/books/store";
 import { formatCurrency, majorToMinor } from "@/shared/utils/formatCurrency";
 
 function parseAmountToMinor(raw: string, currency: string) {
@@ -50,6 +51,12 @@ export default function AddTransactionSuccess() {
   const insets = useSafeAreaInsets();
   const paddingX = useScreenPaddingX();
   const resetDraft = useAddTransactionDraftStore((s) => s.reset);
+  const books = useBooksStore((s) => s.books);
+  const selectedBookId = useBooksStore((s) => s.selectedBookId);
+  const bookName = useMemo(
+    () => books.find((b) => b.id === selectedBookId)?.name ?? "your cash book",
+    [books, selectedBookId]
+  );
 
   const params = useLocalSearchParams<{
     amount?: string;
@@ -91,15 +98,24 @@ export default function AddTransactionSuccess() {
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
         <SuccessCheck />
 
-        <AppText variant="2xl" style={{ marginTop: tokens.space[6] }}>
-          Logged
-        </AppText>
-        <AppText variant="sm" tone="muted" style={{ marginTop: tokens.space[2], textAlign: "center" }}>
-          Your transaction has been saved.
-        </AppText>
+        {/*
+          The moment is choreographed rather than simultaneous: check, then
+          headline, then receipt, then actions. Each beat is short and the
+          whole sequence lands inside the success budget, so the screen is
+          still by the time the user reaches for a button.
+        */}
+        <Animated.View entering={FadeInDown.duration(tokens.motion.base).delay(240)}>
+          <AppText variant="2xl" style={{ marginTop: tokens.space[6] }}>
+            Logged
+          </AppText>
+          <AppText variant="sm" tone="muted" style={{ marginTop: tokens.space[2], textAlign: "center" }}>
+            {/* The success sub-line is one of the four places emoji are allowed. */}
+            Saved to {bookName} — totals are up to date ✨
+          </AppText>
+        </Animated.View>
 
         <Animated.View
-          entering={FadeInDown.duration(tokens.motion.slow).delay(80)}
+          entering={FadeInDown.duration(tokens.motion.slow).delay(360)}
           style={{ marginTop: tokens.space[7], width: "100%" }}
         >
           <Card variant="surface" padding={20}>
@@ -132,7 +148,10 @@ export default function AddTransactionSuccess() {
         </Animated.View>
       </View>
 
-      <View style={{ gap: tokens.space[3] }}>
+      <Animated.View
+        entering={FadeIn.duration(tokens.motion.base).delay(450)}
+        style={{ gap: tokens.space[3] }}
+      >
         <Button
           label="Add another"
           variant="secondary"
@@ -140,7 +159,7 @@ export default function AddTransactionSuccess() {
           onPress={() => router.replace("/modals/add-transaction")}
         />
         <Button label="Done" size="lg" onPress={() => router.replace("/(tabs)/home")} />
-      </View>
+      </Animated.View>
     </View>
   );
 }

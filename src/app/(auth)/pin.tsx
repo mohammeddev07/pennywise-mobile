@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { Redirect, useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
 import { tokens } from "@/shared/ui/theme/tokens";
@@ -10,6 +9,7 @@ import { PinDots } from "@/shared/ui/components/PinDots";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { AppText } from "@/shared/ui/components/AppText";
 import { useAuthStore } from "@/features/auth/store";
+import { Icon } from "@/shared/ui/components/Icon";
 
 const LOCAL_UNLOCK_PIN = "1234";
 
@@ -73,7 +73,7 @@ function LegacyPinScreen() {
           style={styles.backButton}
           android_ripple={{ color: tokens.colors.ripple, borderless: true }}
         >
-          <Ionicons name="chevron-back" size={20} color={tokens.colors.text} />
+          <Icon name="chevron-back" size={20} color={tokens.colors.text} />
         </HapticPressable>
 
         <View style={styles.headerCopy}>
@@ -86,7 +86,7 @@ function LegacyPinScreen() {
 
       <View style={styles.body}>
         <View style={styles.heroIcon}>
-          <Ionicons name="shield-checkmark" size={44} color={tokens.colors.accent} />
+          <Icon name="shield-checkmark" size={44} color={tokens.colors.accent} />
         </View>
 
         <View style={styles.pinCluster}>
@@ -121,7 +121,7 @@ function LegacyPinScreen() {
             style={styles.biometricButton}
             android_ripple={{ color: tokens.colors.ripple }}
           >
-            <Ionicons name="finger-print" size={30} color={tokens.colors.accent} />
+            <Icon name="finger-print" size={30} color={tokens.colors.accent} />
             <AppText variant="base" weight="semibold" style={{ marginLeft: 12, color: tokens.colors.accent }}>
               Use fingerprint to unlock
             </AppText>

@@ -1,22 +1,22 @@
 import React, { useState } from "react";
 import { View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import Animated, {
   interpolateColor,
   useAnimatedStyle,
   useDerivedValue,
-  withTiming,
+  withSpring,
 } from "react-native-reanimated";
 
 import { AppText } from "@/shared/ui/components/AppText";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { tokens } from "@/shared/ui/theme/tokens";
 import { withAlpha } from "@/shared/ui/theme/color";
+import { Icon, type IconName } from "./Icon";
 
 export type SegmentItem<T extends string> = {
   label: string;
   value: T;
-  icon?: keyof typeof Ionicons.glyphMap;
+  icon?: IconName;
   /** Color of the selected state. Defaults to brand green. */
   color?: string;
 };
@@ -29,17 +29,23 @@ const PAD = 4;
  * The indicator is one animated view rather than a background per segment, so
  * the selection genuinely slides and its color cross-fades when the two
  * options mean different things (expense red vs income green).
+ *
+ * The thumb travels on a spring - cause precedes effect, so the control moves
+ * before the screen answers with its own color change.
  */
 export function SegmentedControl<T extends string>({
   items,
   value,
   onChange,
   disabled,
+  haptic = "selection",
 }: {
   items: SegmentItem<T>[];
   value: T;
   onChange: (value: T) => void;
   disabled?: boolean;
+  /** Mode switches (expense/income) commit a decision and use `impactMedium`. */
+  haptic?: "selection" | "impactMedium" | "none";
 }) {
   const [width, setWidth] = useState(0);
 
@@ -49,10 +55,7 @@ export function SegmentedControl<T extends string>({
   );
   const segmentWidth = width > 0 ? (width - PAD * 2) / items.length : 0;
 
-  const progress = useDerivedValue(
-    () => withTiming(index, { duration: tokens.motion.base }),
-    [index]
-  );
+  const progress = useDerivedValue(() => withSpring(index, tokens.spring.thumb), [index]);
 
   // rgba, not 8-digit hex: interpolateColor needs the former.
   const colors = items.map((i) => withAlpha(i.color ?? tokens.colors.accent, 0.14));
@@ -122,7 +125,7 @@ export function SegmentedControl<T extends string>({
             key={item.value}
             onPress={() => onChange(item.value)}
             disabled={disabled}
-            haptic="selection"
+            haptic={haptic}
             pressScale={0.98}
             pressOpacity={1}
             accessibilityRole="button"
@@ -137,15 +140,15 @@ export function SegmentedControl<T extends string>({
             }}
           >
             {item.icon ? (
-              <Ionicons
+              <Icon
                 name={item.icon}
-                size={16}
+                size={tokens.icon.chip}
                 color={active ? color : tokens.colors.muted}
               />
             ) : null}
             <AppText
-              variant="sm"
-              weight="semibold"
+              variant="base"
+              weight="bold"
               style={{ color: active ? color : tokens.colors.muted }}
             >
               {item.label}

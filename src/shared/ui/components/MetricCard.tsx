@@ -1,11 +1,11 @@
 import React from "react";
 import { View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 
 import { AppText } from "@/shared/ui/components/AppText";
 import { Card } from "@/shared/ui/components/Card";
 import { CategoryIcon } from "@/shared/ui/components/CategoryIcon";
 import { tokens } from "@/shared/ui/theme/tokens";
+import { type IconName } from "./Icon";
 
 export function MetricCard({
   label,
@@ -17,7 +17,7 @@ export function MetricCard({
   label: string;
   value: string;
   change?: string;
-  icon?: keyof typeof Ionicons.glyphMap | string;
+  icon?: IconName | string;
   color?: string;
 }) {
   return (

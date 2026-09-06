@@ -1,10 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Alert, ScrollView, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { LinearGradient } from "expo-linear-gradient";
+
 import { tokens } from "@/shared/ui/theme/tokens";
+import { withAlpha } from "@/shared/ui/theme/color";
 import { AppText } from "@/shared/ui/components/AppText";
 import { Button } from "@/shared/ui/components/Button";
 import { Card } from "@/shared/ui/components/Card";
@@ -21,6 +23,7 @@ import { useSettingsStore } from "@/features/settings/store";
 import { useAuthStore } from "@/features/auth/store";
 import { formatCurrency, currencySymbol } from "@/shared/utils/formatCurrency";
 import { useUndoToastStore } from "@/shared/ui/state/useUndoToastStore";
+import { Icon } from "@/shared/ui/components/Icon";
 
 /** A titled group of settings rows, separated by hairlines. */
 function SettingsGroup({ children }: { children: React.ReactNode }) {
@@ -199,20 +202,23 @@ export default function ProfileScreen() {
             {/* Account */}
             <Card variant="surface" padding={16} style={{ marginTop: tokens.space[6] }}>
               <View style={{ flexDirection: "row", alignItems: "center" }}>
-                <View
+                <LinearGradient
+                  colors={[withAlpha(tokens.colors.income, 1), tokens.colors.accentPressed]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
                   style={{
                     width: 48,
                     height: 48,
                     borderRadius: tokens.radii.pill,
                     alignItems: "center",
                     justifyContent: "center",
-                    backgroundColor: tokens.colors.accent,
+                    ...tokens.glow.accentSoft,
                   }}
                 >
                   <AppText variant="base" weight="bold" style={{ color: tokens.colors.onAccent }}>
                     {email.slice(0, 1).toUpperCase()}
                   </AppText>
-                </View>
+                </LinearGradient>
 
                 <View style={{ flex: 1, marginLeft: tokens.space[3] }}>
                   <AppText variant="base" weight="semibold" numberOfLines={1}>
@@ -289,6 +295,7 @@ export default function ProfileScreen() {
                     selectedBook?.openingBalanceMinor ?? 0,
                     selectedBook?.currencyCode ?? currency
                   )}
+                  valueIsMoney
                   locked
                 />
                 <SettingsRow
@@ -329,7 +336,7 @@ export default function ProfileScreen() {
             onPress={onLogout}
             loading={isSigningOut}
             size="md"
-            leftIcon={<Ionicons name="log-out-outline" size={18} color={tokens.colors.danger} />}
+            leftIcon={<Icon name="log-out-outline" size={tokens.icon.row} color={tokens.colors.danger} />}
           />
         </View>
       </ScrollView>

@@ -1,4 +1,4 @@
-import type { AxiosAdapter, AxiosRequestConfig, AxiosResponse } from "axios";
+import type { AxiosAdapter, AxiosRequestConfig, AxiosResponse, InternalAxiosRequestConfig } from "axios";
 import type {
   AuthResponse,
   BalanceResponse,
@@ -163,7 +163,7 @@ function spentForCategoryMonth(bookId: string, categoryId: string, month: string
     .reduce((sum, t) => sum + t.amountMinor, 0);
 }
 
-function ok<T>(config: AxiosRequestConfig, data: T, status = 200): AxiosResponse<T> {
+function ok<T>(config: InternalAxiosRequestConfig, data: T, status = 200): AxiosResponse<T> {
   return {
     data,
     status,
@@ -174,7 +174,7 @@ function ok<T>(config: AxiosRequestConfig, data: T, status = 200): AxiosResponse
   };
 }
 
-function fail(config: AxiosRequestConfig, status: number, message: string): Promise<never> {
+function fail(config: InternalAxiosRequestConfig, status: number, message: string): Promise<never> {
   const error = Object.assign(new Error(message), {
     isAxiosError: true,
     config,

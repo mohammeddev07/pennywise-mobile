@@ -46,6 +46,10 @@ yarn-error.*
 *.swo
 *~
 
+# Agents
+.claude/
+.agents/
+
 # TypeScript
 *.tsbuildinfo
 

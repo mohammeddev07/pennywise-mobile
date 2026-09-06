@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { Platform, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { useRouter } from "expo-router";
 import { format, parseISO } from "date-fns";
@@ -14,6 +13,7 @@ import { Button } from "@/shared/ui/components/Button";
 import { Card } from "@/shared/ui/components/Card";
 import { IconButton } from "@/shared/ui/components/IconButton";
 import { useAddTransactionDraftStore } from "@/features/transactions/addDraftStore";
+import { Icon } from "@/shared/ui/components/Icon";
 
 function parseWhen(iso: string) {
   try {
@@ -93,7 +93,7 @@ export default function DateTimeModal() {
         {hasParseError ? (
           <Card variant="surface" padding={16} style={{ marginBottom: tokens.space[4] }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: tokens.space[2] }}>
-              <Ionicons name="alert-circle-outline" size={18} color={tokens.colors.danger} />
+              <Icon name="alert-circle-outline" size={18} color={tokens.colors.danger} />
               <AppText variant="base" tone="danger">
                 Stored timestamp was invalid.
               </AppText>
