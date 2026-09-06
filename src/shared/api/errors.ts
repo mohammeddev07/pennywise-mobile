@@ -10,7 +10,12 @@ export function getApiErrorCode(error: unknown) {
 
 export function getApiErrorMessage(error: unknown, fallback = "Something went wrong. Please try again.") {
   if (axios.isAxiosError<ApiErrorResponse>(error)) {
-    if (!error.response) return "Can't connect to server. Check your internet connection.";
+    if (!error.response) {
+      if (error.code === "ECONNABORTED" || error.code === "ETIMEDOUT") {
+        return "Server is taking longer than usual to respond. Please try again in a moment.";
+      }
+      return "Can't connect to server. Check your internet connection.";
+    }
     const body = error.response.data;
     return (typeof body?.error === "object" ? body.error?.message : undefined) || body?.message || fallback;
   }
