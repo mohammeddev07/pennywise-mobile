@@ -175,7 +175,7 @@ export const tokens = {
    */
   radii: {
     sm: 14, // small chips, tiny tiles
-    key: 18, // keypad keys
+    key: 22, // keypad keys
     md: 22, // inputs, fields, buttons with a fixed width
     lg: 28, // cards
     xl: 32, // sheets

@@ -193,7 +193,7 @@ export default function AddTransactionAmount() {
               is coral, so the commitment matches what is about to be recorded.
             */}
             <Button
-              label="Continue"
+              label="Next"
               onPress={goNext}
               disabled={!canContinue}
               onDisabledPress={rejectContinue}
