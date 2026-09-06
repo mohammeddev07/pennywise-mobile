@@ -3,7 +3,8 @@ import { ScrollView, View } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
-import Animated, { FadeInDown } from "react-native-reanimated";
+import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
+import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import { addMonths, format, isSameDay, parseISO, startOfMonth, subDays } from "date-fns";
 
 import { tokens } from "@/shared/ui/theme/tokens";
@@ -14,24 +15,29 @@ import { useCategoriesStore } from "@/features/categories/store";
 import { useBookCurrency } from "@/features/books/useBookCurrency";
 import { EmptyState } from "@/shared/ui/components/EmptyState";
 import { AppText } from "@/shared/ui/components/AppText";
+import { Button } from "@/shared/ui/components/Button";
 import { FilterChip } from "@/shared/ui/components/FilterChip";
 import { FormField } from "@/shared/ui/components/FormField";
+import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { IconButton } from "@/shared/ui/components/IconButton";
 import { MoneyAmount } from "@/shared/ui/components/MoneyAmount";
 import { ScreenHeader } from "@/shared/ui/components/ScreenHeader";
 import { Skeleton } from "@/shared/ui/components/Skeleton";
+import { BottomSheetModal } from "@/shared/ui/components/BottomSheetModal";
 import { useScreenPaddingX, useTabBarClearance } from "@/shared/ui/components/Screen";
 import { formatCurrency } from "@/shared/utils/formatCurrency";
 import { balanceColor } from "@/shared/ui/theme/money";
 import { Icon } from "@/shared/ui/components/Icon";
 
-type RangeKey = "today" | "week" | "month" | "all";
+type RangeKey = "today" | "week" | "month" | "all" | "custom";
+
+type CustomRange = { start: Date; end: Date };
 
 type Row =
   | { type: "header"; id: string; title: string; netMinor: number }
   | { type: "tx"; id: string; tx: Transaction };
 
-function inRange(tx: Transaction, range: RangeKey, month: Date) {
+function inRange(tx: Transaction, range: RangeKey, month: Date, custom: CustomRange | null) {
   if (range === "all") return true;
 
   const dayKey = transactionDayKey(tx);
@@ -44,6 +50,13 @@ function inRange(tx: Transaction, range: RangeKey, month: Date) {
   if (range === "week") {
     const start = format(subDays(new Date(), 6), "yyyy-MM-dd");
     const end = format(new Date(), "yyyy-MM-dd");
+    return dayKey >= start && dayKey <= end;
+  }
+
+  if (range === "custom") {
+    if (!custom) return false;
+    const start = format(custom.start <= custom.end ? custom.start : custom.end, "yyyy-MM-dd");
+    const end = format(custom.start <= custom.end ? custom.end : custom.start, "yyyy-MM-dd");
     return dayKey >= start && dayKey <= end;
   }
 
@@ -106,6 +119,132 @@ function DayHeader({ title, netMinor, currency }: { title: string; netMinor: num
         weight="semibold"
       />
     </View>
+  );
+}
+
+/**
+ * Custom date-range picker, opened from the "Custom" chip. Stays on the
+ * Activity screen - start and end are picked here, in a sheet, never on a
+ * separate route.
+ */
+function CustomRangeSheet({
+  visible,
+  onClose,
+  initial,
+  onApply,
+  onClear,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  initial: CustomRange;
+  onApply: (range: CustomRange) => void;
+  onClear: () => void;
+}) {
+  const [draftStart, setDraftStart] = useState(initial.start);
+  const [draftEnd, setDraftEnd] = useState(initial.end);
+  const [editing, setEditing] = useState<"start" | "end">("start");
+
+  useEffect(() => {
+    if (!visible) return;
+    setDraftStart(initial.start);
+    setDraftEnd(initial.end);
+    setEditing("start");
+  }, [visible, initial]);
+
+  const onPickerChange = (_event: DateTimePickerEvent, selected?: Date) => {
+    if (!selected) return;
+    if (editing === "start") setDraftStart(selected);
+    else setDraftEnd(selected);
+  };
+
+  return (
+    <BottomSheetModal visible={visible} onClose={onClose} title="Custom range">
+      <View style={{ flexDirection: "row", gap: tokens.space[3] }}>
+        <HapticPressable
+          onPress={() => setEditing("start")}
+          haptic="none"
+          pressScale={0.99}
+          accessibilityRole="button"
+          style={{
+            flex: 1,
+            height: tokens.layout.controlHeight,
+            justifyContent: "center",
+            paddingHorizontal: tokens.space[4],
+            borderRadius: tokens.radii.md,
+            borderWidth: 1.5,
+            borderColor: editing === "start" ? tokens.colors.accent : tokens.colors.stroke,
+            backgroundColor: tokens.colors.surface,
+          }}
+        >
+          <AppText variant="xs" tone="muted">
+            START DATE
+          </AppText>
+          <AppText variant="base" weight="semibold" style={{ marginTop: 2 }}>
+            {format(draftStart, "MMM d, yyyy")}
+          </AppText>
+        </HapticPressable>
+
+        <HapticPressable
+          onPress={() => setEditing("end")}
+          haptic="none"
+          pressScale={0.99}
+          accessibilityRole="button"
+          style={{
+            flex: 1,
+            height: tokens.layout.controlHeight,
+            justifyContent: "center",
+            paddingHorizontal: tokens.space[4],
+            borderRadius: tokens.radii.md,
+            borderWidth: 1.5,
+            borderColor: editing === "end" ? tokens.colors.accent : tokens.colors.stroke,
+            backgroundColor: tokens.colors.surface,
+          }}
+        >
+          <AppText variant="xs" tone="muted">
+            END DATE
+          </AppText>
+          <AppText variant="base" weight="semibold" style={{ marginTop: 2 }}>
+            {format(draftEnd, "MMM d, yyyy")}
+          </AppText>
+        </HapticPressable>
+      </View>
+
+      <Animated.View key={editing} entering={FadeIn.duration(tokens.motion.fast)} style={{ marginTop: tokens.space[4] }}>
+        <DateTimePicker
+          value={editing === "start" ? draftStart : draftEnd}
+          mode="date"
+          display="spinner"
+          themeVariant="dark"
+          textColor={tokens.colors.text}
+          onChange={onPickerChange}
+        />
+      </Animated.View>
+
+      <View style={{ flexDirection: "row", gap: tokens.space[3], marginTop: tokens.space[5] }}>
+        <Button
+          label="Clear"
+          variant="secondary"
+          size="md"
+          style={{ flex: 1 }}
+          onPress={() => {
+            onClear();
+            onClose();
+          }}
+        />
+        <Button
+          label="Apply"
+          size="md"
+          style={{ flex: 1 }}
+          onPress={() => {
+            onApply({
+              start: draftStart <= draftEnd ? draftStart : draftEnd,
+              end: draftStart <= draftEnd ? draftEnd : draftStart,
+            });
+            onClose();
+          }}
+        />
+      </View>
+    </BottomSheetModal>
   );
 }
 
@@ -174,6 +313,8 @@ export default function TransactionsScreen() {
 
   const [range, setRange] = useState<RangeKey>("today");
   const [selectedMonth, setSelectedMonth] = useState(() => startOfMonth(new Date()));
+  const [customRange, setCustomRange] = useState<CustomRange | null>(null);
+  const [customSheetOpen, setCustomSheetOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
@@ -195,8 +336,8 @@ export default function TransactionsScreen() {
   }, [bookCategories, categoryFilter]);
 
   const rangeTransactions = useMemo(() => {
-    return bookTransactions.filter((tx) => inRange(tx, range, selectedMonth));
-  }, [bookTransactions, range, selectedMonth]);
+    return bookTransactions.filter((tx) => inRange(tx, range, selectedMonth, customRange));
+  }, [bookTransactions, range, selectedMonth, customRange]);
 
   const categoryTransactions = useMemo(() => {
     if (!categoryFilter) return rangeTransactions;
@@ -273,14 +414,20 @@ export default function TransactionsScreen() {
     return out;
   }, [filtered]);
 
+  const customRangeLabel = customRange
+    ? `${format(customRange.start, "MMM d")} – ${format(customRange.end, "MMM d")}`
+    : "Custom range";
+
   const summaryLabel =
     range === "today"
-      ? "Net today"
+      ? "Today"
       : range === "week"
-        ? "Net, last 7 days"
+        ? "Last 7 days"
         : range === "month"
-          ? `Net, ${format(selectedMonth, "MMMM")}`
-          : "Net, loaded activity";
+          ? format(selectedMonth, "MMMM")
+          : range === "custom"
+            ? customRangeLabel
+            : "Loaded activity";
 
   const emptyTitle = query.trim()
     ? "No matches"
@@ -294,7 +441,9 @@ export default function TransactionsScreen() {
             ? "Nothing in the last 7 days"
             : range === "month"
               ? `Nothing in ${format(selectedMonth, "MMMM")}`
-              : "No loaded transactions";
+              : range === "custom"
+                ? `Nothing in ${customRangeLabel}`
+                : "No loaded transactions";
 
   const emptyMessage = query.trim()
     ? "Try a different search or clear the filter."
@@ -306,7 +455,9 @@ export default function TransactionsScreen() {
           ? "No transaction dated today is present in the latest loaded records."
           : range === "week"
             ? "No transaction from the last 7 days is present in the latest loaded records."
-            : "Only the latest loaded records are available in this version.";
+            : range === "custom"
+              ? "No transaction falls inside the selected date range."
+              : "Only the latest loaded records are available in this version.";
 
   return (
     <View
@@ -359,6 +510,12 @@ export default function TransactionsScreen() {
           <FilterChip label="7 days" active={range === "week"} onPress={() => setRange("week")} />
           <FilterChip label="Month" active={range === "month"} onPress={() => setRange("month")} />
           <FilterChip label="Recent" active={range === "all"} onPress={() => setRange("all")} />
+          <FilterChip
+            label="Custom"
+            icon="calendar-outline"
+            active={range === "custom"}
+            onPress={() => setCustomSheetOpen(true)}
+          />
         </ScrollView>
 
         {/* Category */}
@@ -417,30 +574,67 @@ export default function TransactionsScreen() {
           </View>
         ) : null}
 
-        {/* Summary. Quiet by design: the list is the subject of this screen. */}
-        <View style={{ marginTop: tokens.space[6] }}>
+        {/* Summary. Quiet by design: the list is the subject of this screen.
+            Every period shows all three figures - a lone net hides whether a
+            quiet week was actually quiet or just balanced. */}
+        <Animated.View
+          key={`${range}-${range === "custom" ? customRangeLabel : ""}-${range === "month" ? format(selectedMonth, "yyyy-MM") : ""}`}
+          entering={FadeIn.duration(tokens.motion.fast)}
+          style={{ marginTop: tokens.space[6] }}
+        >
           <AppText variant="xs" tone="muted">
             {summaryLabel.toUpperCase()}
           </AppText>
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "baseline",
-              gap: tokens.space[2],
-              marginTop: tokens.space[1],
-            }}
-          >
-            <MoneyAmount
-              value={formatCurrency(totals.netCents, currency)}
-              tone="neutral"
-              size="xl"
-              color={balanceColor(totals.netCents)}
-            />
-            <AppText variant="sm" tone="muted">
-              · {totals.count} {totals.count === 1 ? "transaction" : "transactions"}
-            </AppText>
+
+          <View style={{ flexDirection: "row", marginTop: tokens.space[2], gap: tokens.space[4] }}>
+            <View style={{ flex: 1 }}>
+              <AppText variant="sm" tone="muted">
+                Spent
+              </AppText>
+              <MoneyAmount
+                value={formatCurrency(totals.expenseCents, currency)}
+                kind="EXPENSE"
+                size="lg"
+                style={{ marginTop: 2 }}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <AppText variant="sm" tone="muted">
+                Received
+              </AppText>
+              <MoneyAmount
+                value={formatCurrency(totals.incomeCents, currency)}
+                kind="INCOME"
+                size="lg"
+                style={{ marginTop: 2 }}
+              />
+            </View>
           </View>
-        </View>
+
+          <View style={{ marginTop: tokens.space[4] }}>
+            <AppText variant="sm" tone="muted">
+              Net
+            </AppText>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "baseline",
+                gap: tokens.space[2],
+                marginTop: 2,
+              }}
+            >
+              <MoneyAmount
+                value={formatCurrency(totals.netCents, currency)}
+                tone="neutral"
+                size="xl"
+                color={balanceColor(totals.netCents)}
+              />
+              <AppText variant="sm" tone="muted">
+                · {totals.count} {totals.count === 1 ? "transaction" : "transactions"}
+              </AppText>
+            </View>
+          </View>
+        </Animated.View>
       </View>
 
       <View style={{ flex: 1, paddingHorizontal: paddingX }}>
@@ -473,6 +667,7 @@ export default function TransactionsScreen() {
           </View>
         ) : (
           <FlashList
+            key={`${range}-${range === "custom" ? customRangeLabel : ""}-${range === "month" ? format(selectedMonth, "yyyy-MM") : ""}`}
             data={rows}
             keyExtractor={(r) => r.id}
             renderItem={({ item, index }) => {
@@ -507,6 +702,20 @@ export default function TransactionsScreen() {
           />
         )}
       </View>
+
+      <CustomRangeSheet
+        visible={customSheetOpen}
+        onClose={() => setCustomSheetOpen(false)}
+        initial={customRange ?? { start: subDays(new Date(), 6), end: new Date() }}
+        onApply={(next) => {
+          setCustomRange(next);
+          setRange("custom");
+        }}
+        onClear={() => {
+          setCustomRange(null);
+          setRange("today");
+        }}
+      />
     </View>
   );
 }

@@ -268,7 +268,7 @@ export default function AnalyticsScreen() {
         ) : !hasActivity ? (
           <View style={{ marginTop: tokens.space[8] }}>
             <EmptyState
-              emoji="\u{1F331}"
+              emoji="🌱"
               iconName="stats-chart-outline"
               title="Not enough activity yet"
               message="Add a few transactions to start seeing insights."

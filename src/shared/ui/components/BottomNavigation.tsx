@@ -81,7 +81,12 @@ function AddButton({ onPress }: { onPress: () => void }) {
       accessibilityRole="button"
       accessibilityLabel="Add transaction"
       android_ripple={{ color: tokens.colors.rippleOnAccent, borderless: true }}
-      style={{ width: 72, alignItems: "center", justifyContent: "center" }}
+      style={{
+        width: 72,
+        height: tokens.layout.tabBarHeight,
+        alignItems: "center",
+        justifyContent: "center",
+      }}
     >
       <Animated.View
         style={[
@@ -91,7 +96,6 @@ function AddButton({ onPress }: { onPress: () => void }) {
             borderRadius: tokens.layout.fabSize / 2,
             alignItems: "center",
             justifyContent: "center",
-            marginTop: -26,
             ...tokens.glow.accent,
           },
           animated,

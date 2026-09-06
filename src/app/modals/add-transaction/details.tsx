@@ -5,7 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
-import { format, isSameDay, parseISO, subDays } from "date-fns";
+import { parseISO } from "date-fns";
 
 import { tokens } from "@/shared/ui/theme/tokens";
 import { amountColor } from "@/shared/ui/theme/money";
@@ -30,6 +30,7 @@ import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { MoneyAmount } from "@/shared/ui/components/MoneyAmount";
 import { useScreenPaddingX } from "@/shared/ui/components/Screen";
 import { Icon } from "@/shared/ui/components/Icon";
+import { DateTimeField } from "@/shared/ui/components/DateTimeField";
 
 const TITLE_MAX = 120;
 const NOTE_MAX = 280;
@@ -43,20 +44,13 @@ function parseAmountToMinor(raw: string, currency: string) {
   return majorToMinor(n, currency);
 }
 
-/** "Today, Aug 31 · 10:12 PM" - one line, no fragments. */
-function whenLabel(iso: string) {
+function parseWhen(iso: string) {
   try {
     const d = parseISO(iso);
-    if (Number.isNaN(d.getTime())) return "Now";
-    const now = new Date();
-    const day = isSameDay(d, now)
-      ? "Today"
-      : isSameDay(d, subDays(now, 1))
-        ? "Yesterday"
-        : format(d, "EEE");
-    return `${day}, ${format(d, "MMM d")} · ${format(d, "h:mm a")}`;
+    if (Number.isNaN(d.getTime())) return new Date();
+    return d;
   } catch {
-    return "Now";
+    return new Date();
   }
 }
 
@@ -94,6 +88,13 @@ export default function AddTransactionDetails() {
   const setTitle = useAddTransactionDraftStore((s) => s.setTitle);
   const setNote = useAddTransactionDraftStore((s) => s.setNote);
   const setCategory = useAddTransactionDraftStore((s) => s.setCategory);
+  const setOccurredAt = useAddTransactionDraftStore((s) => s.setOccurredAt);
+
+  const occurredAtDate = useMemo(() => parseWhen(occurredAt), [occurredAt]);
+  const onOccurredAtChange = useCallback(
+    (next: Date) => setOccurredAt(next.toISOString()),
+    [setOccurredAt]
+  );
 
   const [attempted, setAttempted] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -348,35 +349,24 @@ export default function AddTransactionDetails() {
             ) : null}
           </View>
 
-          {/* When - a native picker, so this one legitimately is its own step. */}
-          <View style={{ marginTop: tokens.space[6] }}>
-            <AppText variant="xs" tone="muted" style={{ marginBottom: tokens.space[2] }}>
-              DATE & TIME
-            </AppText>
-            <HapticPressable
-              onPress={() => router.push("/modals/add-transaction/datetime")}
-              haptic="none"
-              pressScale={0.995}
-              pressOpacity={1}
-              accessibilityRole="button"
-              android_ripple={{ color: tokens.colors.ripple }}
-              style={{
-                height: tokens.layout.controlHeight,
-                flexDirection: "row",
-                alignItems: "center",
-                borderRadius: tokens.radii.md,
-                borderWidth: 1,
-                borderColor: tokens.colors.stroke,
-                backgroundColor: tokens.colors.surface,
-                paddingHorizontal: tokens.space[4],
-              }}
-            >
-              <Icon name="calendar-outline" size={tokens.icon.row} color={tokens.colors.muted} />
-              <AppText variant="base" numberOfLines={1} style={{ flex: 1, marginLeft: tokens.space[3] }}>
-                {whenLabel(occurredAt)}
-              </AppText>
-              <Icon name="chevron-forward" size={tokens.icon.chip} color={tokens.colors.muted} />
-            </HapticPressable>
+          {/* When - two inline fields, each its own bottom sheet. Neither
+              leaves this screen: the old combined row pushed a separate
+              route, which made a two-second edit feel like navigation. */}
+          <View style={{ marginTop: tokens.space[6], flexDirection: "row", gap: tokens.space[3] }}>
+            <DateTimeField
+              mode="date"
+              label="Date"
+              value={occurredAtDate}
+              onChange={onOccurredAtChange}
+              style={{ flex: 1 }}
+            />
+            <DateTimeField
+              mode="time"
+              label="Time"
+              value={occurredAtDate}
+              onChange={onOccurredAtChange}
+              style={{ flex: 1 }}
+            />
           </View>
 
           {/* Note */}

@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { View } from "react-native";
 import Animated, {
+  interpolateColor,
   useAnimatedStyle,
   useSharedValue,
   withSequence,
@@ -49,11 +50,16 @@ export function FilterChip({
   style?: object;
 }) {
   const pop = useSharedValue(1);
+  const focus = useSharedValue(active ? 1 : 0);
 
   useEffect(() => {
     if (!active) return;
     pop.value = withSequence(withTiming(1.12, { duration: 90 }), withSpring(1, tokens.spring.chipIcon));
   }, [active, pop]);
+
+  useEffect(() => {
+    focus.value = withTiming(active ? 1 : 0, { duration: tokens.motion.fast });
+  }, [active, focus]);
 
   const iconPop = useAnimatedStyle(() => ({ transform: [{ scale: pop.value }] }));
 
@@ -63,6 +69,13 @@ export function FilterChip({
       : tone === "expense"
         ? tokens.semantic.expense
         : tokens.colors.accent;
+
+  // Selected fill/border cross-fade rather than snap, so switching a filter
+  // reads as a quick shift in emphasis instead of a hard toggle.
+  const colorStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(focus.value, [0, 1], [tokens.colors.surfaceAlt, `${selectedColor}1A`]),
+    borderColor: interpolateColor(focus.value, [0, 1], [tokens.colors.stroke, `${selectedColor}66`]),
+  }));
 
   return (
     <HapticPressable
@@ -80,9 +93,8 @@ export function FilterChip({
           borderWidth: 1.5,
           flexDirection: "row",
           alignItems: "center",
-          borderColor: active ? `${selectedColor}66` : tokens.colors.stroke,
-          backgroundColor: active ? `${selectedColor}1A` : tokens.colors.surfaceAlt,
         },
+        colorStyle,
         style,
       ]}
     >
