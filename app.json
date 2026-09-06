@@ -47,7 +47,18 @@
           "resizeMode": "contain",
           "backgroundColor": "#0B0D0F"
         }
-      ]
-    ]
+      ],
+      "expo-font",
+      "expo-status-bar"
+    ],
+    "extra": {
+      "router": {
+        "origin": false,
+        "root": "./src/app"
+      },
+      "eas": {
+        "projectId": "8b897271-e9fa-4110-a807-3b5e58483e82"
+      }
+    }
   }
 }
