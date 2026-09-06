@@ -31,6 +31,7 @@ export function BottomSheetModal({ visible, onClose, title, rightAction, footer,
       <Animated.View
         entering={FadeIn.duration(tokens.motion.fast)}
         exiting={FadeOut.duration(tokens.motion.fast)}
+        collapsable={false}
         style={{ flex: 1, backgroundColor: withAlpha(tokens.colors.black, 0.55) }}
       >
         <Pressable style={{ flex: 1 }} onPress={onClose} accessibilityLabel="Close" />
@@ -38,6 +39,7 @@ export function BottomSheetModal({ visible, onClose, title, rightAction, footer,
         <Animated.View
           entering={SlideInDown.duration(tokens.motion.base).springify().damping(24).stiffness(260)}
           exiting={SlideOutDown.duration(tokens.motion.fast)}
+          collapsable={false}
           style={{
             borderTopLeftRadius: tokens.radii.xl,
             borderTopRightRadius: tokens.radii.xl,

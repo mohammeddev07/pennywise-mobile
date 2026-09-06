@@ -8,6 +8,8 @@ import type {
   MeResponse,
   MonthlySummaryCategory,
   MonthlySummaryResponse,
+  RangeSummaryDailyItem,
+  RangeSummaryResponse,
   TransactionResponse,
 } from "@/shared/types/api";
 
@@ -502,6 +504,7 @@ export const mockAdapter: AxiosAdapter = async (config) => {
       const existing = byCategoryMap.get(t.categoryId);
       if (existing) {
         existing.totalMinor += t.amountMinor;
+        existing.transactionCount += 1;
       } else {
         const budget = state.budgets.find((b) => b.bookId === m!.bookId && b.categoryId === t.categoryId && b.month === month);
         byCategoryMap.set(t.categoryId, {
@@ -510,6 +513,7 @@ export const mockAdapter: AxiosAdapter = async (config) => {
           type: t.type,
           totalMinor: t.amountMinor,
           budgetMinor: budget?.amountMinor ?? null,
+          transactionCount: 1,
         });
       }
     }
@@ -521,6 +525,75 @@ export const mockAdapter: AxiosAdapter = async (config) => {
       incomeTotalMinor,
       expenseTotalMinor,
       byCategory: Array.from(byCategoryMap.values()),
+    };
+    return ok(config, res);
+  }
+
+  if ((m = route("/v1/books/:bookId/summary/range", "GET"))) {
+    const book = state.books.find((b) => b.id === m!.bookId);
+    if (!book) return fail(config, 404, "Book not found");
+    const startDate = params.startDate as string;
+    const endDate = params.endDate as string;
+    if (!startDate || !endDate) return fail(config, 400, "startDate and endDate are required");
+
+    const rangeTx = state.transactions.filter(
+      (t) =>
+        t.bookId === m!.bookId &&
+        !t.deletedAt &&
+        t.occurredOn >= startDate &&
+        t.occurredOn <= endDate
+    );
+    const incomeTotalMinor = rangeTx.filter((t) => t.type === "INCOME").reduce((s, t) => s + t.amountMinor, 0);
+    const expenseTotalMinor = rangeTx.filter((t) => t.type === "EXPENSE").reduce((s, t) => s + t.amountMinor, 0);
+
+    const byCategoryMap = new Map<string, MonthlySummaryCategory>();
+    for (const t of rangeTx) {
+      const category = state.categories.find((c) => c.id === t.categoryId);
+      const existing = byCategoryMap.get(t.categoryId);
+      if (existing) {
+        existing.totalMinor += t.amountMinor;
+        existing.transactionCount += 1;
+      } else {
+        byCategoryMap.set(t.categoryId, {
+          categoryId: t.categoryId,
+          categoryName: category?.name ?? t.categoryName ?? "Unknown",
+          type: t.type,
+          totalMinor: t.amountMinor,
+          budgetMinor: null,
+          transactionCount: 1,
+        });
+      }
+    }
+
+    const byDayMap = new Map<string, RangeSummaryDailyItem>();
+    for (const t of rangeTx) {
+      const existing = byDayMap.get(t.occurredOn);
+      const income = t.type === "INCOME" ? t.amountMinor : 0;
+      const expense = t.type === "EXPENSE" ? t.amountMinor : 0;
+      if (existing) {
+        existing.incomeTotalMinor += income;
+        existing.expenseTotalMinor += expense;
+      } else {
+        byDayMap.set(t.occurredOn, { date: t.occurredOn, incomeTotalMinor: income, expenseTotalMinor: expense });
+      }
+    }
+    // Zero-fill every day in the range, not just days with activity, matching the real endpoint.
+    const byDay: RangeSummaryDailyItem[] = [];
+    for (let d = new Date(`${startDate}T00:00:00`); d <= new Date(`${endDate}T00:00:00`); d.setDate(d.getDate() + 1)) {
+      const key = d.toISOString().slice(0, 10);
+      byDay.push(byDayMap.get(key) ?? { date: key, incomeTotalMinor: 0, expenseTotalMinor: 0 });
+    }
+
+    const res: RangeSummaryResponse = {
+      bookId: book.id,
+      startDate,
+      endDate,
+      currencyCode: book.currencyCode,
+      incomeTotalMinor,
+      expenseTotalMinor,
+      transactionCount: rangeTx.length,
+      byCategory: Array.from(byCategoryMap.values()),
+      byDay,
     };
     return ok(config, res);
   }

@@ -9,8 +9,10 @@ import DateTimePicker, {
 } from "@react-native-community/datetimepicker";
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import { addMonths, format, isSameDay, parseISO, startOfMonth, subDays } from "date-fns";
+import { useQuery } from "@tanstack/react-query";
 
 import { tokens } from "@/shared/ui/theme/tokens";
+import * as summaryApi from "@/shared/api/summary";
 import { useTransactionsStore, type Transaction } from "@/features/transactions/store";
 import { TransactionRow } from "@/shared/ui/components/TransactionRow";
 import { useBooksStore } from "@/features/books/store";
@@ -431,7 +433,59 @@ export default function TransactionsScreen() {
     });
   }, [query, categoryTransactions]);
 
+  // Custom Range is the only preset backed by a server-computed summary - it's the
+  // one place the 100-transaction client load cap (see _layout.tsx) would otherwise
+  // silently undercount. Today/7 Days/Month/Recent still compute client-side; see
+  // the range-summary rollout notes for why those are a separate follow-up.
+  const rangeSummaryQuery = useQuery({
+    queryKey: [
+      "summaryRange",
+      selectedBookId,
+      customRange ? format(customRange.start, "yyyy-MM-dd") : null,
+      customRange ? format(customRange.end, "yyyy-MM-dd") : null,
+    ],
+    queryFn: () => {
+      if (!customRange) throw new Error("customRange is required");
+      const [start, end] =
+        customRange.start <= customRange.end
+          ? [customRange.start, customRange.end]
+          : [customRange.end, customRange.start];
+      return summaryApi.getRangeSummary(
+        selectedBookId,
+        format(start, "yyyy-MM-dd"),
+        format(end, "yyyy-MM-dd")
+      );
+    },
+    enabled: Boolean(selectedBookId) && range === "custom" && Boolean(customRange),
+  });
+
   const totals = useMemo(() => {
+    if (range === "custom" && rangeSummaryQuery.data) {
+      const data = rangeSummaryQuery.data;
+
+      if (!categoryFilter) {
+        return {
+          incomeCents: data.incomeTotalMinor,
+          expenseCents: data.expenseTotalMinor,
+          netCents: data.incomeTotalMinor - data.expenseTotalMinor,
+          count: data.transactionCount,
+        };
+      }
+
+      // A category is always a single type (enforced server-side), so its one
+      // byCategory entry fully determines income/expense/net/count for it - no
+      // separate per-category endpoint needed. No entry = zero activity in range.
+      const entry = data.byCategory.find((c) => c.categoryId === categoryFilter);
+      const income = entry?.type === "INCOME" ? entry.totalMinor : 0;
+      const expense = entry?.type === "EXPENSE" ? entry.totalMinor : 0;
+      return {
+        incomeCents: income,
+        expenseCents: expense,
+        netCents: income - expense,
+        count: entry?.transactionCount ?? 0,
+      };
+    }
+
     let income = 0;
     let expense = 0;
 
@@ -446,7 +500,7 @@ export default function TransactionsScreen() {
       netCents: income - expense,
       count: categoryTransactions.length,
     };
-  }, [categoryTransactions]);
+  }, [range, categoryFilter, rangeSummaryQuery.data, categoryTransactions]);
 
   const rows = useMemo<Row[]>(() => {
     const sorted = [...filtered].sort((a, b) => {
