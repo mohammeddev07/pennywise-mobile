@@ -12,6 +12,7 @@ import { AppText } from "@/shared/ui/components/AppText";
 import { Button } from "@/shared/ui/components/Button";
 import { Icon } from "@/shared/ui/components/Icon";
 import { BottomSheetModal } from "@/shared/ui/components/BottomSheetModal";
+import { WebDateInput } from "@/shared/ui/components/WebDateInput";
 
 function dateLabel(value: Date) {
   const now = new Date();
@@ -57,6 +58,12 @@ type Props = {
  * dialog was open reopened it, and it could reappear right after Cancel/OK.
  * The imperative API opens exactly once per tap and never re-fires on its
  * own, so this is a correctness fix, not a style choice.
+ *
+ * Web has no native `DateTimePicker` at all - the library's generic fallback
+ * renders `null` and just warns. Tapping the field there used to open this
+ * sheet with nothing inside it, which looked exactly like a dead button. The
+ * sheet now renders `WebDateInput` (a real `<input type="date"|"time">`) on
+ * web instead.
  */
 export function DateTimeField({ mode, label, value, onChange, style }: Props) {
   const [visible, setVisible] = useState(false);
@@ -111,7 +118,7 @@ export function DateTimeField({ mode, label, value, onChange, style }: Props) {
         </AppText>
       </HapticPressable>
 
-      {Platform.OS === "ios" ? (
+      {Platform.OS === "ios" || Platform.OS === "web" ? (
         <BottomSheetModal
           visible={visible}
           onClose={() => setVisible(false)}
@@ -138,16 +145,20 @@ export function DateTimeField({ mode, label, value, onChange, style }: Props) {
           }
           footer={<Button label="Done" onPress={() => setVisible(false)} size="lg" />}
         >
-          <DateTimePicker
-            value={value}
-            mode={mode}
-            display="spinner"
-            themeVariant="dark"
-            textColor={tokens.colors.text}
-            onChange={(_event, selected) => {
-              if (selected) onChange(selected);
-            }}
-          />
+          {Platform.OS === "web" ? (
+            <WebDateInput mode={mode} value={value} onChange={onChange} />
+          ) : (
+            <DateTimePicker
+              value={value}
+              mode={mode}
+              display="spinner"
+              themeVariant="dark"
+              textColor={tokens.colors.text}
+              onChange={(_event, selected) => {
+                if (selected) onChange(selected);
+              }}
+            />
+          )}
         </BottomSheetModal>
       ) : null}
     </View>

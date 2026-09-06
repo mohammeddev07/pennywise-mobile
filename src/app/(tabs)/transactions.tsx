@@ -27,6 +27,7 @@ import { MoneyAmount } from "@/shared/ui/components/MoneyAmount";
 import { ScreenHeader } from "@/shared/ui/components/ScreenHeader";
 import { Skeleton } from "@/shared/ui/components/Skeleton";
 import { BottomSheetModal, SheetCloseButton } from "@/shared/ui/components/BottomSheetModal";
+import { WebDateInput } from "@/shared/ui/components/WebDateInput";
 import { useScreenPaddingX, useTabBarClearance } from "@/shared/ui/components/Screen";
 import { formatCurrency } from "@/shared/utils/formatCurrency";
 import { balanceColor } from "@/shared/ui/theme/money";
@@ -275,6 +276,17 @@ function CustomRangeSheet({
             }}
           />
         </Animated.View>
+      ) : Platform.OS === "web" ? (
+        <View style={{ marginTop: tokens.space[4] }}>
+          <WebDateInput
+            mode="date"
+            value={editing === "start" ? draftStart : draftEnd}
+            onChange={(next) => {
+              if (editing === "start") setDraftStart(next);
+              else setDraftEnd(next);
+            }}
+          />
+        </View>
       ) : null}
 
       <View style={{ flexDirection: "row", gap: tokens.space[3], marginTop: tokens.space[5] }}>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Alert, View } from "react-native";
+import { Alert, Platform, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
@@ -22,6 +22,26 @@ import { formatCurrency } from "@/shared/utils/formatCurrency";
 import { CategoryIcon } from "@/shared/ui/components/CategoryIcon";
 import { MoneyAmount } from "@/shared/ui/components/MoneyAmount";
 import { Icon } from "@/shared/ui/components/Icon";
+
+/**
+ * `Alert.alert` on web (`react-native-web`) is a complete no-op - it neither
+ * shows a dialog nor ever invokes a button's `onPress` - so Delete's
+ * confirmation, and the deletion behind it, silently never ran there. `window
+ * .confirm` is the browser's native equivalent for the same yes/no decision.
+ */
+function confirmDestructive(title: string, message: string, onConfirm: () => void) {
+  if (Platform.OS === "web") {
+    if (typeof window !== "undefined" && window.confirm(`${title}\n\n${message}`)) {
+      onConfirm();
+    }
+    return;
+  }
+
+  Alert.alert(title, message, [
+    { text: "Cancel", style: "cancel" },
+    { text: "Delete", style: "destructive", onPress: onConfirm },
+  ]);
+}
 
 function safeDate(iso: string) {
   try {
@@ -95,6 +115,7 @@ export default function TransactionDetailsModal() {
   const [hydrationError, setHydrationError] = useState(false);
   const [isMutating, setIsMutating] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState<"edit" | "duplicate" | "delete" | null>(null);
 
   useEffect(() => {
     if (!txPersist?.onFinishHydration) return;
@@ -140,29 +161,22 @@ export default function TransactionDetailsModal() {
   const onDelete = () => {
     if (!tx || isMutating) return;
 
-    Alert.alert("Delete transaction?", "This action cannot be undone.", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: async () => {
-          setIsMutating(true);
-          try {
-            await removeTransaction(tx.id);
-            await Promise.all([
-              queryClient.invalidateQueries({ queryKey: ["balance", tx.bookId] }),
-              queryClient.invalidateQueries({ queryKey: ["summary", tx.bookId] }),
-            ]);
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
-            router.back();
-          } catch (error) {
-            showError(error, "Could not delete transaction.");
-          } finally {
-            setIsMutating(false);
-          }
-        },
-      },
-    ]);
+    confirmDestructive("Delete transaction?", "This action cannot be undone.", async () => {
+      setIsMutating(true);
+      try {
+        await removeTransaction(tx.id);
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["balance", tx.bookId] }),
+          queryClient.invalidateQueries({ queryKey: ["summary", tx.bookId] }),
+        ]);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+        router.back();
+      } catch (error) {
+        showError(error, "Could not delete transaction.");
+      } finally {
+        setIsMutating(false);
+      }
+    });
   };
 
   const onDuplicate = async () => {
@@ -191,6 +205,27 @@ export default function TransactionDetailsModal() {
     if (!tx) return;
     router.push({ pathname: "/modals/edit-transaction", params: { id: tx.id } });
   };
+
+  // The overflow menu is a real native `<Modal>`. Firing a second native
+  // presentation - `Alert.alert` for Delete, or a navigation - in the same
+  // tick as closing it raced the modal's own dismissal: on iOS in particular,
+  // presenting on top of a view controller that is still being torn down can
+  // silently drop the new presentation, which is exactly why Edit/Duplicate/
+  // Delete looked like dead buttons. Closing the menu only queues the action;
+  // it runs after `menuOpen` has actually committed to `false` and the modal
+  // has had a beat to finish dismissing.
+  useEffect(() => {
+    if (menuOpen || !pendingAction) return;
+    const action = pendingAction;
+    const timeoutId = setTimeout(() => {
+      setPendingAction(null);
+      if (action === "edit") onEdit();
+      else if (action === "duplicate") onDuplicate();
+      else onDelete();
+    }, tokens.motion.base);
+    return () => clearTimeout(timeoutId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [menuOpen, pendingAction]);
 
   const retryHydration = () => {
     setHydrationError(false);
@@ -303,8 +338,8 @@ export default function TransactionDetailsModal() {
             icon="create-outline"
             label="Edit"
             onPress={() => {
+              setPendingAction("edit");
               setMenuOpen(false);
-              onEdit();
             }}
           />
           <View style={{ height: 1, backgroundColor: tokens.colors.divider }} />
@@ -313,8 +348,8 @@ export default function TransactionDetailsModal() {
             label="Duplicate"
             disabled={isMutating}
             onPress={() => {
+              setPendingAction("duplicate");
               setMenuOpen(false);
-              onDuplicate();
             }}
           />
           <View style={{ height: 1, backgroundColor: tokens.colors.divider }} />
@@ -324,8 +359,8 @@ export default function TransactionDetailsModal() {
             danger
             disabled={isMutating}
             onPress={() => {
+              setPendingAction("delete");
               setMenuOpen(false);
-              onDelete();
             }}
           />
         </View>
