@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { ScrollView, View } from "react-native";
+import { Platform, ScrollView, View } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
-import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
+import DateTimePicker, {
+  DateTimePickerAndroid,
+  type DateTimePickerEvent,
+} from "@react-native-community/datetimepicker";
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import { addMonths, format, isSameDay, parseISO, startOfMonth, subDays } from "date-fns";
 
@@ -23,7 +26,7 @@ import { IconButton } from "@/shared/ui/components/IconButton";
 import { MoneyAmount } from "@/shared/ui/components/MoneyAmount";
 import { ScreenHeader } from "@/shared/ui/components/ScreenHeader";
 import { Skeleton } from "@/shared/ui/components/Skeleton";
-import { BottomSheetModal } from "@/shared/ui/components/BottomSheetModal";
+import { BottomSheetModal, SheetCloseButton } from "@/shared/ui/components/BottomSheetModal";
 import { useScreenPaddingX, useTabBarClearance } from "@/shared/ui/components/Screen";
 import { formatCurrency } from "@/shared/utils/formatCurrency";
 import { balanceColor } from "@/shared/ui/theme/money";
@@ -126,6 +129,23 @@ function DayHeader({ title, netMinor, currency }: { title: string; netMinor: num
  * Custom date-range picker, opened from the "Custom" chip. Stays on the
  * Activity screen - start and end are picked here, in a sheet, never on a
  * separate route.
+ *
+ * Visibility is owned entirely by the caller's `isCustomPickerOpen` state,
+ * passed in as `visible`. This component never decides to open itself - not
+ * from `selectedFilter === "custom"`, not from a prop identity change, not
+ * from its own effects. Every exit path (Cancel, the backdrop, the hardware
+ * back button, Apply) calls `onClose` and nothing here ever flips `visible`
+ * back to true.
+ *
+ * Android picks each date through `DateTimePickerAndroid.open`, the one-shot
+ * imperative API, instead of mounting the declarative `<DateTimePicker>`.
+ * The declarative Android component re-presents its dialog from an internal
+ * `useEffect` keyed on the `onChange` callback's identity - since a fresh
+ * closure is passed every render, any unrelated re-render of this screen
+ * while the dialog was open (typing, a store update, even the parent
+ * recreating an inline object prop) reopened it, and it could resurface
+ * right after Cancel/OK or the back button. The imperative call has no such
+ * effect, so it cannot self-reopen.
  */
 function CustomRangeSheet({
   visible,
@@ -144,6 +164,8 @@ function CustomRangeSheet({
   const [draftEnd, setDraftEnd] = useState(initial.end);
   const [editing, setEditing] = useState<"start" | "end">("start");
 
+  // Seeds the draft exactly once per open. `initial` is memoized by the
+  // caller, so this does not refire on every unrelated parent re-render.
   useEffect(() => {
     if (!visible) return;
     setDraftStart(initial.start);
@@ -151,17 +173,42 @@ function CustomRangeSheet({
     setEditing("start");
   }, [visible, initial]);
 
-  const onPickerChange = (_event: DateTimePickerEvent, selected?: Date) => {
-    if (!selected) return;
-    if (editing === "start") setDraftStart(selected);
-    else setDraftEnd(selected);
+  const openStart = () => {
+    setEditing("start");
+    if (Platform.OS === "android") {
+      DateTimePickerAndroid.open({
+        value: draftStart,
+        mode: "date",
+        onChange: (_event: DateTimePickerEvent, selected?: Date) => {
+          if (selected) setDraftStart(selected);
+        },
+      });
+    }
+  };
+
+  const openEnd = () => {
+    setEditing("end");
+    if (Platform.OS === "android") {
+      DateTimePickerAndroid.open({
+        value: draftEnd,
+        mode: "date",
+        onChange: (_event: DateTimePickerEvent, selected?: Date) => {
+          if (selected) setDraftEnd(selected);
+        },
+      });
+    }
   };
 
   return (
-    <BottomSheetModal visible={visible} onClose={onClose} title="Custom range">
+    <BottomSheetModal
+      visible={visible}
+      onClose={onClose}
+      title="Custom range"
+      rightAction={<SheetCloseButton onPress={onClose} />}
+    >
       <View style={{ flexDirection: "row", gap: tokens.space[3] }}>
         <HapticPressable
-          onPress={() => setEditing("start")}
+          onPress={openStart}
           haptic="none"
           pressScale={0.99}
           accessibilityRole="button"
@@ -185,7 +232,7 @@ function CustomRangeSheet({
         </HapticPressable>
 
         <HapticPressable
-          onPress={() => setEditing("end")}
+          onPress={openEnd}
           haptic="none"
           pressScale={0.99}
           accessibilityRole="button"
@@ -209,20 +256,30 @@ function CustomRangeSheet({
         </HapticPressable>
       </View>
 
-      <Animated.View key={editing} entering={FadeIn.duration(tokens.motion.fast)} style={{ marginTop: tokens.space[4] }}>
-        <DateTimePicker
-          value={editing === "start" ? draftStart : draftEnd}
-          mode="date"
-          display="spinner"
-          themeVariant="dark"
-          textColor={tokens.colors.text}
-          onChange={onPickerChange}
-        />
-      </Animated.View>
+      {Platform.OS === "ios" ? (
+        <Animated.View
+          key={editing}
+          entering={FadeIn.duration(tokens.motion.fast)}
+          style={{ marginTop: tokens.space[4] }}
+        >
+          <DateTimePicker
+            value={editing === "start" ? draftStart : draftEnd}
+            mode="date"
+            display="spinner"
+            themeVariant="dark"
+            textColor={tokens.colors.text}
+            onChange={(_event, selected) => {
+              if (!selected) return;
+              if (editing === "start") setDraftStart(selected);
+              else setDraftEnd(selected);
+            }}
+          />
+        </Animated.View>
+      ) : null}
 
       <View style={{ flexDirection: "row", gap: tokens.space[3], marginTop: tokens.space[5] }}>
         <Button
-          label="Clear"
+          label="Reset"
           variant="secondary"
           size="md"
           style={{ flex: 1 }}
@@ -314,7 +371,11 @@ export default function TransactionsScreen() {
   const [range, setRange] = useState<RangeKey>("today");
   const [selectedMonth, setSelectedMonth] = useState(() => startOfMonth(new Date()));
   const [customRange, setCustomRange] = useState<CustomRange | null>(null);
-  const [customSheetOpen, setCustomSheetOpen] = useState(false);
+  // Sole gate for the custom-range sheet's visibility. Never derived from
+  // `range === "custom"` - that identity is what caused the picker to
+  // reappear on its own, since `range` stays "custom" long after the user
+  // has closed the sheet.
+  const [isCustomPickerOpen, setIsCustomPickerOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
@@ -418,6 +479,14 @@ export default function TransactionsScreen() {
     ? `${format(customRange.start, "MMM d")} – ${format(customRange.end, "MMM d")}`
     : "Custom range";
 
+  // Stable identity unless `customRange` itself changes, so the sheet's seed
+  // effect only fires on an actual open, not on every unrelated re-render of
+  // this screen while it happens to be visible.
+  const customSheetInitial = useMemo(
+    () => customRange ?? { start: subDays(new Date(), 6), end: new Date() },
+    [customRange]
+  );
+
   const summaryLabel =
     range === "today"
       ? "Today"
@@ -514,7 +583,7 @@ export default function TransactionsScreen() {
             label="Custom"
             icon="calendar-outline"
             active={range === "custom"}
-            onPress={() => setCustomSheetOpen(true)}
+            onPress={() => setIsCustomPickerOpen(true)}
           />
         </ScrollView>
 
@@ -704,9 +773,9 @@ export default function TransactionsScreen() {
       </View>
 
       <CustomRangeSheet
-        visible={customSheetOpen}
-        onClose={() => setCustomSheetOpen(false)}
-        initial={customRange ?? { start: subDays(new Date(), 6), end: new Date() }}
+        visible={isCustomPickerOpen}
+        onClose={() => setIsCustomPickerOpen(false)}
+        initial={customSheetInitial}
         onApply={(next) => {
           setCustomRange(next);
           setRange("custom");
