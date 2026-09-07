@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { Alert, ScrollView, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { Redirect, useRouter } from "expo-router";
 
 import { tokens } from "@/shared/ui/theme/tokens";
@@ -13,6 +12,7 @@ import { Skeleton } from "@/shared/ui/components/Skeleton";
 import { EmptyState } from "@/shared/ui/components/EmptyState";
 import { Button } from "@/shared/ui/components/Button";
 import { Input } from "@/shared/ui/components/Input";
+import { Icon } from "@/shared/ui/components/Icon";
 
 export default function BookSwitcherRoute() {
   return <Redirect href="/(tabs)/settings" />;
@@ -138,19 +138,19 @@ function LegacyBookSwitcherModal() {
           <HapticPressable
             onPress={() => router.back()}
             className="h-12 w-12 items-center justify-center rounded-full border border-stroke bg-surface"
-            android_ripple={{ color: "#0B122012", borderless: true }}
+            android_ripple={{ color: tokens.colors.ripple, borderless: true }}
           >
-            <Ionicons name="close" size={18} color={tokens.colors.text} />
+            <Icon name="close" size={18} color={tokens.colors.text} />
           </HapticPressable>
         }
         rightAction={
           <HapticPressable
             onPress={startCreate}
-            haptic="selection"
+            haptic="none"
             className="h-12 w-12 items-center justify-center rounded-full border border-stroke bg-surface"
-            android_ripple={{ color: "#0B122012", borderless: true }}
+            android_ripple={{ color: tokens.colors.ripple, borderless: true }}
           >
-            <Ionicons name="add" size={20} color={tokens.colors.accent} />
+            <Icon name="add" size={20} color={tokens.colors.accent} />
           </HapticPressable>
         }
         footer={<Button label="Done" onPress={() => router.back()} size="md" />}
@@ -167,9 +167,9 @@ function LegacyBookSwitcherModal() {
           </View>
         ) : !hydrated ? (
           <View className="mt-2 gap-3">
-            <Skeleton height={72} borderRadius={24} />
-            <Skeleton height={72} borderRadius={24} />
-            <Skeleton height={72} borderRadius={24} />
+            <Skeleton height={72} borderRadius={20} />
+            <Skeleton height={72} borderRadius={20} />
+            <Skeleton height={72} borderRadius={20} />
           </View>
         ) : books.length === 0 && !isCreating ? (
           <View className="flex-1 justify-center">
@@ -221,7 +221,7 @@ function LegacyBookSwitcherModal() {
                       haptic="selection"
                       pressScale={0.99}
                       className="flex-1 pr-3"
-                      android_ripple={{ color: "#0B122012" }}
+                      android_ripple={{ color: tokens.colors.ripple }}
                     >
                       <AppText variant="base" weight="semibold" numberOfLines={1}>
                         {book.name}
@@ -233,19 +233,19 @@ function LegacyBookSwitcherModal() {
 
                     <HapticPressable
                       onPress={() => startEdit(book.id)}
-                      haptic="selection"
+                      haptic="none"
                       pressScale={0.98}
                       className="h-12 w-12 items-center justify-center rounded-full border border-stroke bg-card"
-                      android_ripple={{ color: "#0B122012", borderless: true }}
+                      android_ripple={{ color: tokens.colors.ripple, borderless: true }}
                     >
-                      <Ionicons name="create-outline" size={16} color={tokens.colors.accent} />
+                      <Icon name="create-outline" size={16} color={tokens.colors.accent} />
                     </HapticPressable>
 
                     <View
                       className="ml-3 h-8 w-8 items-center justify-center rounded-full"
                       style={{ backgroundColor: active ? `${tokens.colors.accent}20` : "transparent" }}
                     >
-                      <Ionicons
+                      <Icon
                         name={active ? "checkmark" : "chevron-forward"}
                         size={16}
                         color={active ? tokens.colors.accent : tokens.colors.muted}

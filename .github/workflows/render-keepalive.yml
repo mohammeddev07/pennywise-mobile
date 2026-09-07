@@ -1,0 +1,15 @@
+# .github/workflows/render-keepalive.yml
+name: Render Keepalive
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    name: Ping Render health endpoint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Curl health endpoint
+        run: curl -fsS https://pennywise-7v9g.onrender.com/api/actuator/health

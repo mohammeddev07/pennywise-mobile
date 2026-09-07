@@ -12,18 +12,18 @@ type Props = {
 };
 
 function normalizeRadius(r?: number) {
-  const allowed = [8, 16, 24] as const;
-  if (!r) return 16;
+  const allowed = [8, 16, 20] as const;
+  if (!r) return tokens.radii.md;
   if (allowed.includes(r as any)) return r;
   // clamp to nearest allowed
   return allowed.reduce((best, curr) => (Math.abs(curr - r) < Math.abs(best - r) ? curr : best), 16);
 }
 
 export function Skeleton({ width = "100%", height, borderRadius = 16, style }: Props) {
-  const o = useSharedValue(0.45);
+  const o = useSharedValue(0.35);
 
   useEffect(() => {
-    o.value = withRepeat(withTiming(0.9, { duration: 700 }), -1, true);
+    o.value = withRepeat(withTiming(1, { duration: 800 }), -1, true);
   }, [o]);
 
   const shimmer = useAnimatedStyle(() => ({ opacity: o.value }));
@@ -37,7 +37,7 @@ export function Skeleton({ width = "100%", height, borderRadius = 16, style }: P
           width,
           height,
           borderRadius: r,
-          backgroundColor: "#EEF2F7",
+          backgroundColor: tokens.colors.surface,
           borderWidth: 1,
           borderColor: tokens.colors.stroke,
           overflow: "hidden",
@@ -45,7 +45,7 @@ export function Skeleton({ width = "100%", height, borderRadius = 16, style }: P
         style,
       ]}
     >
-      <Animated.View style={[{ flex: 1, backgroundColor: "#F7F9FC" }, shimmer]} />
+      <Animated.View style={[{ flex: 1, backgroundColor: tokens.colors.surfaceAlt }, shimmer]} />
     </View>
   );
 }

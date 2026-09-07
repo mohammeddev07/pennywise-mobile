@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { FlashList } from "@shopify/flash-list";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
@@ -13,14 +12,19 @@ import { useBooksStore } from "@/features/books/store";
 import { useBudgetsStore } from "@/features/budgets/store";
 import { useSettingsStore } from "@/features/settings/store";
 import { AppText } from "@/shared/ui/components/AppText";
+import { MoneyAmount } from "@/shared/ui/components/MoneyAmount";
 import { Input } from "@/shared/ui/components/Input";
 import { Card } from "@/shared/ui/components/Card";
 import { EmptyState } from "@/shared/ui/components/EmptyState";
 import { Skeleton } from "@/shared/ui/components/Skeleton";
 import { RingProgress } from "@/shared/ui/components/RingProgress";
+import { IconButton } from "@/shared/ui/components/IconButton";
+import { ScreenHeader } from "@/shared/ui/components/ScreenHeader";
+import { useTabBarClearance } from "@/shared/ui/components/Screen";
 import { formatCurrency } from "@/shared/utils/formatCurrency";
 import type { CurrencyCode, TransactionType } from "@/shared/types/models";
 import * as summaryApi from "@/shared/api/summary";
+import { Icon } from "@/shared/ui/components/Icon";
 
 function nowMonthKey() {
   const d = new Date();
@@ -59,21 +63,21 @@ function Tile({ item, currency }: { item: CategoryTile; currency: CurrencyCode }
                 params: { id: item.categoryId },
               })
         }
-        haptic="selection"
+        haptic="none"
         pressScale={0.99}
         pressOpacity={0.92}
         className="pb-1"
-        android_ripple={{ color: "#0B122012" }}
+        android_ripple={{ color: tokens.colors.ripple }}
       >
         <View className="flex-row items-center justify-between">
           <View
             className="h-10 w-10 items-center justify-center rounded-full border border-stroke"
             style={{ backgroundColor: `${item.color}26` }}
           >
-            <Ionicons name={item.icon as any} size={18} color={item.color} />
+            <Icon name={item.icon as any} size={18} color={item.color} />
           </View>
 
-          <Ionicons name="create-outline" size={18} color={tokens.colors.muted} />
+          <Icon name="create-outline" size={18} color={tokens.colors.muted} />
         </View>
 
         <AppText variant="base" className="mt-4" weight="semibold" numberOfLines={1}>
@@ -86,9 +90,24 @@ function Tile({ item, currency }: { item: CategoryTile; currency: CurrencyCode }
           </AppText>
         ) : (
           <>
-            <AppText variant="sm" tone="muted" className="mt-1">
-              {spendingKnown ? `${formatCurrency(spentCents, currency, 0)} spent` : "Spending unavailable"}
-            </AppText>
+            {spendingKnown ? (
+              <View className="mt-1 flex-row items-baseline" style={{ gap: tokens.space[1] }}>
+                <MoneyAmount
+                  value={formatCurrency(spentCents, currency, 0)}
+                  tone="neutral"
+                  size="sm"
+                  weight="semibold"
+                  color={tokens.colors.muted}
+                />
+                <AppText variant="sm" tone="muted">
+                  spent
+                </AppText>
+              </View>
+            ) : (
+              <AppText variant="sm" tone="muted" className="mt-1">
+                Spending unavailable
+              </AppText>
+            )}
 
             <View className="mt-4 h-1 rounded-full bg-stroke overflow-hidden">
               <View
@@ -101,13 +120,34 @@ function Tile({ item, currency }: { item: CategoryTile; currency: CurrencyCode }
             </View>
 
             {hasBudget && spendingKnown ? (
-              <AppText variant="sm" className="mt-3" style={{ color: over ? tokens.colors.danger : tokens.colors.accent }}>
-                {over ? `${formatCurrency(Math.abs(remaining), currency, 0)} over` : `${formatCurrency(remaining, currency, 0)} left`}
-              </AppText>
+              <View className="mt-3 flex-row items-baseline" style={{ gap: tokens.space[1] }}>
+                <MoneyAmount
+                  value={formatCurrency(Math.abs(remaining), currency, 0)}
+                  tone="neutral"
+                  size="sm"
+                  weight="bold"
+                  color={over ? tokens.colors.danger : tokens.colors.accent}
+                />
+                <AppText
+                  variant="sm"
+                  style={{ color: over ? tokens.colors.danger : tokens.colors.accent }}
+                >
+                  {over ? "over" : "left"}
+                </AppText>
+              </View>
             ) : hasBudget ? (
-              <AppText variant="sm" tone="muted" className="mt-3">
-                {formatCurrency(item.budgetCents, currency, 0)} budget
-              </AppText>
+              <View className="mt-3 flex-row items-baseline" style={{ gap: tokens.space[1] }}>
+                <MoneyAmount
+                  value={formatCurrency(item.budgetCents, currency, 0)}
+                  tone="neutral"
+                  size="sm"
+                  weight="semibold"
+                  color={tokens.colors.muted}
+                />
+                <AppText variant="sm" tone="muted">
+                  budget
+                </AppText>
+              </View>
             ) : (
               <AppText variant="sm" tone="muted" className="mt-3">
                 No budget set
@@ -120,10 +160,10 @@ function Tile({ item, currency }: { item: CategoryTile; currency: CurrencyCode }
       {canBudget ? (
         <HapticPressable
           onPress={() => router.push({ pathname: "/modals/budget-editor", params: { categoryId: item.categoryId } })}
-          haptic="selection"
+          haptic="none"
           pressScale={0.98}
           className="mt-2 -ml-3 min-h-11 px-3 rounded-full flex-row items-center self-start"
-          android_ripple={{ color: "#0B122012" }}
+          android_ripple={{ color: tokens.colors.ripple }}
         >
           <AppText variant="sm" className="text-accent" weight="semibold">
             {hasBudget ? "Edit budget" : "Set budget"}
@@ -136,6 +176,7 @@ function Tile({ item, currency }: { item: CategoryTile; currency: CurrencyCode }
 
 export default function CategoriesScreen() {
   const insets = useSafeAreaInsets();
+  const tabClearance = useTabBarClearance();
 
   const categories = useCategoriesStore((s) => s.categories);
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
@@ -282,20 +323,25 @@ export default function CategoriesScreen() {
 
   return (
     <View className="flex-1 bg-app" style={{ paddingTop: insets.top + 12 }}>
-      <View className="px-6">
-        <View className="flex-row items-center justify-between">
-          <AppText variant="2xl">Categories</AppText>
-
-          <HapticPressable
-            onPress={() => router.push("/modals/category-editor")}
-            haptic="selection"
-            pressScale={0.98}
-            className="h-12 w-12 items-center justify-center rounded-full border border-stroke bg-surface"
-            android_ripple={{ color: "#0B122012", borderless: true }}
-          >
-            <Ionicons name="add" size={20} color={tokens.colors.accent} />
-          </HapticPressable>
-        </View>
+      <View className="px-5">
+        <ScreenHeader
+          title="Categories"
+          left={
+            <IconButton
+              icon="chevron-back"
+              accessibilityLabel="Back"
+              onPress={() => (router.canGoBack() ? router.back() : router.replace("/(tabs)/settings"))}
+            />
+          }
+          right={
+            <IconButton
+              icon="add"
+              tone="soft"
+              accessibilityLabel="New category"
+              onPress={() => router.push("/modals/category-editor")}
+            />
+          }
+        />
 
         <Card className="mt-6">
           <View className="flex-row items-center justify-between">
@@ -303,11 +349,14 @@ export default function CategoriesScreen() {
               <AppText variant="xs" tone="muted" className="uppercase">
                 Total monthly budget
               </AppText>
-              <AppText variant="2xl" className="mt-3">
-                {formatCurrency(totalBudgetCents, currency)}
-              </AppText>
+              <MoneyAmount
+                value={formatCurrency(totalBudgetCents, currency)}
+                tone="neutral"
+                size="2xl"
+                style={{ marginTop: tokens.space[3] }}
+              />
               <View className="mt-3 flex-row items-center">
-                <Ionicons name="calendar-outline" size={16} color={tokens.colors.accent} />
+                <Icon name="calendar-outline" size={16} color={tokens.colors.accent} />
                 <AppText variant="sm" tone="muted" className="ml-2">
                   This month
                 </AppText>
@@ -326,15 +375,34 @@ export default function CategoriesScreen() {
           <View className="mt-5 flex-row" style={{ gap: 12 }}>
             <View className="flex-1 rounded-lg border border-stroke bg-surfaceAlt p-3">
               <AppText variant="xs" tone="muted">Spent</AppText>
-              <AppText variant="base" className="mt-1" weight="bold">
-                {totalSpentCents === null ? "Unavailable" : formatCurrency(totalSpentCents, currency)}
-              </AppText>
+              {totalSpentCents === null ? (
+                <AppText variant="base" className="mt-1" weight="bold">
+                  Unavailable
+                </AppText>
+              ) : (
+                <MoneyAmount
+                  value={formatCurrency(totalSpentCents, currency)}
+                  tone="neutral"
+                  size="base"
+                  style={{ marginTop: tokens.space[1] }}
+                />
+              )}
             </View>
             <View className="flex-1 rounded-lg border border-stroke bg-surfaceAlt p-3">
               <AppText variant="xs" tone="muted">Remaining</AppText>
-              <AppText variant="base" className="mt-1" weight="bold" style={{ color: tokens.colors.accent }}>
-                {remainingCents === null ? "Unavailable" : formatCurrency(remainingCents, currency)}
-              </AppText>
+              {remainingCents === null ? (
+                <AppText variant="base" className="mt-1" weight="bold" style={{ color: tokens.colors.accent }}>
+                  Unavailable
+                </AppText>
+              ) : (
+                <MoneyAmount
+                  value={formatCurrency(remainingCents, currency)}
+                  tone="neutral"
+                  size="base"
+                  color={tokens.colors.accent}
+                  style={{ marginTop: tokens.space[1] }}
+                />
+              )}
             </View>
           </View>
           {summaryQuery.isError ? (
@@ -342,7 +410,7 @@ export default function CategoriesScreen() {
               onPress={() => {
                 void summaryQuery.refetch();
               }}
-              haptic="selection"
+              haptic="none"
               className="mt-4 min-h-11 items-center justify-center rounded-full border border-stroke"
             >
               <AppText variant="sm" tone="muted">
@@ -359,12 +427,12 @@ export default function CategoriesScreen() {
           autoCorrect={false}
           autoCapitalize="none"
           variant="search"
-          leftIcon={<Ionicons name="search" size={22} color={tokens.colors.muted} />}
+          leftIcon={<Icon name="search" size={22} color={tokens.colors.muted} />}
           containerClassName="mt-5"
         />
       </View>
 
-      <View className="flex-1 px-6 mt-4">
+      <View className="flex-1 px-5 mt-4">
         {hydrationError ? (
           <View className="flex-1 justify-center">
             <EmptyState
@@ -379,18 +447,18 @@ export default function CategoriesScreen() {
           <View className="pt-2">
             <View className="flex-row" style={{ gap: GUTTER }}>
               <View style={{ flex: 1 }}>
-                <Skeleton height={220} borderRadius={24} />
+                <Skeleton height={200} borderRadius={20} />
               </View>
               <View style={{ flex: 1 }}>
-                <Skeleton height={220} borderRadius={24} />
+                <Skeleton height={200} borderRadius={20} />
               </View>
             </View>
             <View className="mt-2 flex-row" style={{ gap: GUTTER }}>
               <View style={{ flex: 1 }}>
-                <Skeleton height={220} borderRadius={24} />
+                <Skeleton height={200} borderRadius={20} />
               </View>
               <View style={{ flex: 1 }}>
-                <Skeleton height={220} borderRadius={24} />
+                <Skeleton height={200} borderRadius={20} />
               </View>
             </View>
           </View>
@@ -430,10 +498,7 @@ export default function CategoriesScreen() {
                 </View>
               );
             }}
-            contentContainerStyle={{
-              paddingBottom: (insets.bottom || 0) + 24,
-              paddingTop: 4,
-            }}
+            contentContainerStyle={{ paddingBottom: tabClearance, paddingTop: 4 }}
             showsVerticalScrollIndicator={false}
           />
         )}

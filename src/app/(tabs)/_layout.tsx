@@ -1,5 +1,5 @@
 import { Tabs } from "expo-router";
-import GlassTabBar from "@/shared/ui/components/GlassTabBar";
+import BottomNavigation from "@/shared/ui/components/BottomNavigation";
 
 export default function TabsLayout() {
   return (
@@ -7,7 +7,7 @@ export default function TabsLayout() {
       screenOptions={{
         headerShown: false,
       }}
-      tabBar={(props) => <GlassTabBar {...props} />}
+      tabBar={(props) => <BottomNavigation {...props} />}
     >
       <Tabs.Screen name="home" />
       <Tabs.Screen name="transactions" />

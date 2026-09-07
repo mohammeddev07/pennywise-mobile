@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { Alert, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -18,6 +17,7 @@ import { EmptyState } from "@/shared/ui/components/EmptyState";
 import { Input } from "@/shared/ui/components/Input";
 import { Skeleton } from "@/shared/ui/components/Skeleton";
 import { useUndoToastStore } from "@/shared/ui/state/useUndoToastStore";
+import { Icon } from "@/shared/ui/components/Icon";
 
 const ICONS = [
   "pricetag-outline",
@@ -36,7 +36,13 @@ const ICONS = [
   "wallet-outline",
 ] as const;
 
-const CATEGORY_COLORS = ["#22C55E", "#60A5FA", "#A78BFA", "#F472B6", "#FFB020", "#34D399", "#F87171", "#94A3B8"];
+/**
+ * The picker offers the design system's category identity palette. Typed as
+ * plain strings, not the literal union, because a category loaded from the API
+ * may carry any color a previous version stored - the picker must not narrow
+ * what an existing category is allowed to be.
+ */
+const CATEGORY_COLORS: string[] = Object.values(tokens.category);
 
 export default function CategoryEditorModal() {
   const router = useRouter();
@@ -183,19 +189,21 @@ export default function CategoryEditorModal() {
           <HapticPressable
             onPress={() => router.back()}
             className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
-            android_ripple={{ color: "#0B122012", borderless: true }}
+            android_ripple={{ color: tokens.colors.ripple, borderless: true }}
           >
-            <Ionicons name="close" size={20} color={tokens.colors.text} />
+            <Icon name="close" size={20} color={tokens.colors.text} />
           </HapticPressable>
         }
         rightAction={
           editing ? (
             <HapticPressable
               onPress={onDelete}
+              // A destructive confirm is a write - it warns.
+              haptic="notificationWarning"
               className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
-              android_ripple={{ color: "#0B122012", borderless: true }}
+              android_ripple={{ color: tokens.colors.ripple, borderless: true }}
             >
-              <Ionicons name="trash-outline" size={20} color={tokens.colors.danger} />
+              <Icon name="trash-outline" size={tokens.icon.nav} color={tokens.colors.danger} />
             </HapticPressable>
           ) : null
         }
@@ -226,8 +234,8 @@ export default function CategoryEditorModal() {
         ) : !hydrated ? (
           <View className="mt-2 gap-3">
             <Skeleton height={56} borderRadius={16} />
-            <Skeleton height={180} borderRadius={24} />
-            <Skeleton height={120} borderRadius={24} />
+            <Skeleton height={180} borderRadius={20} />
+            <Skeleton height={120} borderRadius={20} />
           </View>
         ) : params.id && !editing ? (
           <View className="flex-1 justify-center">
@@ -285,9 +293,9 @@ export default function CategoryEditorModal() {
                         borderColor: active ? tokens.colors.accent : tokens.colors.stroke,
                         backgroundColor: active ? `${tokens.colors.accent}14` : tokens.colors.surface,
                       }}
-                      android_ripple={{ color: "#0B122012", borderless: true }}
+                      android_ripple={{ color: tokens.colors.ripple, borderless: true }}
                     >
-                      <Ionicons name={n as any} size={20} color={active ? tokens.colors.accent : tokens.colors.text} />
+                      <Icon name={n as any} size={20} color={active ? tokens.colors.accent : tokens.colors.text} />
                     </HapticPressable>
                   );
                 })}
@@ -310,7 +318,7 @@ export default function CategoryEditorModal() {
                       pressScale={0.98}
                       className="h-12 w-12 items-center justify-center rounded-full border mr-3 mb-3"
                       style={{ borderColor: active ? tokens.colors.text : tokens.colors.stroke, backgroundColor: tokens.colors.surface }}
-                      android_ripple={{ color: "#0B122012", borderless: true }}
+                      android_ripple={{ color: tokens.colors.ripple, borderless: true }}
                     >
                       <View className="h-7 w-7 rounded-full" style={{ backgroundColor: c }} />
                     </HapticPressable>

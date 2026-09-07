@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import clsx from "clsx";
 
 import { AppText } from "@/shared/ui/components/AppText";
+import { tokens } from "@/shared/ui/theme/tokens";
 
 type Props = ViewProps &
   PropsWithChildren<{
@@ -34,7 +35,7 @@ export function Sheet({
     <View
       {...rest}
       className={clsx(
-        "w-full rounded-t-[32px] border border-stroke",
+        "w-full rounded-t-2xl border border-stroke",
         "bg-app",
         className
       )}
@@ -42,8 +43,8 @@ export function Sheet({
         {
           paddingTop: insets.top + 12,
           paddingBottom: insets.bottom + 16,
-          paddingLeft: 24,
-          paddingRight: 24,
+          paddingLeft: tokens.layout.screenPaddingX,
+          paddingRight: tokens.layout.screenPaddingX,
         },
         style,
       ]}
@@ -67,8 +68,8 @@ export function Sheet({
           ? (
             <View
               style={{
-                marginLeft: -24,
-                marginRight: -24,
+                marginLeft: -tokens.layout.screenPaddingX,
+                marginRight: -tokens.layout.screenPaddingX,
                 marginBottom: -(insets.bottom + 16),
                 marginTop: 16,
               }}

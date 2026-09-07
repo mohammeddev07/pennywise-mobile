@@ -2,6 +2,7 @@ import { View } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 
 import { tokens } from "@/shared/ui/theme/tokens";
+import { withAlpha } from "@/shared/ui/theme/color";
 
 export function RingProgress({
   size = 88,
@@ -26,10 +27,9 @@ export function RingProgress({
           cx={size / 2}
           cy={size / 2}
           r={r}
-          stroke={tokens.colors.stroke}
+          stroke={withAlpha(tokens.colors.white, 0.08)}
           strokeWidth={stroke}
           fill="none"
-          opacity={0.55}
         />
         <Circle
           cx={size / 2}

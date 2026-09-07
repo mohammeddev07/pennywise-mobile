@@ -1,9 +1,9 @@
 import { View, type ViewStyle } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 
 import { tokens } from "@/shared/ui/theme/tokens";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { AppText } from "@/shared/ui/components/AppText";
+import { Icon } from "./Icon";
 
 export function BookPill({
   label,
@@ -17,10 +17,10 @@ export function BookPill({
   return (
     <HapticPressable
       onPress={onPress}
-      haptic="selection"
+      haptic="none"
       pressScale={0.98}
       className="rounded-full border border-stroke bg-surface"
-      android_ripple={{ color: "#0B122012", borderless: true }}
+      android_ripple={{ color: tokens.colors.ripple, borderless: true }}
       style={[
         {
           height: 46,
@@ -37,7 +37,7 @@ export function BookPill({
 
       <View style={{ width: 8 }} />
 
-      <Ionicons name="chevron-down" size={16} color={tokens.colors.accent} />
+      <Icon name="chevron-down" size={16} color={tokens.colors.accent} />
     </HapticPressable>
   );
 }

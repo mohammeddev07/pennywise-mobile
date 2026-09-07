@@ -7,7 +7,23 @@ type Props = PressableProps &
   PropsWithChildren<{
     className?: string;
     style?: StyleProp<ViewStyle>;
-    haptic?: "selection" | "impactLight" | "impactMedium" | "impactHeavy" | "none";
+    /**
+     * Defaults to `none`.
+     *
+     * The product's policy is that **haptics confirm writes, never reads** -
+     * so navigation, chevrons, filters, chart taps and back buttons stay
+     * silent, and a control that commits something opts in explicitly. Making
+     * silence the default means a new pressable cannot accidentally buzz.
+     */
+    haptic?:
+      | "selection"
+      | "impactLight"
+      | "impactMedium"
+      | "impactHeavy"
+      | "notificationSuccess"
+      | "notificationWarning"
+      | "notificationError"
+      | "none";
     pressScale?: number; // default 0.98
     pressOpacity?: number; // default 0.9
   }>;
@@ -18,7 +34,7 @@ export function HapticPressable({
   children,
   className,
   style,
-  haptic = "selection",
+  haptic = "none",
   pressScale = 0.98,
   pressOpacity = 0.9,
   disabled,
@@ -44,7 +60,13 @@ export function HapticPressable({
       return () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     if (haptic === "impactMedium")
       return () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-    return () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
+    if (haptic === "impactHeavy")
+      return () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
+    if (haptic === "notificationSuccess")
+      return () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    if (haptic === "notificationWarning")
+      return () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+    return () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
   }, [haptic]);
 
   return (

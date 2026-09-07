@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Alert, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Alert, Platform, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
@@ -11,15 +10,38 @@ import { Button } from "@/shared/ui/components/Button";
 import { useTransactionsStore } from "@/features/transactions/store";
 import { useCategoriesStore } from "@/features/categories/store";
 import { useBookCurrency } from "@/features/books/useBookCurrency";
-import { amountColor, amountSoftColor } from "@/shared/ui/theme/money";
 import { useUndoToastStore } from "@/shared/ui/state/useUndoToastStore";
 import { Sheet } from "@/shared/ui/components/Sheet";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
+import { IconButton } from "@/shared/ui/components/IconButton";
 import { AppText } from "@/shared/ui/components/AppText";
-import { Card } from "@/shared/ui/components/Card";
 import { EmptyState } from "@/shared/ui/components/EmptyState";
 import { Skeleton } from "@/shared/ui/components/Skeleton";
-import { formatSignedCurrency } from "@/shared/utils/formatCurrency";
+import { BottomSheetModal } from "@/shared/ui/components/BottomSheetModal";
+import { formatCurrency } from "@/shared/utils/formatCurrency";
+import { CategoryIcon } from "@/shared/ui/components/CategoryIcon";
+import { MoneyAmount } from "@/shared/ui/components/MoneyAmount";
+import { Icon } from "@/shared/ui/components/Icon";
+
+/**
+ * `Alert.alert` on web (`react-native-web`) is a complete no-op - it neither
+ * shows a dialog nor ever invokes a button's `onPress` - so Delete's
+ * confirmation, and the deletion behind it, silently never ran there. `window
+ * .confirm` is the browser's native equivalent for the same yes/no decision.
+ */
+function confirmDestructive(title: string, message: string, onConfirm: () => void) {
+  if (Platform.OS === "web") {
+    if (typeof window !== "undefined" && window.confirm(`${title}\n\n${message}`)) {
+      onConfirm();
+    }
+    return;
+  }
+
+  Alert.alert(title, message, [
+    { text: "Cancel", style: "cancel" },
+    { text: "Delete", style: "destructive", onPress: onConfirm },
+  ]);
+}
 
 function safeDate(iso: string) {
   try {
@@ -31,32 +53,44 @@ function safeDate(iso: string) {
   }
 }
 
-function DetailRow({
+/** One row in the overflow menu. Danger rows get the destructive color. */
+function MenuRow({
   label,
-  value,
   icon,
-  muted,
+  onPress,
+  danger,
+  disabled,
 }: {
   label: string;
-  value: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  muted?: boolean;
+  icon: "create-outline" | "copy-outline" | "trash-outline";
+  onPress: () => void;
+  danger?: boolean;
+  disabled?: boolean;
 }) {
-  return (
-    <View className="px-4 py-3 flex-row items-center">
-      <View className="h-10 w-10 items-center justify-center rounded-lg border border-stroke bg-card">
-        <Ionicons name={icon} size={18} color={tokens.colors.muted} />
-      </View>
+  const color = danger ? tokens.colors.danger : tokens.colors.text;
 
-      <View className="ml-3 flex-1">
-        <AppText variant="xs" tone="muted">
-          {label}
-        </AppText>
-        <AppText variant="base" className="mt-1" style={{ color: muted ? tokens.colors.muted : tokens.colors.text }}>
-          {value}
-        </AppText>
-      </View>
-    </View>
+  return (
+    <HapticPressable
+      onPress={onPress}
+      disabled={disabled}
+      haptic="none"
+      pressScale={0.99}
+      pressOpacity={1}
+      accessibilityRole="button"
+      android_ripple={{ color: tokens.colors.ripple }}
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        gap: tokens.space[3],
+        minHeight: tokens.layout.minTap + 8,
+        opacity: disabled ? 0.4 : 1,
+      }}
+    >
+      <Icon name={icon} size={tokens.icon.row} color={color} />
+      <AppText variant="base" weight="semibold" style={{ color }}>
+        {label}
+      </AppText>
+    </HapticPressable>
   );
 }
 
@@ -80,6 +114,8 @@ export default function TransactionDetailsModal() {
   });
   const [hydrationError, setHydrationError] = useState(false);
   const [isMutating, setIsMutating] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState<"edit" | "duplicate" | "delete" | null>(null);
 
   useEffect(() => {
     if (!txPersist?.onFinishHydration) return;
@@ -125,29 +161,22 @@ export default function TransactionDetailsModal() {
   const onDelete = () => {
     if (!tx || isMutating) return;
 
-    Alert.alert("Delete transaction?", "This action cannot be undone.", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: async () => {
-          setIsMutating(true);
-          try {
-            await removeTransaction(tx.id);
-            await Promise.all([
-              queryClient.invalidateQueries({ queryKey: ["balance", tx.bookId] }),
-              queryClient.invalidateQueries({ queryKey: ["summary", tx.bookId] }),
-            ]);
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
-            router.back();
-          } catch (error) {
-            showError(error, "Could not delete transaction.");
-          } finally {
-            setIsMutating(false);
-          }
-        },
-      },
-    ]);
+    confirmDestructive("Delete transaction?", "This action cannot be undone.", async () => {
+      setIsMutating(true);
+      try {
+        await removeTransaction(tx.id);
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["balance", tx.bookId] }),
+          queryClient.invalidateQueries({ queryKey: ["summary", tx.bookId] }),
+        ]);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+        router.back();
+      } catch (error) {
+        showError(error, "Could not delete transaction.");
+      } finally {
+        setIsMutating(false);
+      }
+    });
   };
 
   const onDuplicate = async () => {
@@ -177,6 +206,27 @@ export default function TransactionDetailsModal() {
     router.push({ pathname: "/modals/edit-transaction", params: { id: tx.id } });
   };
 
+  // The overflow menu is a real native `<Modal>`. Firing a second native
+  // presentation - `Alert.alert` for Delete, or a navigation - in the same
+  // tick as closing it raced the modal's own dismissal: on iOS in particular,
+  // presenting on top of a view controller that is still being torn down can
+  // silently drop the new presentation, which is exactly why Edit/Duplicate/
+  // Delete looked like dead buttons. Closing the menu only queues the action;
+  // it runs after `menuOpen` has actually committed to `false` and the modal
+  // has had a beat to finish dismissing.
+  useEffect(() => {
+    if (menuOpen || !pendingAction) return;
+    const action = pendingAction;
+    const timeoutId = setTimeout(() => {
+      setPendingAction(null);
+      if (action === "edit") onEdit();
+      else if (action === "duplicate") onDuplicate();
+      else onDelete();
+    }, tokens.motion.base);
+    return () => clearTimeout(timeoutId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [menuOpen, pendingAction]);
+
   const retryHydration = () => {
     setHydrationError(false);
     setHydrated(txPersist?.hasHydrated?.() ?? true);
@@ -189,45 +239,26 @@ export default function TransactionDetailsModal() {
       <Sheet
         tone="app"
         className="flex-1"
-        title="Transaction Details"
+        title="Transaction"
         leftAction={
           <HapticPressable
             onPress={() => router.back()}
             className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
-            android_ripple={{ color: "#0B122012", borderless: true }}
+            android_ripple={{ color: tokens.colors.ripple, borderless: true }}
           >
-            <Ionicons name="chevron-back" size={20} color={tokens.colors.text} />
+            <Icon name="chevron-back" size={20} color={tokens.colors.text} />
           </HapticPressable>
         }
         rightAction={
           tx ? (
-            <HapticPressable
-              onPress={onEdit}
-              className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
-              android_ripple={{ color: "#0B122012", borderless: true }}
-            >
-              <Ionicons name="create-outline" size={20} color={tokens.colors.accent} />
-            </HapticPressable>
+            <IconButton
+              icon="ellipsis-horizontal"
+              accessibilityLabel="More actions"
+              onPress={() => setMenuOpen(true)}
+            />
           ) : null
         }
-        footer={
-          tx ? (
-            <View className="gap-3">
-              <Button label="Edit" onPress={onEdit} size="md" />
-              <Button
-                label={isMutating ? "Working..." : "Duplicate"}
-                variant="outline"
-                onPress={onDuplicate}
-                disabled={isMutating}
-                size="md"
-              />
-              <Button label="Delete" variant="danger" onPress={onDelete} disabled={isMutating} size="md" />
-              <Button label="Done" onPress={() => router.back()} size="md" />
-            </View>
-          ) : (
-            <Button label="Done" onPress={() => router.back()} size="md" />
-          )
-        }
+        footer={<Button label="Done" onPress={() => router.back()} size="md" />}
       >
         {hydrationError ? (
           <View className="flex-1 justify-center">
@@ -241,8 +272,8 @@ export default function TransactionDetailsModal() {
           </View>
         ) : !hydrated ? (
           <View className="mt-2 gap-3">
-            <Skeleton height={180} borderRadius={24} />
-            <Skeleton height={240} borderRadius={24} />
+            <Skeleton height={180} borderRadius={20} />
+            <Skeleton height={120} borderRadius={20} />
           </View>
         ) : !tx ? (
           <View className="flex-1 justify-center">
@@ -253,65 +284,87 @@ export default function TransactionDetailsModal() {
             />
           </View>
         ) : (
-          <>
-            <Card variant="surface" className="mt-2 items-center overflow-hidden">
-              <View
-                className="h-24 w-24 items-center justify-center rounded-full"
-                style={{ backgroundColor: `${categoryMeta.color}22` }}
-              >
-                <Ionicons name={categoryMeta.icon} size={44} color={categoryMeta.color} />
-              </View>
+          // A receipt, not a dashboard: one unhurried vertical read, no card
+          // chrome competing with the numbers.
+          <View style={{ flex: 1 }}>
+            <View style={{ alignItems: "center", marginTop: tokens.space[6] }}>
+              <CategoryIcon icon={categoryMeta.icon} color={categoryMeta.color} size={64} />
 
-              <View className="mt-5 rounded-full px-4 py-2" style={{ backgroundColor: amountSoftColor(tx.type) }}>
-                <AppText variant="sm" weight="semibold" style={{ color: amountColor(tx.type) }}>
-                  {tx.type === "INCOME" ? "Income" : "Expense"}
-                </AppText>
-              </View>
-
-              <AppText variant="2xl" className="mt-5" numberOfLines={1}>
+              <AppText variant="xl" style={{ marginTop: tokens.space[5] }} numberOfLines={2} className="text-center">
                 {tx.title || categoryMeta.name}
               </AppText>
 
-              <AppText variant="base" tone="muted" className="mt-2" numberOfLines={1}>
+              <AppText variant="sm" tone="muted" style={{ marginTop: tokens.space[1] }} numberOfLines={1}>
                 {categoryMeta.name}
               </AppText>
 
-              <AppText
-                variant="amount"
-                className="mt-4"
-                style={{ color: amountColor(tx.type) }}
-              >
-                {formatSignedCurrency(tx.type === "INCOME" ? tx.amountMinor : -tx.amountMinor, currency)}
-              </AppText>
+              <MoneyAmount
+                value={formatCurrency(tx.amountMinor, currency)}
+                kind={tx.type}
+                size="amount"
+                style={{ marginTop: tokens.space[5] }}
+              />
 
-              <AppText variant="base" tone="muted" className="mt-2">
-                {dateLabel} • {timeLabel}
+              <AppText variant="sm" tone="muted" style={{ marginTop: tokens.space[2] }}>
+                {dateLabel} · {timeLabel}
               </AppText>
-            </Card>
-
-            <View className="mt-6">
-              <AppText variant="lg">Transaction Details</AppText>
             </View>
 
-            <Card variant="surface" className="mt-3 p-0 overflow-hidden">
-              <DetailRow label="Title" value={tx.title || "—"} icon="create-outline" muted={!tx.title} />
-              <View className="h-px bg-stroke" />
-              <DetailRow label="Date" value={dateLabel} icon="calendar-outline" />
-              <View className="h-px bg-stroke" />
-              <DetailRow label="Time" value={timeLabel} icon="time-outline" />
-              <View className="h-px bg-stroke" />
-              <DetailRow label="Currency" value={currency} icon="cash-outline" />
-              <View className="h-px bg-stroke" />
-              <DetailRow
-                label="Note"
-                value={tx.note?.trim() ? tx.note.trim() : "—"}
-                icon="chatbubble-ellipses-outline"
-                muted={!tx.note?.trim()}
-              />
-            </Card>
-          </>
+            <View
+              style={{
+                marginTop: tokens.space[7],
+                paddingTop: tokens.space[5],
+                borderTopWidth: 1,
+                borderTopColor: tokens.colors.divider,
+              }}
+            >
+              <AppText variant="xs" tone="muted">
+                NOTE
+              </AppText>
+              <AppText
+                variant="base"
+                style={{ marginTop: tokens.space[2], color: tx.note?.trim() ? tokens.colors.text : tokens.colors.muted }}
+              >
+                {tx.note?.trim() ? tx.note.trim() : "No note added."}
+              </AppText>
+            </View>
+          </View>
         )}
       </Sheet>
+
+      <BottomSheetModal visible={menuOpen} onClose={() => setMenuOpen(false)} title="Transaction">
+        <View style={{ gap: tokens.space[1] }}>
+          <MenuRow
+            icon="create-outline"
+            label="Edit"
+            onPress={() => {
+              setPendingAction("edit");
+              setMenuOpen(false);
+            }}
+          />
+          <View style={{ height: 1, backgroundColor: tokens.colors.divider }} />
+          <MenuRow
+            icon="copy-outline"
+            label="Duplicate"
+            disabled={isMutating}
+            onPress={() => {
+              setPendingAction("duplicate");
+              setMenuOpen(false);
+            }}
+          />
+          <View style={{ height: 1, backgroundColor: tokens.colors.divider }} />
+          <MenuRow
+            icon="trash-outline"
+            label="Delete"
+            danger
+            disabled={isMutating}
+            onPress={() => {
+              setPendingAction("delete");
+              setMenuOpen(false);
+            }}
+          />
+        </View>
+      </BottomSheetModal>
     </View>
   );
 }

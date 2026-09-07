@@ -10,7 +10,7 @@ export function PinDots({ length, filled }: { length: number; filled: number }) 
           style={{
             width: 64,
             height: 64,
-            borderRadius: 20,
+            borderRadius: tokens.radii.md,
             marginHorizontal: 6,
             alignItems: "center",
             justifyContent: "center",
@@ -24,7 +24,7 @@ export function PinDots({ length, filled }: { length: number; filled: number }) 
             style={{
               width: 10,
               height: 10,
-              borderRadius: 999,
+              borderRadius: tokens.radii.pill,
               backgroundColor: i < filled ? tokens.colors.accent : "transparent",
             }}
           />

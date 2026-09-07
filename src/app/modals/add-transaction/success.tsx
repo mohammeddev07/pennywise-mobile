@@ -1,19 +1,23 @@
 import { useEffect, useMemo, useRef } from "react";
 import { View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
+import { format, isSameDay, parseISO, subDays } from "date-fns";
 
 import { tokens } from "@/shared/ui/theme/tokens";
-import { amountColor, amountSoftColor } from "@/shared/ui/theme/money";
+import { amountColor } from "@/shared/ui/theme/money";
 import { AppText } from "@/shared/ui/components/AppText";
 import { Button } from "@/shared/ui/components/Button";
 import { Card } from "@/shared/ui/components/Card";
+import { MoneyAmount } from "@/shared/ui/components/MoneyAmount";
+import { SuccessCheck } from "@/shared/ui/components/SuccessCheck";
+import { useScreenPaddingX } from "@/shared/ui/components/Screen";
 import type { TransactionKind } from "@/features/transactions/store";
 import { useAddTransactionDraftStore } from "@/features/transactions/addDraftStore";
-import { formatSignedCurrency, majorToMinor } from "@/shared/utils/formatCurrency";
+import { useBooksStore } from "@/features/books/store";
+import { formatCurrency, majorToMinor } from "@/shared/utils/formatCurrency";
 
 function parseAmountToMinor(raw: string, currency: string) {
   const cleaned = String(raw || "0")
@@ -24,6 +28,19 @@ function parseAmountToMinor(raw: string, currency: string) {
   return majorToMinor(n, currency);
 }
 
+function whenLabel(iso?: string) {
+  if (!iso) return "";
+  try {
+    const d = parseISO(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    const now = new Date();
+    const day = isSameDay(d, now) ? "Today" : isSameDay(d, subDays(now, 1)) ? "Yesterday" : format(d, "MMM d");
+    return `${day}, ${format(d, "h:mm a")}`;
+  } catch {
+    return "";
+  }
+}
+
 /**
  * Confirmation for a transaction that is already persisted - `details` saves,
  * then replaces to here. This screen only reports and clears the draft, so it
@@ -32,7 +49,14 @@ function parseAmountToMinor(raw: string, currency: string) {
 export default function AddTransactionSuccess() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const paddingX = useScreenPaddingX();
   const resetDraft = useAddTransactionDraftStore((s) => s.reset);
+  const books = useBooksStore((s) => s.books);
+  const selectedBookId = useBooksStore((s) => s.selectedBookId);
+  const bookName = useMemo(
+    () => books.find((b) => b.id === selectedBookId)?.name ?? "your cash book",
+    [books, selectedBookId]
+  );
 
   const params = useLocalSearchParams<{
     amount?: string;
@@ -40,13 +64,18 @@ export default function AddTransactionSuccess() {
     title?: string;
     categoryName?: string;
     currency?: string;
+    occurredAt?: string;
   }>();
 
   const kind: TransactionKind = params.kind === "INCOME" ? "INCOME" : "EXPENSE";
   const currency = params.currency ?? "USD";
   const category = (params.categoryName ?? "Uncategorized").trim() || "Uncategorized";
   const title = (params.title ?? "").trim();
-  const amountMinor = useMemo(() => parseAmountToMinor(params.amount ?? "0", currency), [params.amount, currency]);
+  const amountMinor = useMemo(
+    () => parseAmountToMinor(params.amount ?? "0", currency),
+    [params.amount, currency]
+  );
+  const when = whenLabel(params.occurredAt);
 
   const didFinishRef = useRef(false);
   useEffect(() => {
@@ -58,51 +87,79 @@ export default function AddTransactionSuccess() {
 
   return (
     <View
-      className="flex-1 bg-app px-6"
-      style={{ paddingTop: insets.top + tokens.space[6], paddingBottom: insets.bottom + tokens.space[4] }}
+      style={{
+        flex: 1,
+        backgroundColor: tokens.colors.app,
+        paddingHorizontal: paddingX,
+        paddingTop: insets.top + tokens.space[6],
+        paddingBottom: insets.bottom + tokens.space[4],
+      }}
     >
-      <View className="flex-1 items-center justify-center">
-        <Animated.View
-          entering={FadeIn.duration(240)}
-          className="h-20 w-20 items-center justify-center rounded-full"
-          style={{ backgroundColor: tokens.colors.greenSoft }}
-        >
-          <Ionicons name="checkmark" size={40} color={tokens.semantic.primary} />
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+        <SuccessCheck />
+
+        {/*
+          The moment is choreographed rather than simultaneous: check, then
+          headline, then receipt, then actions. Each beat is short and the
+          whole sequence lands inside the success budget, so the screen is
+          still by the time the user reaches for a button.
+        */}
+        <Animated.View entering={FadeInDown.duration(tokens.motion.base).delay(240)}>
+          <AppText variant="2xl" style={{ marginTop: tokens.space[6] }}>
+            Logged
+          </AppText>
+          <AppText variant="sm" tone="muted" style={{ marginTop: tokens.space[2], textAlign: "center" }}>
+            {/* The success sub-line is one of the four places emoji are allowed. */}
+            Saved to {bookName} — totals are up to date ✨
+          </AppText>
         </Animated.View>
 
-        <AppText variant="2xl" className="mt-6 text-center">
-          Transaction saved
-        </AppText>
-        <AppText variant="sm" tone="muted" className="mt-2 text-center">
-          Home, Transactions, and Analytics are up to date.
-        </AppText>
-
-        <Animated.View entering={FadeInDown.duration(280).delay(80)} className="mt-8 w-full">
-          <Card variant="surface" className="items-center">
-            <View className="rounded-full px-4 py-2" style={{ backgroundColor: amountSoftColor(kind) }}>
-              <AppText variant="sm" weight="semibold" style={{ color: amountColor(kind) }}>
-                {kind === "INCOME" ? "Income" : "Expense"}
-              </AppText>
-            </View>
-
-            <AppText variant="amount" className="mt-4" style={{ color: amountColor(kind) }} numberOfLines={1}>
-              {formatSignedCurrency(kind === "EXPENSE" ? -amountMinor : amountMinor, currency)}
+        <Animated.View
+          entering={FadeInDown.duration(tokens.motion.slow).delay(360)}
+          style={{ marginTop: tokens.space[7], width: "100%" }}
+        >
+          <Card variant="surface" padding={20}>
+            <AppText variant="xs" style={{ color: amountColor(kind) }}>
+              {kind === "INCOME" ? "INCOME" : "EXPENSE"}
             </AppText>
 
-            <AppText variant="lg" className="mt-3 text-center" numberOfLines={1}>
+            <MoneyAmount
+              value={formatCurrency(amountMinor, currency)}
+              kind={kind}
+              size="amount"
+              style={{ marginTop: tokens.space[2] }}
+            />
+
+            <View
+              style={{
+                height: 1,
+                backgroundColor: tokens.colors.divider,
+                marginVertical: tokens.space[4],
+              }}
+            />
+
+            <AppText variant="base" weight="semibold" numberOfLines={1}>
               {title || category}
             </AppText>
-            <AppText variant="sm" tone="muted" className="mt-1 text-center" numberOfLines={1}>
-              {category} · {currency}
+            <AppText variant="sm" tone="muted" numberOfLines={1} style={{ marginTop: 2 }}>
+              {[category, when].filter(Boolean).join(" · ")}
             </AppText>
           </Card>
         </Animated.View>
       </View>
 
-      <View style={{ gap: tokens.space[3] }}>
-        <Button label="Add another" variant="outline" size="md" onPress={() => router.replace("/modals/add-transaction")} />
+      <Animated.View
+        entering={FadeIn.duration(tokens.motion.base).delay(450)}
+        style={{ gap: tokens.space[3] }}
+      >
+        <Button
+          label="Add another"
+          variant="secondary"
+          size="lg"
+          onPress={() => router.replace("/modals/add-transaction")}
+        />
         <Button label="Done" size="lg" onPress={() => router.replace("/(tabs)/home")} />
-      </View>
+      </Animated.View>
     </View>
   );
 }

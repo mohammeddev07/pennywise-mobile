@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { Redirect, router } from "expo-router";
 
 import { AppText } from "@/shared/ui/components/AppText";
@@ -12,6 +11,7 @@ import { Button } from "@/shared/ui/components/Button";
 import { tokens } from "@/shared/ui/theme/tokens";
 import { useBooksStore } from "@/features/books/store";
 import { useSettingsStore } from "@/features/settings/store";
+import { Icon } from "@/shared/ui/components/Icon";
 
 export default function BooksRoute() {
   return <Redirect href="/(onboarding)/currency" />;
@@ -76,7 +76,7 @@ function LegacyBooksScreen() {
   };
 
   return (
-    <View className="flex-1 bg-app px-6 pt-16 pb-10">
+    <View className="flex-1 bg-app px-5 pt-16 pb-10">
       <AppText variant="2xl">Your books</AppText>
       <AppText variant="base" tone="muted" className="mt-2">
         Choose a book to start tracking.
@@ -94,8 +94,8 @@ function LegacyBooksScreen() {
         </View>
       ) : !hydrated ? (
         <View className="mt-8 gap-3">
-          <Skeleton height={72} borderRadius={24} />
-          <Skeleton height={72} borderRadius={24} />
+          <Skeleton height={72} borderRadius={20} />
+          <Skeleton height={72} borderRadius={20} />
         </View>
       ) : books.length === 0 ? (
         <View className="flex-1 justify-center">
@@ -136,7 +136,7 @@ function LegacyBooksScreen() {
                       </AppText>
                     </View>
 
-                    <Ionicons
+                    <Icon
                       name={active ? "checkmark-circle" : "chevron-forward"}
                       size={18}
                       color={active ? tokens.colors.accent : tokens.colors.muted}

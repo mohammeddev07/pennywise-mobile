@@ -1,34 +1,49 @@
 import { useEffect, useMemo, useState } from "react";
-import { ScrollView, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Platform, ScrollView, View } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
+import DateTimePicker, {
+  DateTimePickerAndroid,
+  type DateTimePickerEvent,
+} from "@react-native-community/datetimepicker";
+import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import { addMonths, format, isSameDay, parseISO, startOfMonth, subDays } from "date-fns";
+import { useQuery } from "@tanstack/react-query";
 
 import { tokens } from "@/shared/ui/theme/tokens";
+import * as summaryApi from "@/shared/api/summary";
 import { useTransactionsStore, type Transaction } from "@/features/transactions/store";
 import { TransactionRow } from "@/shared/ui/components/TransactionRow";
 import { useBooksStore } from "@/features/books/store";
 import { useCategoriesStore } from "@/features/categories/store";
 import { useBookCurrency } from "@/features/books/useBookCurrency";
-import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { EmptyState } from "@/shared/ui/components/EmptyState";
 import { AppText } from "@/shared/ui/components/AppText";
-import { Input } from "@/shared/ui/components/Input";
+import { Button } from "@/shared/ui/components/Button";
+import { FilterChip } from "@/shared/ui/components/FilterChip";
+import { FormField } from "@/shared/ui/components/FormField";
+import { HapticPressable } from "@/shared/ui/components/HapticPressable";
+import { IconButton } from "@/shared/ui/components/IconButton";
+import { MoneyAmount } from "@/shared/ui/components/MoneyAmount";
+import { ScreenHeader } from "@/shared/ui/components/ScreenHeader";
 import { Skeleton } from "@/shared/ui/components/Skeleton";
-import { Card } from "@/shared/ui/components/Card";
+import { BottomSheetModal, SheetCloseButton } from "@/shared/ui/components/BottomSheetModal";
+import { WebDateInput } from "@/shared/ui/components/WebDateInput";
+import { useScreenPaddingX, useTabBarClearance } from "@/shared/ui/components/Screen";
 import { formatCurrency } from "@/shared/utils/formatCurrency";
 import { balanceColor } from "@/shared/ui/theme/money";
-import { SummaryStat } from "@/shared/ui/components/SummaryStat";
+import { Icon } from "@/shared/ui/components/Icon";
 
-type RangeKey = "today" | "week" | "month" | "all";
+type RangeKey = "today" | "week" | "month" | "all" | "custom";
+
+type CustomRange = { start: Date; end: Date };
 
 type Row =
-  | { type: "header"; id: string; title: string }
+  | { type: "header"; id: string; title: string; netMinor: number }
   | { type: "tx"; id: string; tx: Transaction };
 
-function inRange(tx: Transaction, range: RangeKey, month: Date) {
+function inRange(tx: Transaction, range: RangeKey, month: Date, custom: CustomRange | null) {
   if (range === "all") return true;
 
   const dayKey = transactionDayKey(tx);
@@ -41,6 +56,13 @@ function inRange(tx: Transaction, range: RangeKey, month: Date) {
   if (range === "week") {
     const start = format(subDays(new Date(), 6), "yyyy-MM-dd");
     const end = format(new Date(), "yyyy-MM-dd");
+    return dayKey >= start && dayKey <= end;
+  }
+
+  if (range === "custom") {
+    if (!custom) return false;
+    const start = format(custom.start <= custom.end ? custom.start : custom.end, "yyyy-MM-dd");
+    const end = format(custom.start <= custom.end ? custom.end : custom.start, "yyyy-MM-dd");
     return dayKey >= start && dayKey <= end;
   }
 
@@ -70,103 +92,240 @@ function transactionDayKey(tx: Transaction) {
   return date ? format(date, "yyyy-MM-dd") : "";
 }
 
-function RangeChip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+/**
+ * Day separator: the label on the left, that day's net on the right.
+ *
+ * Groups are made with a header, spacing and a divider rather than a rounded
+ * container per day - a long history reads as one list instead of a stack of
+ * boxes.
+ */
+function DayHeader({ title, netMinor, currency }: { title: string; netMinor: number; currency: string }) {
   return (
-    <HapticPressable
-      onPress={onPress}
-      haptic="selection"
-      pressScale={0.985}
-      className="rounded-full border px-4 min-h-11 items-center justify-center"
-      android_ripple={{ color: "#0B122012" }}
+    <View
       style={{
-        borderColor: active ? tokens.colors.greenSoft : tokens.colors.stroke,
-        backgroundColor: active ? tokens.colors.greenSoft : tokens.colors.surface,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: tokens.space[3],
+        paddingTop: tokens.space[6],
+        paddingBottom: tokens.space[2],
       }}
     >
-      <AppText variant="sm" weight="semibold" style={{ color: active ? tokens.colors.accent : tokens.colors.text }}>
-        {label}
+      <AppText variant="xs" tone="muted">
+        {title.toUpperCase()}
       </AppText>
-    </HapticPressable>
+
+      {/* The rule carries the day's subtotal out to the right edge, so a group
+          reads as one band without needing a container around it. */}
+      <View style={{ flex: 1, height: 1, backgroundColor: tokens.colors.divider }} />
+
+      <MoneyAmount
+        value={formatCurrency(Math.abs(netMinor), currency, 0)}
+        kind={netMinor < 0 ? "EXPENSE" : "INCOME"}
+        size="sm"
+        weight="semibold"
+      />
+    </View>
   );
 }
 
-function CategoryChip({
-  label,
-  icon,
-  color,
-  active,
-  onPress,
+/**
+ * Custom date-range picker, opened from the "Custom" chip. Stays on the
+ * Activity screen - start and end are picked here, in a sheet, never on a
+ * separate route.
+ *
+ * Visibility is owned entirely by the caller's `isCustomPickerOpen` state,
+ * passed in as `visible`. This component never decides to open itself - not
+ * from `selectedFilter === "custom"`, not from a prop identity change, not
+ * from its own effects. Every exit path (Cancel, the backdrop, the hardware
+ * back button, Apply) calls `onClose` and nothing here ever flips `visible`
+ * back to true.
+ *
+ * Android picks each date through `DateTimePickerAndroid.open`, the one-shot
+ * imperative API, instead of mounting the declarative `<DateTimePicker>`.
+ * The declarative Android component re-presents its dialog from an internal
+ * `useEffect` keyed on the `onChange` callback's identity - since a fresh
+ * closure is passed every render, any unrelated re-render of this screen
+ * while the dialog was open (typing, a store update, even the parent
+ * recreating an inline object prop) reopened it, and it could resurface
+ * right after Cancel/OK or the back button. The imperative call has no such
+ * effect, so it cannot self-reopen.
+ */
+function CustomRangeSheet({
+  visible,
+  onClose,
+  initial,
+  onApply,
+  onClear,
 }: {
-  label: string;
-  icon?: string;
-  color?: string;
-  active: boolean;
-  onPress: () => void;
+  visible: boolean;
+  onClose: () => void;
+  initial: CustomRange;
+  onApply: (range: CustomRange) => void;
+  onClear: () => void;
 }) {
+  const [draftStart, setDraftStart] = useState(initial.start);
+  const [draftEnd, setDraftEnd] = useState(initial.end);
+  const [editing, setEditing] = useState<"start" | "end">("start");
+
+  // Seeds the draft exactly once per open. `initial` is memoized by the
+  // caller, so this does not refire on every unrelated parent re-render.
+  useEffect(() => {
+    if (!visible) return;
+    setDraftStart(initial.start);
+    setDraftEnd(initial.end);
+    setEditing("start");
+  }, [visible, initial]);
+
+  const openStart = () => {
+    setEditing("start");
+    if (Platform.OS === "android") {
+      DateTimePickerAndroid.open({
+        value: draftStart,
+        mode: "date",
+        onChange: (_event: DateTimePickerEvent, selected?: Date) => {
+          if (selected) setDraftStart(selected);
+        },
+      });
+    }
+  };
+
+  const openEnd = () => {
+    setEditing("end");
+    if (Platform.OS === "android") {
+      DateTimePickerAndroid.open({
+        value: draftEnd,
+        mode: "date",
+        onChange: (_event: DateTimePickerEvent, selected?: Date) => {
+          if (selected) setDraftEnd(selected);
+        },
+      });
+    }
+  };
+
   return (
-    <HapticPressable
-      onPress={onPress}
-      haptic="selection"
-      pressScale={0.985}
-      className="mr-2 h-11 px-4 rounded-full border flex-row items-center"
-      android_ripple={{ color: "#0B122012", borderless: true }}
-      style={{
-        borderColor: active ? tokens.colors.accent : tokens.colors.stroke,
-        backgroundColor: active ? `${tokens.colors.accent}14` : tokens.colors.surface,
-      }}
+    <BottomSheetModal
+      visible={visible}
+      onClose={onClose}
+      title="Custom range"
+      rightAction={<SheetCloseButton onPress={onClose} />}
     >
-      {icon ? (
-        <View
-          className="h-6 w-6 items-center justify-center rounded-full border border-stroke mr-2"
-          style={{ backgroundColor: `${color ?? tokens.colors.muted}22` }}
+      <View style={{ flexDirection: "row", gap: tokens.space[3] }}>
+        <HapticPressable
+          onPress={openStart}
+          haptic="none"
+          pressScale={0.99}
+          accessibilityRole="button"
+          style={{
+            flex: 1,
+            height: tokens.layout.controlHeight,
+            justifyContent: "center",
+            paddingHorizontal: tokens.space[4],
+            borderRadius: tokens.radii.md,
+            borderWidth: 1.5,
+            borderColor: editing === "start" ? tokens.colors.accent : tokens.colors.stroke,
+            backgroundColor: tokens.colors.surface,
+          }}
         >
-          <Ionicons name={icon as any} size={12} color={color ?? tokens.colors.muted} />
+          <AppText variant="xs" tone="muted">
+            START DATE
+          </AppText>
+          <AppText variant="base" weight="semibold" style={{ marginTop: 2 }}>
+            {format(draftStart, "MMM d, yyyy")}
+          </AppText>
+        </HapticPressable>
+
+        <HapticPressable
+          onPress={openEnd}
+          haptic="none"
+          pressScale={0.99}
+          accessibilityRole="button"
+          style={{
+            flex: 1,
+            height: tokens.layout.controlHeight,
+            justifyContent: "center",
+            paddingHorizontal: tokens.space[4],
+            borderRadius: tokens.radii.md,
+            borderWidth: 1.5,
+            borderColor: editing === "end" ? tokens.colors.accent : tokens.colors.stroke,
+            backgroundColor: tokens.colors.surface,
+          }}
+        >
+          <AppText variant="xs" tone="muted">
+            END DATE
+          </AppText>
+          <AppText variant="base" weight="semibold" style={{ marginTop: 2 }}>
+            {format(draftEnd, "MMM d, yyyy")}
+          </AppText>
+        </HapticPressable>
+      </View>
+
+      {Platform.OS === "ios" ? (
+        <Animated.View
+          key={editing}
+          entering={FadeIn.duration(tokens.motion.fast)}
+          style={{ marginTop: tokens.space[4] }}
+        >
+          <DateTimePicker
+            value={editing === "start" ? draftStart : draftEnd}
+            mode="date"
+            display="spinner"
+            themeVariant="dark"
+            textColor={tokens.colors.text}
+            onChange={(_event, selected) => {
+              if (!selected) return;
+              if (editing === "start") setDraftStart(selected);
+              else setDraftEnd(selected);
+            }}
+          />
+        </Animated.View>
+      ) : Platform.OS === "web" ? (
+        <View style={{ marginTop: tokens.space[4] }}>
+          <WebDateInput
+            mode="date"
+            value={editing === "start" ? draftStart : draftEnd}
+            onChange={(next) => {
+              if (editing === "start") setDraftStart(next);
+              else setDraftEnd(next);
+            }}
+          />
         </View>
       ) : null}
 
-      <AppText variant="sm" weight="semibold" style={{ color: active ? tokens.colors.accent : tokens.colors.text }}>
-        {label}
-      </AppText>
-
-      {active ? (
-        <Ionicons name="close" size={14} color={tokens.colors.accent} style={{ marginLeft: 6 }} />
-      ) : null}
-    </HapticPressable>
-  );
-}
-
-function IconButton({ icon, onPress, disabled }: { icon: keyof typeof Ionicons.glyphMap; onPress: () => void; disabled?: boolean }) {
-  return (
-    <HapticPressable
-      onPress={onPress}
-      disabled={disabled}
-      haptic="selection"
-      pressScale={0.98}
-      className="h-11 w-11 items-center justify-center rounded-full border border-stroke bg-surface"
-      android_ripple={{ color: "#0B122012", borderless: true }}
-    >
-      <Ionicons name={icon} size={18} color={disabled ? tokens.colors.muted : tokens.colors.text} />
-    </HapticPressable>
-  );
-}
-
-
-function SectionHeader({ title }: { title: string }) {
-  return (
-    <View className="pt-4 pb-2">
-      <AppText variant="xs" tone="muted" className="uppercase">
-        {title}
-      </AppText>
-    </View>
+      <View style={{ flexDirection: "row", gap: tokens.space[3], marginTop: tokens.space[5] }}>
+        <Button
+          label="Reset"
+          variant="secondary"
+          size="md"
+          style={{ flex: 1 }}
+          onPress={() => {
+            onClear();
+            onClose();
+          }}
+        />
+        <Button
+          label="Apply"
+          size="md"
+          style={{ flex: 1 }}
+          onPress={() => {
+            onApply({
+              start: draftStart <= draftEnd ? draftStart : draftEnd,
+              end: draftStart <= draftEnd ? draftEnd : draftStart,
+            });
+            onClose();
+          }}
+        />
+      </View>
+    </BottomSheetModal>
   );
 }
 
 export default function TransactionsScreen() {
   const insets = useSafeAreaInsets();
+  const paddingX = useScreenPaddingX();
+  const tabClearance = useTabBarClearance();
 
   const transactions = useTransactionsStore((s) => s.transactions);
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
-  const books = useBooksStore((s) => s.books);
   const categories = useCategoriesStore((s) => s.categories);
 
   const txPersist = (useTransactionsStore as any).persist;
@@ -225,7 +384,14 @@ export default function TransactionsScreen() {
 
   const [range, setRange] = useState<RangeKey>("today");
   const [selectedMonth, setSelectedMonth] = useState(() => startOfMonth(new Date()));
+  const [customRange, setCustomRange] = useState<CustomRange | null>(null);
+  // Sole gate for the custom-range sheet's visibility. Never derived from
+  // `range === "custom"` - that identity is what caused the picker to
+  // reappear on its own, since `range` stays "custom" long after the user
+  // has closed the sheet.
+  const [isCustomPickerOpen, setIsCustomPickerOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
 
   useEffect(() => {
@@ -241,12 +407,12 @@ export default function TransactionsScreen() {
   }, [categories, selectedBookId]);
 
   const activeCategory = useMemo(() => {
-    return categoryFilter ? bookCategories.find((c) => c.id === categoryFilter) ?? null : null;
+    return categoryFilter ? (bookCategories.find((c) => c.id === categoryFilter) ?? null) : null;
   }, [bookCategories, categoryFilter]);
 
   const rangeTransactions = useMemo(() => {
-    return bookTransactions.filter((tx) => inRange(tx, range, selectedMonth));
-  }, [bookTransactions, range, selectedMonth]);
+    return bookTransactions.filter((tx) => inRange(tx, range, selectedMonth, customRange));
+  }, [bookTransactions, range, selectedMonth, customRange]);
 
   const categoryTransactions = useMemo(() => {
     if (!categoryFilter) return rangeTransactions;
@@ -259,12 +425,7 @@ export default function TransactionsScreen() {
     return categoryTransactions.filter((tx) => {
       if (!q) return true;
 
-      const hay = [
-        tx.title ?? "",
-        tx.categoryName ?? "",
-        tx.note ?? "",
-        tx.type ?? "",
-      ]
+      const hay = [tx.title ?? "", tx.categoryName ?? "", tx.note ?? "", tx.type ?? ""]
         .join(" ")
         .toLowerCase();
 
@@ -272,7 +433,59 @@ export default function TransactionsScreen() {
     });
   }, [query, categoryTransactions]);
 
+  // Custom Range is the only preset backed by a server-computed summary - it's the
+  // one place the 100-transaction client load cap (see _layout.tsx) would otherwise
+  // silently undercount. Today/7 Days/Month/Recent still compute client-side; see
+  // the range-summary rollout notes for why those are a separate follow-up.
+  const rangeSummaryQuery = useQuery({
+    queryKey: [
+      "summaryRange",
+      selectedBookId,
+      customRange ? format(customRange.start, "yyyy-MM-dd") : null,
+      customRange ? format(customRange.end, "yyyy-MM-dd") : null,
+    ],
+    queryFn: () => {
+      if (!customRange) throw new Error("customRange is required");
+      const [start, end] =
+        customRange.start <= customRange.end
+          ? [customRange.start, customRange.end]
+          : [customRange.end, customRange.start];
+      return summaryApi.getRangeSummary(
+        selectedBookId,
+        format(start, "yyyy-MM-dd"),
+        format(end, "yyyy-MM-dd")
+      );
+    },
+    enabled: Boolean(selectedBookId) && range === "custom" && Boolean(customRange),
+  });
+
   const totals = useMemo(() => {
+    if (range === "custom" && rangeSummaryQuery.data) {
+      const data = rangeSummaryQuery.data;
+
+      if (!categoryFilter) {
+        return {
+          incomeCents: data.incomeTotalMinor,
+          expenseCents: data.expenseTotalMinor,
+          netCents: data.incomeTotalMinor - data.expenseTotalMinor,
+          count: data.transactionCount,
+        };
+      }
+
+      // A category is always a single type (enforced server-side), so its one
+      // byCategory entry fully determines income/expense/net/count for it - no
+      // separate per-category endpoint needed. No entry = zero activity in range.
+      const entry = data.byCategory.find((c) => c.categoryId === categoryFilter);
+      const income = entry?.type === "INCOME" ? entry.totalMinor : 0;
+      const expense = entry?.type === "EXPENSE" ? entry.totalMinor : 0;
+      return {
+        incomeCents: income,
+        expenseCents: expense,
+        netCents: income - expense,
+        count: entry?.transactionCount ?? 0,
+      };
+    }
+
     let income = 0;
     let expense = 0;
 
@@ -287,7 +500,7 @@ export default function TransactionsScreen() {
       netCents: income - expense,
       count: categoryTransactions.length,
     };
-  }, [categoryTransactions]);
+  }, [range, categoryFilter, rangeSummaryQuery.data, categoryTransactions]);
 
   const rows = useMemo<Row[]>(() => {
     const sorted = [...filtered].sort((a, b) => {
@@ -295,6 +508,15 @@ export default function TransactionsScreen() {
       const db = safeDate(b.occurredAt)?.getTime() ?? 0;
       return db - da;
     });
+
+    // Day nets are computed up front so the header can show them without
+    // scanning forward while rendering.
+    const netByDay = new Map<string, number>();
+    for (const tx of sorted) {
+      const key = transactionDayKey(tx) || "unknown";
+      const delta = tx.type === "INCOME" ? tx.amountMinor : -tx.amountMinor;
+      netByDay.set(key, (netByDay.get(key) ?? 0) + delta);
+    }
 
     const out: Row[] = [];
     let lastKey = "";
@@ -305,7 +527,12 @@ export default function TransactionsScreen() {
 
       if (key !== lastKey) {
         lastKey = key;
-        out.push({ type: "header", id: `h_${key}`, title: d ? dayTitle(d) : "Unknown date" });
+        out.push({
+          type: "header",
+          id: `h_${key}`,
+          title: d ? dayTitle(d) : "Unknown date",
+          netMinor: netByDay.get(key) ?? 0,
+        });
       }
 
       out.push({ type: "tx", id: tx.id, tx });
@@ -314,14 +541,28 @@ export default function TransactionsScreen() {
     return out;
   }, [filtered]);
 
-  const rangeLabel =
+  const customRangeLabel = customRange
+    ? `${format(customRange.start, "MMM d")} – ${format(customRange.end, "MMM d")}`
+    : "Custom range";
+
+  // Stable identity unless `customRange` itself changes, so the sheet's seed
+  // effect only fires on an actual open, not on every unrelated re-render of
+  // this screen while it happens to be visible.
+  const customSheetInitial = useMemo(
+    () => customRange ?? { start: subDays(new Date(), 6), end: new Date() },
+    [customRange]
+  );
+
+  const summaryLabel =
     range === "today"
-      ? "Today · loaded activity"
+      ? "Today"
       : range === "week"
-        ? "Last 7 days · loaded activity"
+        ? "Last 7 days"
         : range === "month"
-          ? `${format(selectedMonth, "MMMM yyyy")} · loaded activity`
-          : "Latest loaded activity";
+          ? format(selectedMonth, "MMMM")
+          : range === "custom"
+            ? customRangeLabel
+            : "Loaded activity";
 
   const emptyTitle = query.trim()
     ? "No matches"
@@ -330,172 +571,286 @@ export default function TransactionsScreen() {
       : activeCategory
         ? `No ${activeCategory.name} activity`
         : range === "today"
-          ? "No loaded activity today"
+          ? "Nothing today"
           : range === "week"
-            ? "No loaded activity in the last 7 days"
+            ? "Nothing in the last 7 days"
             : range === "month"
-              ? `No loaded activity in ${format(selectedMonth, "MMMM")}`
-              : "No loaded transactions";
+              ? `Nothing in ${format(selectedMonth, "MMMM")}`
+              : range === "custom"
+                ? `Nothing in ${customRangeLabel}`
+                : "No loaded transactions";
 
   const emptyMessage = query.trim()
     ? "Try a different search or clear the filter."
     : bookTransactions.length === 0
-      ? "Log your first expense or income and it will appear here."
+      ? "Your transactions will appear here."
       : activeCategory
         ? `Try a different category, or clear the "${activeCategory.name}" filter.`
         : range === "today"
           ? "No transaction dated today is present in the latest loaded records."
           : range === "week"
             ? "No transaction from the last 7 days is present in the latest loaded records."
-            : "Only the latest loaded records are available in this version.";
+            : range === "custom"
+              ? "No transaction falls inside the selected date range."
+              : "Only the latest loaded records are available in this version.";
 
   return (
-    <View className="flex-1 bg-app" style={{ paddingTop: insets.top + 12 }}>
-      <View className="px-6">
-        <View className="flex-row items-start justify-between">
-          <View className="flex-1">
-            <AppText variant="2xl">Transactions</AppText>
-            <AppText variant="sm" tone="muted" className="mt-1">
-              {rangeLabel}
-            </AppText>
-          </View>
-        </View>
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: tokens.colors.app,
+        paddingTop: insets.top + tokens.layout.screenPadTop,
+      }}
+    >
+      <View style={{ paddingHorizontal: paddingX }}>
+        <ScreenHeader
+          title="Activity"
+          right={
+            <IconButton
+              icon={searchOpen ? "close" : "search"}
+              accessibilityLabel={searchOpen ? "Close search" : "Search transactions"}
+              onPress={() => {
+                setSearchOpen((open) => {
+                  if (open) setQuery("");
+                  return !open;
+                });
+              }}
+            />
+          }
+        />
 
-        <Card variant="surface" className="mt-5">
-          <View className="flex-row items-center justify-between">
-            <View>
-              <AppText variant="xs" tone="muted" className="uppercase">
-                Net of loaded items
-              </AppText>
-              <AppText
-                variant="2xl"
-                className="mt-1"
-                style={{ color: balanceColor(totals.netCents) }}
-              >
-                {formatCurrency(totals.netCents, currency)}
-              </AppText>
-            </View>
+        {searchOpen ? (
+          <FormField
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search transactions"
+            autoCorrect={false}
+            autoCapitalize="none"
+            autoFocus
+            pill
+            leftIcon={<Icon name="search" size={tokens.icon.row} color={tokens.colors.muted} />}
+            containerStyle={{ marginTop: tokens.space[4] }}
+          />
+        ) : null}
 
-            <HapticPressable
-              onPress={() => router.push("/modals/add-transaction")}
-              haptic="impactLight"
-              className="h-12 w-12 items-center justify-center rounded-full bg-accent"
-              android_ripple={{ color: "#FFFFFF22", borderless: true }}
-            >
-              <Ionicons name="add" size={24} color={tokens.colors.white} />
-            </HapticPressable>
-          </View>
-        </Card>
+        {/* Range */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ gap: tokens.space[2], paddingRight: paddingX }}
+          style={{ marginTop: tokens.space[4] }}
+        >
+          <FilterChip label="Today" active={range === "today"} onPress={() => setRange("today")} />
+          <FilterChip label="7 days" active={range === "week"} onPress={() => setRange("week")} />
+          <FilterChip label="Month" active={range === "month"} onPress={() => setRange("month")} />
+          <FilterChip label="Recent" active={range === "all"} onPress={() => setRange("all")} />
+          <FilterChip
+            label="Custom"
+            icon="calendar-outline"
+            active={range === "custom"}
+            onPress={() => setIsCustomPickerOpen(true)}
+          />
+        </ScrollView>
 
-        <View className="mt-3 flex-row" style={{ gap: 8 }}>
-          <SummaryStat compact label="Income" value={formatCurrency(totals.incomeCents, currency)} tone="income" />
-          <SummaryStat compact label="Expense" value={formatCurrency(totals.expenseCents, currency)} tone="expense" />
-          <SummaryStat compact label="Items" value={String(totals.count)} tone="neutral" />
-        </View>
-
-        <View className="mt-4 flex-row items-center" style={{ gap: 8 }}>
-          <RangeChip label="Today" active={range === "today"} onPress={() => setRange("today")} />
-          <RangeChip label="7 Days" active={range === "week"} onPress={() => setRange("week")} />
-          <RangeChip label="Month" active={range === "month"} onPress={() => setRange("month")} />
-          <RangeChip label="Recent" active={range === "all"} onPress={() => setRange("all")} />
-        </View>
-
+        {/* Category */}
         {bookCategories.length > 0 ? (
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            className="mt-3"
             keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{ gap: tokens.space[2], paddingRight: paddingX }}
+            style={{ marginTop: tokens.space[2] }}
           >
-            <View className="flex-row">
-              <CategoryChip
-                label="All categories"
-                active={!categoryFilter}
-                onPress={() => setCategoryFilter(null)}
+            <FilterChip
+              label="All categories"
+              active={!categoryFilter}
+              onPress={() => setCategoryFilter(null)}
+            />
+            {bookCategories.map((c) => (
+              <FilterChip
+                key={c.id}
+                label={c.name}
+                icon={c.icon}
+                iconColor={c.color}
+                active={categoryFilter === c.id}
+                clearable
+                onPress={() => setCategoryFilter((cur) => (cur === c.id ? null : c.id))}
               />
-              {bookCategories.map((c) => (
-                <CategoryChip
-                  key={c.id}
-                  label={c.name}
-                  icon={c.icon}
-                  color={c.color}
-                  active={categoryFilter === c.id}
-                  onPress={() => setCategoryFilter((cur) => (cur === c.id ? null : c.id))}
-                />
-              ))}
-            </View>
+            ))}
           </ScrollView>
         ) : null}
 
+        {/* Month stepper, only while browsing a month */}
         {range === "month" ? (
-          <View className="mt-3 flex-row items-center justify-between rounded-lg border border-stroke bg-surface p-2">
-            <IconButton icon="chevron-back" onPress={() => setSelectedMonth((m) => addMonths(m, -1))} />
-            <View className="items-center">
-              <AppText variant="lg">{format(selectedMonth, "MMMM yyyy")}</AppText>
-              <AppText variant="xs" tone="muted" className="mt-0.5">
-                Tap arrows to review another month
-              </AppText>
-            </View>
-            <IconButton icon="chevron-forward" onPress={() => setSelectedMonth((m) => addMonths(m, 1))} />
+          <View
+            style={{
+              marginTop: tokens.space[3],
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <IconButton
+              icon="chevron-back"
+              size={tokens.layout.minTap}
+              accessibilityLabel="Previous month"
+              onPress={() => setSelectedMonth((m) => addMonths(m, -1))}
+            />
+            <AppText variant="base" weight="semibold">
+              {format(selectedMonth, "MMMM yyyy")}
+            </AppText>
+            <IconButton
+              icon="chevron-forward"
+              size={tokens.layout.minTap}
+              accessibilityLabel="Next month"
+              onPress={() => setSelectedMonth((m) => addMonths(m, 1))}
+            />
           </View>
         ) : null}
 
-        <Input
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Search transactions"
-          autoCorrect={false}
-          autoCapitalize="none"
-          variant="search"
-          leftIcon={<Ionicons name="search" size={22} color={tokens.colors.muted} />}
-          containerClassName="mt-3"
-        />
+        {/* Summary. Quiet by design: the list is the subject of this screen.
+            Every period shows all three figures - a lone net hides whether a
+            quiet week was actually quiet or just balanced. */}
+        <Animated.View
+          key={`${range}-${range === "custom" ? customRangeLabel : ""}-${range === "month" ? format(selectedMonth, "yyyy-MM") : ""}`}
+          entering={FadeIn.duration(tokens.motion.fast)}
+          style={{ marginTop: tokens.space[6] }}
+        >
+          <AppText variant="xs" tone="muted">
+            {summaryLabel.toUpperCase()}
+          </AppText>
+
+          <View style={{ flexDirection: "row", marginTop: tokens.space[2], gap: tokens.space[4] }}>
+            <View style={{ flex: 1 }}>
+              <AppText variant="sm" tone="muted">
+                Spent
+              </AppText>
+              <MoneyAmount
+                value={formatCurrency(totals.expenseCents, currency)}
+                kind="EXPENSE"
+                size="lg"
+                style={{ marginTop: 2 }}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <AppText variant="sm" tone="muted">
+                Received
+              </AppText>
+              <MoneyAmount
+                value={formatCurrency(totals.incomeCents, currency)}
+                kind="INCOME"
+                size="lg"
+                style={{ marginTop: 2 }}
+              />
+            </View>
+          </View>
+
+          <View style={{ marginTop: tokens.space[4] }}>
+            <AppText variant="sm" tone="muted">
+              Net
+            </AppText>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "baseline",
+                gap: tokens.space[2],
+                marginTop: 2,
+              }}
+            >
+              <MoneyAmount
+                value={formatCurrency(totals.netCents, currency)}
+                tone="neutral"
+                size="xl"
+                color={balanceColor(totals.netCents)}
+              />
+              <AppText variant="sm" tone="muted">
+                · {totals.count} {totals.count === 1 ? "transaction" : "transactions"}
+              </AppText>
+            </View>
+          </View>
+        </Animated.View>
       </View>
 
-      <View className="flex-1 px-6 mt-3">
+      <View style={{ flex: 1, paddingHorizontal: paddingX }}>
         {hydrationError ? (
-          <View className="flex-1 justify-center">
+          <View style={{ flex: 1, justifyContent: "center" }}>
             <EmptyState
               title="Couldn’t load transactions"
               message="Retry to refresh your transaction history."
               actionLabel="Retry"
+              tone="danger"
               onAction={retryHydration}
-              className="px-0"
             />
           </View>
         ) : !isHydrated ? (
-          <View className="gap-3 pt-2">
-            <Skeleton height={120} borderRadius={24} />
-            <Skeleton height={120} borderRadius={24} />
-            <Skeleton height={120} borderRadius={24} />
+          <View style={{ gap: tokens.space[3], paddingTop: tokens.space[6] }}>
+            <Skeleton height={tokens.layout.listRowHeight} borderRadius={tokens.radii.md} />
+            <Skeleton height={tokens.layout.listRowHeight} borderRadius={tokens.radii.md} />
+            <Skeleton height={tokens.layout.listRowHeight} borderRadius={tokens.radii.md} />
           </View>
         ) : rows.length === 0 ? (
-          <View className="flex-1 justify-center">
+          <View style={{ flex: 1, justifyContent: "center" }}>
             <EmptyState
+              emoji={bookTransactions.length === 0 ? "\u{1F335}" : undefined}
+              iconName="receipt-outline"
               title={emptyTitle}
               message={emptyMessage}
               actionLabel="Add transaction"
               onAction={() => router.push("/modals/add-transaction")}
-              className="px-0"
             />
           </View>
         ) : (
           <FlashList
+            key={`${range}-${range === "custom" ? customRangeLabel : ""}-${range === "month" ? format(selectedMonth, "yyyy-MM") : ""}`}
             data={rows}
             keyExtractor={(r) => r.id}
-            renderItem={({ item }) => {
-              if (item.type === "header") return <SectionHeader title={item.title} />;
-              return <TransactionRow item={item.tx} />;
+            renderItem={({ item, index }) => {
+              if (item.type === "header") {
+                return <DayHeader title={item.title} netMinor={item.netMinor} currency={currency} />;
+              }
+
+              // A divider only between two transactions, never under the last
+              // row of a day - the next day's header already separates them.
+              const next = rows[index + 1];
+              const showDivider = next?.type === "tx";
+
+              return (
+                // Rows stagger in a few frames apart so a long history settles
+                // as a list rather than snapping in as a block. The delay is
+                // capped so nothing further down the screen waits on it.
+                <Animated.View
+                  entering={FadeInDown.duration(tokens.motion.base).delay(
+                    Math.min(index, 8) * tokens.motion.listStagger
+                  )}
+                >
+                  <TransactionRow item={item.tx} embedded showDay={false} />
+                  {showDivider ? (
+                    <View style={{ height: 1, backgroundColor: tokens.colors.divider }} />
+                  ) : null}
+                </Animated.View>
+              );
             }}
-            ItemSeparatorComponent={() => <View className="h-2" />}
-            contentContainerStyle={{
-              paddingBottom: (insets.bottom || 0) + 24,
-              paddingTop: 4,
-            }}
+            contentContainerStyle={{ paddingBottom: tabClearance }}
             showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
           />
         )}
       </View>
+
+      <CustomRangeSheet
+        visible={isCustomPickerOpen}
+        onClose={() => setIsCustomPickerOpen(false)}
+        initial={customSheetInitial}
+        onApply={(next) => {
+          setCustomRange(next);
+          setRange("custom");
+        }}
+        onClear={() => {
+          setCustomRange(null);
+          setRange("today");
+        }}
+      />
     </View>
   );
 }

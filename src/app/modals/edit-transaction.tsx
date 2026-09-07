@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { Keyboard, Platform, ScrollView, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
@@ -15,6 +14,7 @@ import { AmountInput, applyAmountKey } from "@/shared/ui/components/AmountInput"
 import { NumericKeypad, type Key } from "@/shared/ui/NumericKeypad";
 import { Input } from "@/shared/ui/components/Input";
 import { SelectRow } from "@/shared/ui/components/SelectRow";
+import { FilterChip } from "@/shared/ui/components/FilterChip";
 import { Button } from "@/shared/ui/components/Button";
 import { Card } from "@/shared/ui/components/Card";
 import { EmptyState } from "@/shared/ui/components/EmptyState";
@@ -31,6 +31,7 @@ import {
   minorToMajor,
 } from "@/shared/utils/formatCurrency";
 import { useUndoToastStore } from "@/shared/ui/state/useUndoToastStore";
+import { Icon } from "@/shared/ui/components/Icon";
 
 function minorToAmount(amountMinor: number, currency: string) {
   const amount = minorToMajor(Math.abs(amountMinor), currency);
@@ -57,25 +58,6 @@ function parseWhen(iso: string) {
   }
 }
 
-function CategoryChip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
-  return (
-    <HapticPressable
-      onPress={onPress}
-      haptic="selection"
-      pressScale={0.98}
-      className="mr-3 min-h-11 rounded-full border px-4 items-center justify-center"
-      style={{
-        borderColor: active ? tokens.colors.accent : tokens.colors.stroke,
-        backgroundColor: active ? `${tokens.colors.accent}18` : tokens.colors.surface,
-      }}
-      android_ripple={{ color: "#0B122012", borderless: true }}
-    >
-      <AppText variant="sm" style={{ color: active ? tokens.colors.accent : tokens.colors.text }}>
-        {label}
-      </AppText>
-    </HapticPressable>
-  );
-}
 
 export default function EditTransactionModal() {
   const router = useRouter();
@@ -202,9 +184,9 @@ export default function EditTransactionModal() {
           <HapticPressable
             onPress={() => router.back()}
             className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
-            android_ripple={{ color: "#0B122012", borderless: true }}
+            android_ripple={{ color: tokens.colors.ripple, borderless: true }}
           >
-            <Ionicons name="chevron-back" size={20} color={tokens.colors.text} />
+            <Icon name="chevron-back" size={20} color={tokens.colors.text} />
           </HapticPressable>
         }
         footer={
@@ -241,8 +223,8 @@ export default function EditTransactionModal() {
           </View>
         ) : !hydrated ? (
           <View className="mt-2 gap-3">
-            <Skeleton height={160} borderRadius={24} />
-            <Skeleton height={260} borderRadius={24} />
+            <Skeleton height={160} borderRadius={20} />
+            <Skeleton height={260} borderRadius={20} />
           </View>
         ) : !tx ? (
           <View className="flex-1 justify-center">
@@ -269,6 +251,7 @@ export default function EditTransactionModal() {
                   currencySymbol={currencySymbol(currency)}
                   fractionDigits={fractionDigits}
                   helperText={formatCurrency(amountCents, currency)}
+                  helperIsMoney
                   error={
                     attemptedSave && (!Number.isSafeInteger(amountCents) || amountCents <= 0)
                       ? "Enter a valid amount greater than zero."
@@ -293,9 +276,14 @@ export default function EditTransactionModal() {
                 <AppText variant="sm" tone="muted" className="mb-2">
                   Category
                 </AppText>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  keyboardShouldPersistTaps="handled"
+                  contentContainerStyle={{ gap: tokens.space[2] }}
+                >
                   {categoryOptions.map((item) => (
-                    <CategoryChip
+                    <FilterChip
                       key={item.id}
                       label={item.name}
                       active={item.id === categoryId}
@@ -320,11 +308,10 @@ export default function EditTransactionModal() {
                 placeholder="Add details"
                 maxLength={280}
                 multiline
-                inputClassName="min-h-24 py-3"
                 textAlignVertical="top"
               />
 
-              <Card variant="surface" className="p-0 overflow-hidden">
+              <Card variant="surface" padding={0} style={{ overflow: "hidden" }}>
                 <SelectRow label="Date" value={format(occurredAt, "MMM d, yyyy")} onPress={() => setShowMode("date")} />
                 <View className="h-px bg-stroke" />
                 <SelectRow label="Time" value={format(occurredAt, "h:mm a")} onPress={() => setShowMode("time")} />
@@ -333,10 +320,24 @@ export default function EditTransactionModal() {
               {Platform.OS === "ios" ? (
                 <View className="gap-3">
                   <Card variant="surface">
-                    <DateTimePicker value={occurredAt} mode="date" display="spinner" onChange={onDateChange} />
+                    <DateTimePicker
+                      value={occurredAt}
+                      mode="date"
+                      display="spinner"
+                      themeVariant="dark"
+                      textColor={tokens.colors.text}
+                      onChange={onDateChange}
+                    />
                   </Card>
                   <Card variant="surface">
-                    <DateTimePicker value={occurredAt} mode="time" display="spinner" onChange={onDateChange} />
+                    <DateTimePicker
+                      value={occurredAt}
+                      mode="time"
+                      display="spinner"
+                      themeVariant="dark"
+                      textColor={tokens.colors.text}
+                      onChange={onDateChange}
+                    />
                   </Card>
                 </View>
               ) : null}

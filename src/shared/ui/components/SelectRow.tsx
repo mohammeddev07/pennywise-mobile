@@ -1,11 +1,11 @@
 import React from "react";
 import { View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import clsx from "clsx";
 
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { AppText } from "@/shared/ui/components/AppText";
 import { tokens } from "@/shared/ui/theme/tokens";
+import { Icon } from "./Icon";
 
 type Props = {
   label: string;
@@ -28,7 +28,7 @@ export function SelectRow({
     <HapticPressable
       onPress={onPress}
       disabled={disabled}
-      haptic="selection"
+      haptic="none"
       pressScale={0.99}
       className={clsx(
         // Contract:
@@ -52,7 +52,7 @@ export function SelectRow({
 
       {/* Chevron target: 48x48 */}
       <View className="w-12 h-12 items-center justify-center">
-        <Ionicons name="chevron-forward" size={18} color={tokens.colors.muted} />
+        <Icon name="chevron-forward" size={18} color={tokens.colors.muted} />
       </View>
     </HapticPressable>
   );

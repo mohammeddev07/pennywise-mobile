@@ -2,9 +2,11 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useWindowDimensions, View } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
+import * as Haptics from "expo-haptics";
 
 import { NumericKeypad, type Key } from "@/shared/ui/NumericKeypad";
-import { tokens } from "@/shared/ui/theme/tokens";
+import { amountFontSize, tokens } from "@/shared/ui/theme/tokens";
 import { amountColor } from "@/shared/ui/theme/money";
 import { useBooksStore } from "@/features/books/store";
 import { useBookCurrency } from "@/features/books/useBookCurrency";
@@ -17,6 +19,7 @@ import { EmptyState } from "@/shared/ui/components/EmptyState";
 import { FlowHeader } from "@/shared/ui/components/FlowHeader";
 import { OdometerAmount } from "@/shared/ui/components/OdometerAmount";
 import { TypeToggle } from "@/shared/ui/components/TypeToggle";
+import { useScreenPaddingX } from "@/shared/ui/components/Screen";
 import { applyAmountKey, formatForTicker } from "@/shared/ui/components/AmountInput";
 
 /**
@@ -29,6 +32,7 @@ export default function AddTransactionAmount() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
+  const paddingX = useScreenPaddingX();
 
   const books = useBooksStore((s) => s.books);
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
@@ -68,19 +72,21 @@ export default function AddTransactionAmount() {
 
   const formattedAmount = formatForTicker(amount, currencySymbol(currency), fractionDigits);
 
-  // The hero is 60px by default, but OdometerAmount lays digits out at a fixed
-  // width each, so a long amount would run past the screen edge. Scale the type
-  // down just enough to fit rather than letting it clip or wrap.
+  // Display-L is 72px and steps down past six digits, but OdometerAmount lays
+  // digits out at a fixed width each, so a long amount could still run past the
+  // screen edge on a narrow handset. Take the smaller of the two limits rather
+  // than letting the figure clip or wrap.
   const heroFontSize = useMemo(() => {
-    const base = tokens.typography.display.fontSize;
-    const available = width - tokens.layout.screenPaddingX * 2;
+    const base = amountFontSize(formattedAmount);
+    const available = width - paddingX * 2;
     const estimated = formattedAmount.length * base * 0.6;
     if (estimated <= available) return base;
     return Math.max(28, Math.floor(base * (available / estimated)));
-  }, [formattedAmount, width]);
+  }, [formattedAmount, paddingX, width]);
 
   const valueNum = Number(amount || "0") || 0;
   const canContinue = valueNum > 0 && Boolean(selectedBook);
+  const isExpense = kind === "EXPENSE";
 
   const close = () => {
     resetDraft();
@@ -94,49 +100,106 @@ export default function AddTransactionAmount() {
     router.push("/modals/add-transaction/details");
   };
 
+  // An invalid action is the one failure the product reports by feel: pressing
+  // Continue at zero says no without moving the screen.
+  const rejectContinue = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+  };
+
   return (
-    <View className="flex-1 bg-app" style={{ paddingTop: insets.top + tokens.space[3] }}>
-      <View className="px-6">
-        <FlowHeader title="New transaction" onBack={close} backIcon="close" step={1} totalSteps={2} />
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: tokens.colors.app,
+        paddingTop: insets.top + tokens.layout.screenPadTop,
+      }}
+    >
+      {/*
+        The screen itself carries the mode. A wash no stronger than 10% at the
+        top edge means expense and income are legible from across the room,
+        without asking the amount's color to do the work alone.
+      */}
+      <LinearGradient
+        pointerEvents="none"
+        colors={(isExpense ? tokens.ambient.expense : tokens.ambient.income) as unknown as [string, string]}
+        style={{ position: "absolute", top: 0, left: 0, right: 0, height: 360 }}
+      />
+
+      <View style={{ paddingHorizontal: paddingX }}>
+        <FlowHeader
+          title="New transaction"
+          subtitle="Amount · 1 of 2"
+          onBack={close}
+          backIcon="close"
+          step={1}
+          totalSteps={2}
+          progressColor={amountColor(kind)}
+        />
       </View>
 
       {!hasBooks ? (
-        <View className="flex-1 justify-center px-6">
+        <View style={{ flex: 1, justifyContent: "center", paddingHorizontal: paddingX }}>
           <EmptyState
             title="Cash book unavailable"
             message="Return home and retry once your account data has loaded."
             actionLabel="Return home"
+            tone="danger"
             onAction={() => router.replace("/(tabs)/home")}
-            className="px-0"
           />
         </View>
       ) : (
         <>
-          <View className="flex-1 items-center justify-center px-6">
+          <View style={{ paddingHorizontal: paddingX, marginTop: tokens.space[6] }}>
             <TypeToggle value={kind} onChange={setKind} />
+          </View>
 
-            <View className="mt-8 w-full items-center">
-              <OdometerAmount
-                value={formattedAmount}
-                majorFontSize={heroFontSize}
-                minorFontSize={Math.round(heroFontSize * 0.5)}
-                color={valueNum > 0 ? amountColor(kind) : tokens.colors.muted}
-              />
-            </View>
+          <View
+            style={{
+              flex: 1,
+              alignItems: "center",
+              justifyContent: "center",
+              paddingHorizontal: paddingX,
+            }}
+          >
+            <OdometerAmount
+              value={formattedAmount}
+              majorFontSize={heroFontSize}
+              minorFontSize={Math.round(heroFontSize * 0.5)}
+              // The hero takes the money color of the selected direction, so
+              // expense and income are distinguishable before the save.
+              color={valueNum > 0 ? amountColor(kind) : tokens.colors.subtle}
+            />
 
-            <AppText variant="sm" tone="muted" className="mt-4">
-              {currency} · {kind === "EXPENSE" ? "Money out" : "Money in"}
+            <AppText variant="sm" tone="muted" style={{ marginTop: tokens.space[4] }}>
+              {currency} · {kind === "EXPENSE" ? "Expense" : "Income"}
             </AppText>
           </View>
 
-          <View className="px-6" style={{ paddingBottom: insets.bottom + tokens.space[4], gap: tokens.space[5] }}>
+          <View
+            style={{
+              paddingHorizontal: paddingX,
+              paddingBottom: insets.bottom + tokens.space[4],
+              gap: tokens.space[5],
+            }}
+          >
             <NumericKeypad
               onPress={(key) => setAmount(applyAmountKey(amount, key as Key, fractionDigits))}
               onDelete={() => setAmount(applyAmountKey(amount, "back", fractionDigits))}
               decimalAllowed={fractionDigits > 0}
               disabled={!selectedBook}
             />
-            <Button label="Next" onPress={goNext} disabled={!canContinue} size="lg" />
+            {/*
+              The CTA is the mode's color, not the brand's: in expense mode it
+              is coral, so the commitment matches what is about to be recorded.
+            */}
+            <Button
+              label="Next"
+              onPress={goNext}
+              disabled={!canContinue}
+              onDisabledPress={rejectContinue}
+              size="lg"
+              tone={isExpense ? "expense" : "accent"}
+            />
           </View>
         </>
       )}

@@ -54,3 +54,30 @@ export function formatSignedCurrency(amountMinor: number, currency: CurrencyInpu
   if (amountMinor === 0) return formatted;
   return `${amountMinor > 0 ? "+" : "-"}${formatted}`;
 }
+
+/**
+ * The number half of a currency figure - grouped and rounded exactly as
+ * `formatCurrency` would, but with no symbol and no currency code.
+ *
+ * `HeroAmount` renders the symbol itself, at half size in the tertiary color,
+ * so the digits and the symbol are two separate text nodes. That is the one
+ * split the type system allows inside a single figure.
+ */
+export function formatCurrencyDigits(
+  amountMinor: number,
+  currency: CurrencyInput,
+  maximumFractionDigits?: number
+) {
+  const amount = minorToMajor(amountMinor, currency);
+  const displayDigits = maximumFractionDigits ?? currencyMinorUnitDigits(currency);
+
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "decimal",
+      minimumFractionDigits: displayDigits,
+      maximumFractionDigits: displayDigits,
+    }).format(amount);
+  } catch {
+    return Math.abs(amount).toFixed(displayDigits);
+  }
+}

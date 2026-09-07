@@ -1,11 +1,18 @@
-import React, { useState } from "react";
+import React from "react";
 import { StyleSheet, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
 
-import { tokens } from "@/shared/ui/theme/tokens";
+import { numerals, tokens } from "@/shared/ui/theme/tokens";
+import { withAlpha } from "@/shared/ui/theme/color";
 import { AppText } from "@/shared/ui/components/AppText";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
-
+import { Icon } from "@/shared/ui/components/Icon";
 
 export type Key = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "." | "back";
 type DigitKey = Exclude<Key, "back">;
@@ -31,6 +38,15 @@ const ROWS: DigitKey[][] = [
   [".", "0"],
 ];
 
+/**
+ * Keys are machined rather than outlined: a two-stop vertical gradient with a
+ * 1px top-edge highlight, so twelve of them read as a keypad without twelve
+ * rings - the busiest element the old amount screen had.
+ *
+ * A press drops the key to 0.92 in 90ms and releases on a spring, so the key
+ * moves before the number does. Digits are Sora, like every other number in
+ * the product.
+ */
 export function NumericKeypad({
   onPress,
   onDelete,
@@ -63,12 +79,7 @@ export function NumericKeypad({
             />
           ))}
           {rowIndex === ROWS.length - 1 ? (
-            <KeyBtn
-              label="back"
-              disabled={disabled}
-              muted
-              onPress={deleteKey}
-            />
+            <KeyBtn label="back" disabled={disabled} muted onPress={deleteKey} />
           ) : null}
         </View>
       ))}
@@ -87,36 +98,53 @@ function KeyBtn({
   disabled?: boolean;
   muted?: boolean;
 }) {
-  const [pressed, setPressed] = useState(false);
   const isBackspace = label === "back";
-  // Circle-in-touch-area keeps every keypad target generous without making the UI feel heavy.
+  const scale = useSharedValue(1);
+  const animated = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+
   return (
     <HapticPressable
       onPress={onPress}
       disabled={disabled}
-      haptic="selection"
-      pressScale={0.96}
+      // Every key press is an edit to the amount, so it ticks - the one place
+      // in the product where a repeated Light impact is correct.
+      haptic="impactLight"
+      pressScale={1} // the key itself scales, not the touch target
       pressOpacity={1}
-      onPressIn={() => setPressed(true)}
-      onPressOut={() => setPressed(false)}
+      onPressIn={() => {
+        if (disabled) return;
+        scale.value = withTiming(0.92, { duration: tokens.motion.pressIn });
+      }}
+      onPressOut={() => {
+        if (disabled) return;
+        scale.value = withSpring(1, tokens.spring.key);
+      }}
+      accessibilityRole="button"
+      accessibilityLabel={isBackspace ? "Delete" : label}
       style={styles.keyTouch}
-      android_ripple={{ color: "#0B122012", borderless: true }}
+      android_ripple={{ color: tokens.colors.ripple, borderless: true }}
     >
-      <View style={[styles.keyCircle, pressed && !disabled ? styles.keyCirclePressed : null]}>
-        {isBackspace ? (
-          <Ionicons name="backspace-outline" size={22} color={tokens.colors.accent} />
-        ) : (
-          <AppText
-            variant={label === "." ? "lg" : "2xl"}
-            style={[
-              label === "." ? tokens.typography.lg : tokens.typography["2xl"],
-              { color: muted ? tokens.colors.muted : tokens.colors.text },
-            ]}
-          >
-            {label}
-          </AppText>
-        )}
-      </View>
+      <Animated.View style={[styles.key, animated]}>
+        <LinearGradient
+          colors={[tokens.colors.surfaceAlt, tokens.colors.surface]}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+          style={styles.keyFace}
+        >
+          {isBackspace ? (
+            <Icon name="backspace-outline" size={24} color={tokens.colors.muted} />
+          ) : (
+            <AppText
+              style={[
+                styles.keyLabel,
+                { color: muted ? tokens.colors.subtle : tokens.colors.text },
+              ]}
+            >
+              {label}
+            </AppText>
+          )}
+        </LinearGradient>
+      </Animated.View>
     </HapticPressable>
   );
 }
@@ -124,32 +152,36 @@ function KeyBtn({
 const styles = StyleSheet.create({
   container: {
     width: "100%",
-    alignItems: "center",
-    gap: tokens.space[4],
+    gap: tokens.space[2],
   },
   row: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    gap: tokens.space[6],
+    gap: tokens.space[2],
   },
   keyTouch: {
-    width: 72,
-    height: 72,
+    flex: 1,
+    height: tokens.layout.keyHeight,
+  },
+  key: {
+    flex: 1,
+    borderRadius: tokens.radii.key,
+    overflow: "hidden",
+  },
+  keyFace: {
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
+    borderRadius: tokens.radii.key,
+    // The top-edge highlight, not a full outline - it lifts the key off the
+    // screen without ringing it.
+    borderTopWidth: 1,
+    borderTopColor: withAlpha(tokens.colors.white, 0.06),
   },
-  keyCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: tokens.radii.pill,
-    borderWidth: 1,
-    borderColor: tokens.colors.stroke,
-    backgroundColor: tokens.colors.surface,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  keyCirclePressed: {
-    backgroundColor: tokens.colors.surfaceAlt,
+  keyLabel: {
+    fontSize: 24,
+    lineHeight: 30,
+    fontFamily: numerals.semibold,
+    fontVariant: ["tabular-nums"],
   },
 });

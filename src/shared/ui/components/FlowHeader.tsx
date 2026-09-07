@@ -1,64 +1,120 @@
 import React, { type ReactNode } from "react";
 import { View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import Animated, { useAnimatedStyle, useDerivedValue, withTiming } from "react-native-reanimated";
 
 import { tokens } from "@/shared/ui/theme/tokens";
 import { AppText } from "@/shared/ui/components/AppText";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
+import { Icon, type IconName } from "./Icon";
 
 type Props = {
   title: string;
+  /** Sub-label under the title, e.g. "Amount · 1 of 2". */
+  subtitle?: string;
   onBack: () => void;
-  backIcon?: keyof typeof Ionicons.glyphMap;
+  backIcon?: IconName;
   /** 1-based position in the flow. Omit for single-screen modals. */
   step?: number;
   totalSteps?: number;
   rightAction?: ReactNode;
+  /**
+   * Color of the progress fill. The add flow passes the money color of the
+   * selected direction so the whole screen - toggle, amount, CTA and progress
+   * - agrees on what is being recorded.
+   */
+  progressColor?: string;
 };
 
 /**
- * Header for multi-step modal flows. The progress track is the only thing that
- * tells the user how much is left, so it stays even when a step is skippable.
+ * Header for multi-step modal flows.
+ *
+ * Progress is a single continuous track rather than one mark per step: at two
+ * steps the segmented version read as decoration, and a filling bar says the
+ * same thing with less furniture.
  */
-export function FlowHeader({ title, onBack, backIcon = "chevron-back", step, totalSteps, rightAction }: Props) {
+export function FlowHeader({
+  title,
+  subtitle,
+  onBack,
+  backIcon = "chevron-back",
+  step,
+  totalSteps,
+  rightAction,
+  progressColor = tokens.colors.accent,
+}: Props) {
   const showProgress = typeof step === "number" && typeof totalSteps === "number" && totalSteps > 1;
+  const ratio = showProgress ? (step as number) / (totalSteps as number) : 0;
+
+  const progress = useDerivedValue(
+    () => withTiming(ratio, { duration: tokens.motion.slow }),
+    [ratio]
+  );
+  const fill = useAnimatedStyle(() => ({ width: `${progress.value * 100}%` }));
 
   return (
     <View>
-      <View className="flex-row items-center">
+      <View style={{ flexDirection: "row", alignItems: "center" }}>
         <HapticPressable
           onPress={onBack}
-          haptic="selection"
-          pressScale={0.96}
-          className="h-12 w-12 items-center justify-center rounded-full border border-stroke bg-surface"
-          android_ripple={{ color: "#0B122012", borderless: true }}
+          // Closing or stepping back is a read - silent.
+          haptic="none"
+          pressScale={0.94}
+          accessibilityRole="button"
+          accessibilityLabel={backIcon === "close" ? "Close" : "Back"}
+          android_ripple={{ color: tokens.colors.ripple, borderless: true }}
+          style={{
+            width: tokens.layout.iconTap,
+            height: tokens.layout.iconTap,
+            alignItems: "center",
+            justifyContent: "center",
+            borderRadius: tokens.radii.pill,
+            backgroundColor: tokens.colors.surface,
+            borderWidth: 1,
+            borderColor: tokens.colors.stroke,
+          }}
         >
-          <Ionicons name={backIcon} size={20} color={tokens.colors.text} />
+          <Icon name={backIcon} size={tokens.icon.nav} color={tokens.colors.text} />
         </HapticPressable>
 
-        <View className="flex-1 px-3">
+        <View style={{ flex: 1, paddingHorizontal: tokens.space[3] }}>
           <AppText variant="lg" numberOfLines={1}>
             {title}
           </AppText>
-          {showProgress ? (
-            <AppText variant="xs" tone="muted" className="mt-0.5">
-              Step {step} of {totalSteps}
+          {subtitle ? (
+            <AppText variant="sm" tone="muted" numberOfLines={1} style={{ marginTop: 2 }}>
+              {subtitle}
             </AppText>
           ) : null}
         </View>
 
-        <View className="h-12 min-w-12 items-center justify-center">{rightAction}</View>
+        <View
+          style={{
+            minWidth: tokens.layout.iconTap,
+            height: tokens.layout.iconTap,
+            alignItems: "flex-end",
+            justifyContent: "center",
+          }}
+        >
+          {rightAction}
+        </View>
       </View>
 
       {showProgress ? (
-        <View className="mt-4 flex-row" style={{ gap: tokens.space[2] }}>
-          {Array.from({ length: totalSteps as number }).map((_, i) => (
-            <View
-              key={i}
-              className="h-1 flex-1 rounded-full"
-              style={{ backgroundColor: i < (step as number) ? tokens.semantic.primary : tokens.colors.stroke }}
-            />
-          ))}
+        <View
+          style={{
+            marginTop: tokens.space[4],
+            height: 3,
+            borderRadius: tokens.radii.pill,
+            backgroundColor: tokens.colors.neutralSoft,
+            overflow: "hidden",
+          }}
+        >
+          <Animated.View
+            style={[
+              { height: 3, borderRadius: tokens.radii.pill, backgroundColor: progressColor },
+              fill,
+            ]}
+          />
         </View>
       ) : null}
     </View>
