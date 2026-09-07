@@ -151,6 +151,7 @@ export type MonthlySummaryCategory = {
   type: TransactionType;
   totalMinor: number;
   budgetMinor?: number | null;
+  transactionCount: number;
 };
 
 export type MonthlySummaryResponse = {
@@ -176,4 +177,22 @@ export type ImportResponse = {
   failedCount: number;
   categoriesCreated: string[];
   errors: ImportRowError[];
+};
+
+export type RangeSummaryDailyItem = {
+  date: string;
+  incomeTotalMinor: number;
+  expenseTotalMinor: number;
+};
+
+export type RangeSummaryResponse = {
+  bookId: string;
+  startDate: string;
+  endDate: string;
+  currencyCode: string;
+  incomeTotalMinor: number;
+  expenseTotalMinor: number;
+  transactionCount: number;
+  byCategory: MonthlySummaryCategory[];
+  byDay: RangeSummaryDailyItem[];
 };

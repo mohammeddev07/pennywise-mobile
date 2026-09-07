@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { ScrollView, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 
 import { tokens } from "@/shared/ui/theme/tokens";
@@ -18,6 +17,7 @@ import * as authApi from "@/shared/api/auth";
 import { getApiErrorMessage } from "@/shared/api/errors";
 import { currencyMinorUnitDigits, majorToMinor } from "@/shared/utils/formatCurrency";
 import { getAccountEpoch, isCurrentAccountEpoch } from "@/shared/session/accountEpoch";
+import { Icon } from "@/shared/ui/components/Icon";
 
 type Item = { code: CurrencyCode; symbol: string; name: string; sub: string };
 
@@ -124,13 +124,13 @@ export default function CurrencyScreen() {
   };
 
   return (
-    <View className="flex-1 bg-app px-6 pt-16 pb-10">
+    <View className="flex-1 bg-app px-5 pt-16 pb-10">
       <AppText variant="2xl">Select currency</AppText>
       <AppText variant="base" tone="muted" className="mt-2">
         Choose the currency and opening balance for your cash book.
       </AppText>
       <View className="mt-4 flex-row items-start rounded-lg border border-stroke bg-surfaceAlt p-4">
-        <Ionicons name="lock-closed-outline" size={16} color={tokens.colors.muted} style={{ marginTop: 2 }} />
+        <Icon name="lock-closed-outline" size={16} color={tokens.colors.muted} style={{ marginTop: 2 }} />
         <AppText variant="sm" tone="muted" className="ml-3 flex-1">
           This is permanent. Amounts are stored without an exchange rate, so a book&apos;s
           currency can&apos;t be changed once it is created.
@@ -149,9 +149,9 @@ export default function CurrencyScreen() {
         </View>
       ) : !hydrated ? (
         <View className="mt-8 gap-3">
-          <Skeleton height={120} borderRadius={24} />
-          <Skeleton height={120} borderRadius={24} />
-          <Skeleton height={120} borderRadius={24} />
+          <Skeleton height={120} borderRadius={20} />
+          <Skeleton height={120} borderRadius={20} />
+          <Skeleton height={120} borderRadius={20} />
         </View>
       ) : (
         <ScrollView

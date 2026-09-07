@@ -8,7 +8,7 @@ import Animated, {
   withSpring,
 } from "react-native-reanimated";
 
-import { fonts, tokens } from "@/shared/ui/theme/tokens";
+import { numerals, tokens } from "@/shared/ui/theme/tokens";
 
 type Props = {
   /**
@@ -95,7 +95,7 @@ function DigitWheel({
       fontSize,
       // Weight must come from the family: Android ignores fontWeight once a
       // named fontFamily is set, which previously rendered this at Regular.
-      fontFamily: fonts.extrabold,
+      fontFamily: numerals.bold,
       letterSpacing: 0,
       color,
       includeFontPadding: false,
@@ -150,7 +150,7 @@ function StaticChar({
       <Text
         style={{
           fontSize,
-          fontFamily: fonts.extrabold,
+          fontFamily: numerals.bold,
           letterSpacing: 0,
           color,
           includeFontPadding: false,

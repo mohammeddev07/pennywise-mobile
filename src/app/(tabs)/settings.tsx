@@ -1,18 +1,22 @@
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Alert, ScrollView, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { LinearGradient } from "expo-linear-gradient";
+
 import { tokens } from "@/shared/ui/theme/tokens";
+import { withAlpha } from "@/shared/ui/theme/color";
 import { AppText } from "@/shared/ui/components/AppText";
+import { Button } from "@/shared/ui/components/Button";
 import { Card } from "@/shared/ui/components/Card";
 import { EmptyState } from "@/shared/ui/components/EmptyState";
+import { FormField } from "@/shared/ui/components/FormField";
+import { ScreenHeader } from "@/shared/ui/components/ScreenHeader";
+import { SectionHeader } from "@/shared/ui/components/SectionHeader";
+import { SettingsRow } from "@/shared/ui/components/SettingsRow";
 import { Skeleton } from "@/shared/ui/components/Skeleton";
-import { HapticPressable } from "@/shared/ui/components/HapticPressable";
-import { Button } from "@/shared/ui/components/Button";
-import { Input } from "@/shared/ui/components/Input";
-import { CategoryIcon } from "@/shared/ui/components/CategoryIcon";
+import { useScreenPaddingX, useTabBarClearance } from "@/shared/ui/components/Screen";
 import { useBooksStore } from "@/features/books/store";
 import { useBookCurrency } from "@/features/books/useBookCurrency";
 import { useSettingsStore } from "@/features/settings/store";
@@ -21,46 +25,31 @@ import { formatCurrency, currencySymbol } from "@/shared/utils/formatCurrency";
 import { useUndoToastStore } from "@/shared/ui/state/useUndoToastStore";
 import { useExportToastStore } from "@/shared/ui/state/useExportToastStore";
 import { exportTransactionsToDevice, ExportCancelledError } from "@/shared/utils/exportFile";
+import { Icon } from "@/shared/ui/components/Icon";
 
-function ProfileRow({
-  label,
-  value,
-  onPress,
-  disabled,
-}: {
-  label: string;
-  value: string;
-  onPress: () => void;
-  disabled?: boolean;
-}) {
+/** A titled group of settings rows, separated by hairlines. */
+function SettingsGroup({ children }: { children: React.ReactNode }) {
+  const items = React.Children.toArray(children);
+
   return (
-    <HapticPressable
-      onPress={onPress}
-      disabled={disabled}
-      haptic="selection"
-      pressScale={0.99}
-      className="min-h-14 px-4 py-3 flex-row items-center"
-      android_ripple={{ color: "#0B122012" }}
-    >
-      <View className="flex-1 pr-3">
-        <AppText variant="sm" tone="muted">
-          {label}
-        </AppText>
-        <AppText variant="base" className="mt-0.5" numberOfLines={1}>
-          {value}
-        </AppText>
-      </View>
-
-      <View className="h-12 w-12 items-center justify-center">
-        <Ionicons name="chevron-forward" size={18} color={tokens.colors.muted} />
-      </View>
-    </HapticPressable>
+    <Card variant="surface" padding={0} style={{ overflow: "hidden" }}>
+      {items.map((child, index) => (
+        <View key={index}>
+          {child}
+          {index !== items.length - 1 ? (
+            <View style={{ height: 1, marginLeft: tokens.space[4], backgroundColor: tokens.colors.divider }} />
+          ) : null}
+        </View>
+      ))}
+    </Card>
   );
 }
 
 export default function ProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const paddingX = useScreenPaddingX();
+  const tabClearance = useTabBarClearance();
 
   const books = useBooksStore((s) => s.books);
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
@@ -78,6 +67,7 @@ export default function ProfileScreen() {
   const [settingsHydrated, setSettingsHydrated] = useState<boolean>(() => settingsPersist?.hasHydrated?.() ?? true);
   const [hydrationError, setHydrationError] = useState(false);
   const [bookName, setBookName] = useState("");
+  const [isEditingName, setIsEditingName] = useState(false);
   const [isSavingBook, setIsSavingBook] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -138,6 +128,7 @@ export default function ProfileScreen() {
     setIsSavingBook(true);
     try {
       await updateBook(selectedBook.id, { name });
+      setIsEditingName(false);
     } catch (error) {
       showError(error, "Couldn’t rename the cash book.");
     } finally {
@@ -181,148 +172,202 @@ export default function ProfileScreen() {
     ]);
   };
 
-  return (
-    <View className="flex-1 bg-app" style={{ paddingTop: insets.top + 12 }}>
-      <View className="px-6">
-        <AppText variant="3xl">Profile & Settings</AppText>
-        <AppText variant="sm" tone="muted" className="mt-2">
-          Manage your account and cash book
-        </AppText>
-      </View>
+  const email = user?.email ?? "Email unavailable";
 
+  return (
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: tokens.colors.app,
+        paddingTop: insets.top + tokens.layout.screenPadTop,
+      }}
+    >
       <ScrollView
-        className="flex-1 px-6 mt-6"
+        style={{ flex: 1 }}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: (insets.bottom || 0) + 120 }}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ paddingHorizontal: paddingX, paddingBottom: tabClearance }}
       >
+        <ScreenHeader title="Profile" />
+
         {hydrationError ? (
-          <View className="flex-1 justify-center">
+          <View style={{ marginTop: tokens.space[8] }}>
             <EmptyState
               title="Couldn’t load profile"
               message="Retry to refresh books and settings."
               actionLabel="Retry"
+              tone="danger"
               onAction={retryHydration}
-              className="px-0"
             />
           </View>
         ) : !hydrated ? (
-          <View className="gap-3">
-            <Skeleton height={120} borderRadius={24} />
-            <Skeleton height={160} borderRadius={24} />
-            <Skeleton height={120} borderRadius={24} />
+          <View style={{ marginTop: tokens.space[6], gap: tokens.space[4] }}>
+            <Skeleton height={88} borderRadius={20} />
+            <Skeleton height={180} borderRadius={20} />
+            <Skeleton height={60} borderRadius={20} />
           </View>
         ) : books.length === 0 ? (
-          <View className="flex-1 justify-center">
+          <View style={{ marginTop: tokens.space[8] }}>
             <EmptyState
               title="Cash book unavailable"
               message="Return home and retry while the app restores your account."
               actionLabel="Return home"
+              tone="danger"
               onAction={() => router.replace("/(tabs)/home")}
-              className="px-0"
             />
           </View>
         ) : (
           <>
-            <Card variant="surface">
-              <View className="flex-row items-center">
-                <CategoryIcon icon="person" color={tokens.colors.accent} size={72} />
-                <View className="ml-4 flex-1">
-                  <AppText variant="xl">{user?.email ?? "Email unavailable"}</AppText>
-                  <AppText variant="sm" tone="muted" className="mt-1">
-                    Signed-in account
+            {/* Account */}
+            <Card variant="surface" padding={16} style={{ marginTop: tokens.space[6] }}>
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <LinearGradient
+                  colors={[withAlpha(tokens.colors.income, 1), tokens.colors.accentPressed]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: tokens.radii.pill,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    ...tokens.glow.accentSoft,
+                  }}
+                >
+                  <AppText variant="base" weight="bold" style={{ color: tokens.colors.onAccent }}>
+                    {email.slice(0, 1).toUpperCase()}
+                  </AppText>
+                </LinearGradient>
+
+                <View style={{ flex: 1, marginLeft: tokens.space[3] }}>
+                  <AppText variant="base" weight="semibold" numberOfLines={1}>
+                    {email}
+                  </AppText>
+                  <AppText variant="sm" tone="muted" numberOfLines={1} style={{ marginTop: 2 }}>
+                    {selectedBook?.name ?? "Personal"} · signed in
+                  </AppText>
+                </View>
+
+                <View
+                  style={{
+                    paddingHorizontal: tokens.space[2],
+                    paddingVertical: 4,
+                    borderRadius: tokens.radii.pill,
+                    backgroundColor: tokens.colors.greenSoft,
+                  }}
+                >
+                  <AppText variant="xs" style={{ color: tokens.colors.accent }}>
+                    SYNCED
                   </AppText>
                 </View>
               </View>
             </Card>
 
-            <Card variant="surface" className="mt-6">
-              <AppText variant="lg">Cash book</AppText>
-              <Input
-                label="Book name"
-                value={bookName}
-                onChangeText={setBookName}
-                maxLength={80}
-                autoCorrect={false}
-                containerClassName="mt-4"
+            {/* Cash book */}
+            <SectionHeader title="Cash book" style={{ marginTop: tokens.space[7], marginBottom: tokens.space[3] }} />
+
+            {isEditingName ? (
+              <Card variant="surface" padding={16}>
+                <FormField
+                  label="Book name"
+                  value={bookName}
+                  onChangeText={setBookName}
+                  maxLength={80}
+                  autoCorrect={false}
+                  autoFocus
+                />
+                <View style={{ flexDirection: "row", gap: tokens.space[3], marginTop: tokens.space[4] }}>
+                  <View style={{ flex: 1 }}>
+                    <Button
+                      label="Cancel"
+                      variant="secondary"
+                      size="md"
+                      onPress={() => {
+                        setBookName(selectedBook?.name ?? "");
+                        setIsEditingName(false);
+                      }}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Button
+                      label={isSavingBook ? "Saving…" : "Save"}
+                      size="md"
+                      loading={isSavingBook}
+                      disabled={!bookName.trim() || bookName.trim() === selectedBook?.name}
+                      onPress={onSaveBook}
+                    />
+                  </View>
+                </View>
+              </Card>
+            ) : (
+              <SettingsGroup>
+                <SettingsRow
+                  icon="book-outline"
+                  label="Book name"
+                  value={selectedBook?.name ?? "Personal"}
+                  onPress={() => setIsEditingName(true)}
+                />
+                <SettingsRow
+                  icon="time-outline"
+                  label="Opening balance"
+                  value={formatCurrency(
+                    selectedBook?.openingBalanceMinor ?? 0,
+                    selectedBook?.currencyCode ?? currency
+                  )}
+                  valueIsMoney
+                  locked
+                />
+                <SettingsRow
+                  icon="cash-outline"
+                  label="Currency"
+                  value={`${currencySymbol(currency)} ${currency}`}
+                  locked
+                />
+              </SettingsGroup>
+            )}
+
+            <AppText variant="sm" tone="muted" style={{ marginTop: tokens.space[3] }}>
+              Opening balance and currency cannot be changed after a book is created — stored amounts
+              carry no exchange rate, so switching would reinterpret every past transaction.
+            </AppText>
+
+            {/* Preferences */}
+            <SectionHeader
+              title="Preferences"
+              style={{ marginTop: tokens.space[7], marginBottom: tokens.space[3] }}
+            />
+            <SettingsGroup>
+              <SettingsRow
+                icon="grid-outline"
+                label="Categories & budgets"
+                value="Names, icons, colors, budgets"
+                onPress={() => router.push("/(tabs)/categories")}
               />
-              <Button
-                label={isSavingBook ? "Saving..." : "Save name"}
-                onPress={onSaveBook}
-                loading={isSavingBook}
-                disabled={bookName.trim() === selectedBook?.name}
-                size="md"
-                className="mt-3"
-              />
-
-              <View className="mt-5 rounded-lg border border-stroke bg-surfaceAlt p-4">
-                <AppText variant="sm" tone="muted">
-                  Opening balance
-                </AppText>
-                <AppText variant="lg" className="mt-1">
-                  {formatCurrency(selectedBook?.openingBalanceMinor ?? 0, selectedBook?.currencyCode ?? currency)}
-                </AppText>
-                <AppText variant="xs" tone="muted" className="mt-2">
-                  The deployed API does not allow an opening balance to be changed after setup.
-                </AppText>
-              </View>
-            </Card>
-
-            <Card variant="surface" className="mt-6">
-              <View className="flex-row items-center justify-between">
-                <AppText variant="lg">Currency</AppText>
-                <View className="flex-row items-center rounded-full border border-stroke bg-surfaceAlt px-3 py-1">
-                  <Ionicons name="lock-closed" size={12} color={tokens.colors.muted} />
-                  <AppText variant="xs" tone="muted" className="ml-1">
-                    Locked
-                  </AppText>
-                </View>
-              </View>
-
-              <View className="mt-4 flex-row items-center">
-                <CategoryIcon icon="cash-outline" color={tokens.colors.accent} size={48} />
-                <View className="ml-4 flex-1">
-                  <AppText variant="xl" weight="bold">
-                    {currencySymbol(currency)} {currency}
-                  </AppText>
-                  <AppText variant="sm" tone="muted" className="mt-1">
-                    Used for every amount in {selectedBook?.name ?? "this book"}
-                  </AppText>
-                </View>
-              </View>
-
-              <AppText variant="xs" tone="muted" className="mt-4">
-                A book&apos;s currency is set when the book is created and cannot be changed
-                afterwards - stored amounts have no exchange rate attached, so switching would
-                silently reinterpret every past transaction.
-              </AppText>
-            </Card>
-
-            <Card variant="surface" className="mt-6 p-0 overflow-hidden">
-              <ProfileRow label="Manage categories" value="Edit names, icons, colors, and budgets" onPress={() => router.push("/modals/category-editor")} />
-              <View className="h-px bg-stroke ml-4" />
-              <ProfileRow
+              <SettingsRow
+                icon="download-outline"
                 label="Import transactions"
                 value="Add transactions from an .xlsx file"
                 onPress={() => router.push("/modals/import-transactions")}
               />
-              <View className="h-px bg-stroke ml-4" />
-              <ProfileRow
+              <SettingsRow
+                icon="cloud-upload-outline"
                 label="Export transactions"
                 value={isExporting ? "Exporting..." : `Save ${selectedBook?.name ?? "this book"} as .xlsx`}
-                onPress={onExport}
-                disabled={isExporting}
+                onPress={isExporting ? undefined : onExport}
               />
-            </Card>
-
+            </SettingsGroup>
           </>
         )}
-        <View className="mt-6">
+
+        {/* Sign out sits apart from ordinary settings, and reads destructive. */}
+        <View style={{ marginTop: tokens.space[7] }}>
           <Button
-            label={isSigningOut ? "Signing out..." : "Sign out"}
+            label={isSigningOut ? "Signing out…" : "Sign out"}
             variant="danger"
             onPress={onLogout}
             loading={isSigningOut}
             size="md"
+            leftIcon={<Icon name="log-out-outline" size={tokens.icon.row} color={tokens.colors.danger} />}
           />
         </View>
       </ScrollView>

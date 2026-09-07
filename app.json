@@ -6,9 +6,9 @@
     "version": "1.0.0",
     "icon": "./assets/icon.png",
     "orientation": "portrait",
-    "userInterfaceStyle": "light",
-    "backgroundColor": "#F8FAFC",
-    "primaryColor": "#00C313",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0B0D0F",
+    "primaryColor": "#00C805",
     "ios": {
       "bundleIdentifier": "com.mohammeddev07.pennywise",
       "buildNumber": "1",
@@ -26,7 +26,7 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "monochromeImage": "./assets/adaptive-icon-monochrome.png",
-        "backgroundColor": "#00C313"
+        "backgroundColor": "#00C805"
       }
     },
     "web": {
@@ -49,11 +49,20 @@
           "image": "./assets/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#F8FAFC"
+          "backgroundColor": "#0B0D0F"
         }
       ],
       "expo-font",
       "expo-status-bar"
-    ]
+    ],
+    "extra": {
+      "router": {
+        "origin": false,
+        "root": "./src/app"
+      },
+      "eas": {
+        "projectId": "8b897271-e9fa-4110-a807-3b5e58483e82"
+      }
+    }
   }
 }

@@ -1,13 +1,13 @@
 import { useEffect } from "react";
 import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 
 import { tokens } from "@/shared/ui/theme/tokens";
 import { useUndoToastStore } from "@/shared/ui/state/useUndoToastStore";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { AppText } from "@/shared/ui/components/AppText";
+import { Icon } from "./Icon";
 
 export function UndoToast() {
   const insets = useSafeAreaInsets();
@@ -44,19 +44,20 @@ export function UndoToast() {
           left: 0,
           right: 0,
           bottom: (insets.bottom || 0) + 12,
-          paddingHorizontal: 18,
+          paddingHorizontal: tokens.layout.screenPaddingX,
         },
         wrapStyle,
       ]}
     >
       <View
         style={{
-          borderRadius: 24,
+          borderRadius: tokens.radii.lg,
           overflow: "hidden",
           borderWidth: 1,
           borderColor: tokens.colors.stroke,
-          backgroundColor: tokens.colors.surface,
+          backgroundColor: tokens.colors.surfaceAlt,
           paddingVertical: 12,
+          ...tokens.elevation.toast.ios,
           paddingHorizontal: 14,
           flexDirection: "row",
           alignItems: "center",
@@ -66,15 +67,13 @@ export function UndoToast() {
           style={{
             height: 34,
             width: 34,
-            borderRadius: 17,
+            borderRadius: tokens.radii.key,
             alignItems: "center",
             justifyContent: "center",
-            backgroundColor: `${tokens.colors.accent}22`,
-            borderWidth: 1,
-            borderColor: tokens.colors.stroke,
+            backgroundColor: tokens.colors.redSoft,
           }}
         >
-          <Ionicons name="alert-circle-outline" size={18} color={tokens.colors.danger} />
+          <Icon name="alert-circle-outline" size={18} color={tokens.colors.danger} />
         </View>
 
         <View style={{ flex: 1, marginLeft: 12 }}>
@@ -90,9 +89,9 @@ export function UndoToast() {
           onPress={hide}
           haptic="selection"
           className="ml-2 h-10 w-10 items-center justify-center rounded-full"
-          android_ripple={{ color: "#0B122012", borderless: true }}
+          android_ripple={{ color: tokens.colors.ripple, borderless: true }}
         >
-          <Ionicons name="close" size={18} color={tokens.colors.muted} />
+          <Icon name="close" size={18} color={tokens.colors.muted} />
         </HapticPressable>
       </View>
     </Animated.View>

@@ -4,6 +4,7 @@ import { View } from "react-native";
 import { tokens } from "@/shared/ui/theme/tokens";
 import { amountColor } from "@/shared/ui/theme/money";
 import { AppText } from "@/shared/ui/components/AppText";
+import { MoneyAmount } from "@/shared/ui/components/MoneyAmount";
 import { OdometerAmount } from "@/shared/ui/components/OdometerAmount";
 import type { Key as NumericKey } from "@/shared/ui/NumericKeypad";
 
@@ -59,6 +60,11 @@ type Props = {
   majorFontSize?: number;
   minorFontSize?: number;
   helperText?: string;
+  /**
+   * Render `helperText` as a currency figure (Sora, tabular) rather than as
+   * body text. A helper that echoes the amount is still an amount.
+   */
+  helperIsMoney?: boolean;
   error?: string;
 };
 
@@ -69,8 +75,9 @@ export function AmountInput({
   currencySymbol = "$",
   fractionDigits = 2,
   majorFontSize = tokens.typography.amount.fontSize,
-  minorFontSize = 28,
+  minorFontSize = Math.round(tokens.typography.amount.fontSize * 0.5),
   helperText,
+  helperIsMoney,
   error,
 }: Props) {
   const formatted = formatForTicker(value, currencySymbol, fractionDigits);
@@ -92,9 +99,20 @@ export function AmountInput({
       />
 
       {helperText ? (
-        <AppText variant="sm" tone="muted" className="mt-2">
-          {helperText}
-        </AppText>
+        helperIsMoney ? (
+          <MoneyAmount
+            value={helperText}
+            tone="neutral"
+            size="sm"
+            weight="semibold"
+            color={tokens.colors.muted}
+            style={{ marginTop: tokens.space[2] }}
+          />
+        ) : (
+          <AppText variant="sm" tone="muted" className="mt-2">
+            {helperText}
+          </AppText>
+        )
       ) : null}
 
       {error ? (

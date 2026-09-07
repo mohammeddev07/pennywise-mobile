@@ -2,12 +2,14 @@ import { View } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
 
 import { tokens } from "@/shared/ui/theme/tokens";
+import { withAlpha } from "@/shared/ui/theme/color";
 
 export type CharacterState = "happy" | "thinking" | "waiting";
 
 export function CharacterWidget({ state = "waiting", size = 44 }: { state?: CharacterState; size?: number }) {
-  const stroke = tokens.colors.stroke;
-  const face = `${tokens.colors.accent}1F`;
+  // rgba, not 8-digit hex: react-native-svg is unreliable with the latter.
+  const stroke = withAlpha(tokens.colors.white, 0.1);
+  const face = tokens.colors.greenSoft;
   const accent = tokens.colors.accent;
   const muted = tokens.colors.muted;
 
@@ -21,7 +23,7 @@ export function CharacterWidget({ state = "waiting", size = 44 }: { state?: Char
         justifyContent: "center",
         backgroundColor: face,
         borderWidth: 1,
-        borderColor: stroke,
+        borderColor: tokens.colors.stroke,
       }}
     >
       <Svg width={size * 0.62} height={size * 0.62} viewBox="0 0 64 64">

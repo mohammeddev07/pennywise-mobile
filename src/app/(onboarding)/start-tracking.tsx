@@ -70,7 +70,7 @@ function LegacyStartTrackingScreen() {
   const bookName = useMemo(() => books.find((b) => b.id === selectedBookId)?.name ?? "Personal", [books, selectedBookId]);
 
   return (
-    <View className="flex-1 bg-app px-6 pt-16 pb-10">
+    <View className="flex-1 bg-app px-5 pt-16 pb-10">
       <AppText variant="2xl">Time to start tracking</AppText>
       <AppText variant="base" tone="muted" className="mt-2">
         Confirm your setup and open your dashboard.
@@ -88,8 +88,8 @@ function LegacyStartTrackingScreen() {
         </View>
       ) : !hydrated ? (
         <View className="mt-8 gap-3">
-          <Skeleton height={120} borderRadius={24} />
-          <Skeleton height={160} borderRadius={24} />
+          <Skeleton height={120} borderRadius={20} />
+          <Skeleton height={160} borderRadius={20} />
         </View>
       ) : !bookName ? (
         <View className="flex-1 justify-center">

@@ -1,35 +1,42 @@
 import React, { type ReactNode, useState } from "react";
-import { Ionicons } from "@expo/vector-icons";
 
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { tokens } from "@/shared/ui/theme/tokens";
+import { Icon, type IconName } from "./Icon";
 
 type Tone = "default" | "primary" | "danger" | "soft";
 
+/** Circular icon action. Never smaller than the 44px minimum touch target. */
 export function IconButton({
   icon,
   onPress,
   tone = "default",
   disabled,
   children,
-  size = 48,
+  size = tokens.layout.iconTap,
+  accessibilityLabel,
+  haptic = "none",
 }: {
-  icon?: keyof typeof Ionicons.glyphMap;
+  icon?: IconName;
   onPress: () => void;
   tone?: Tone;
   disabled?: boolean;
   children?: ReactNode;
   size?: number;
+  accessibilityLabel?: string;
+  haptic?: "none" | "selection" | "impactLight" | "impactMedium";
 }) {
   const [pressed, setPressed] = useState(false);
+
   const color =
     tone === "primary"
-      ? tokens.colors.white
+      ? tokens.colors.onAccent
       : tone === "danger"
         ? tokens.colors.danger
         : tone === "soft"
           ? tokens.colors.accent
           : tokens.colors.text;
+
   const backgroundColor =
     tone === "primary"
       ? pressed
@@ -39,31 +46,39 @@ export function IconButton({
         ? tokens.colors.redSoft
         : tone === "soft"
           ? tokens.colors.greenSoft
-          : tokens.colors.surface;
+          : pressed
+            ? tokens.colors.surfacePressed
+            : tokens.colors.surface;
 
   return (
     <HapticPressable
       onPress={onPress}
       disabled={disabled}
-      haptic="selection"
-      pressScale={0.96}
+      // Silent by default: back, close and chevron actions are reads. A caller
+      // that wraps a write passes its own haptic.
+      haptic={haptic}
+      pressScale={0.94}
       pressOpacity={1}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? icon}
       onPressIn={() => setPressed(true)}
       onPressOut={() => setPressed(false)}
-      android_ripple={{ color: "#0B122012", borderless: true }}
+      android_ripple={{
+        color: tone === "primary" ? tokens.colors.rippleOnAccent : tokens.colors.ripple,
+        borderless: true,
+      }}
       style={{
-        width: size,
-        height: size,
+        width: Math.max(size, tokens.layout.minTap),
+        height: Math.max(size, tokens.layout.minTap),
         borderRadius: tokens.radii.pill,
         borderWidth: tone === "primary" ? 0 : 1,
         borderColor: tokens.colors.stroke,
         backgroundColor,
         alignItems: "center",
         justifyContent: "center",
-        ...(tone === "primary" ? tokens.elevation.tabBar.ios : {}),
       }}
     >
-      {children ?? (icon ? <Ionicons name={icon} size={size >= 56 ? 28 : 22} color={color} /> : null)}
+      {children ?? (icon ? <Icon name={icon} size={size >= 56 ? 24 : tokens.icon.nav} color={color} /> : null)}
     </HapticPressable>
   );
 }
