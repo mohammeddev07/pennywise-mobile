@@ -1,3 +1,4 @@
+import type { ComponentProps } from "react";
 import { Tabs } from "expo-router";
 import GlassTabBar from "@/shared/ui/components/GlassTabBar";
 
@@ -7,7 +8,7 @@ export default function TabsLayout() {
       screenOptions={{
         headerShown: false,
       }}
-      tabBar={(props) => <GlassTabBar {...props} />}
+      tabBar={(props) => <GlassTabBar {...(props as unknown as ComponentProps<typeof GlassTabBar>)} />}
     >
       <Tabs.Screen name="home" />
       <Tabs.Screen name="transactions" />
