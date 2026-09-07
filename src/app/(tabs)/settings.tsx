@@ -19,19 +19,24 @@ import { useSettingsStore } from "@/features/settings/store";
 import { useAuthStore } from "@/features/auth/store";
 import { formatCurrency, currencySymbol } from "@/shared/utils/formatCurrency";
 import { useUndoToastStore } from "@/shared/ui/state/useUndoToastStore";
+import { useExportToastStore } from "@/shared/ui/state/useExportToastStore";
+import { exportTransactionsToDevice, ExportCancelledError } from "@/shared/utils/exportFile";
 
 function ProfileRow({
   label,
   value,
   onPress,
+  disabled,
 }: {
   label: string;
   value: string;
   onPress: () => void;
+  disabled?: boolean;
 }) {
   return (
     <HapticPressable
       onPress={onPress}
+      disabled={disabled}
       haptic="selection"
       pressScale={0.99}
       className="min-h-14 px-4 py-3 flex-row items-center"
@@ -64,6 +69,7 @@ export default function ProfileScreen() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const showError = useUndoToastStore((s) => s.showError);
+  const showExportSuccess = useExportToastStore((s) => s.showSuccess);
 
   const booksPersist = (useBooksStore as any).persist;
   const settingsPersist = (useSettingsStore as any).persist;
@@ -74,6 +80,7 @@ export default function ProfileScreen() {
   const [bookName, setBookName] = useState("");
   const [isSavingBook, setIsSavingBook] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
     const unsubs: Array<() => void> = [];
@@ -135,6 +142,21 @@ export default function ProfileScreen() {
       showError(error, "Couldn’t rename the cash book.");
     } finally {
       setIsSavingBook(false);
+    }
+  };
+
+  const onExport = async () => {
+    if (isExporting || !selectedBook) return;
+    setIsExporting(true);
+    try {
+      const { fileName } = await exportTransactionsToDevice(selectedBook.id);
+      showExportSuccess(`Saved ${fileName}`);
+    } catch (error) {
+      if (!(error instanceof ExportCancelledError)) {
+        showError(error, "Couldn't export transactions.");
+      }
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -277,6 +299,19 @@ export default function ProfileScreen() {
 
             <Card variant="surface" className="mt-6 p-0 overflow-hidden">
               <ProfileRow label="Manage categories" value="Edit names, icons, colors, and budgets" onPress={() => router.push("/modals/category-editor")} />
+              <View className="h-px bg-stroke ml-4" />
+              <ProfileRow
+                label="Import transactions"
+                value="Add transactions from an .xlsx file"
+                onPress={() => router.push("/modals/import-transactions")}
+              />
+              <View className="h-px bg-stroke ml-4" />
+              <ProfileRow
+                label="Export transactions"
+                value={isExporting ? "Exporting..." : `Save ${selectedBook?.name ?? "this book"} as .xlsx`}
+                onPress={onExport}
+                disabled={isExporting}
+              />
             </Card>
 
           </>

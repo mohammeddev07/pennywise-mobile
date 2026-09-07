@@ -161,3 +161,19 @@ export type MonthlySummaryResponse = {
   expenseTotalMinor: number;
   byCategory: MonthlySummaryCategory[];
 };
+
+export type ImportRowError = {
+  rowNumber: number;
+  code: string;
+  message: string;
+};
+
+export type ImportResponse = {
+  totalRows: number;
+  importedCount: number;
+  skippedBlankCount: number;
+  skippedDuplicateCount: number;
+  failedCount: number;
+  categoriesCreated: string[];
+  errors: ImportRowError[];
+};
