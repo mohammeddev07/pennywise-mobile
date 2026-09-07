@@ -24,7 +24,7 @@ import { useAuthStore } from "@/features/auth/store";
 import { formatCurrency, currencySymbol } from "@/shared/utils/formatCurrency";
 import { useUndoToastStore } from "@/shared/ui/state/useUndoToastStore";
 import { useExportToastStore } from "@/shared/ui/state/useExportToastStore";
-import { exportTransactionsToDevice, ExportCancelledError } from "@/shared/utils/exportFile";
+import { exportTransactionsToDevice, ExportCancelledError, MockModeUnsupportedError } from "@/shared/utils/exportFile";
 import { Icon } from "@/shared/ui/components/Icon";
 
 /** A titled group of settings rows, separated by hairlines. */
@@ -143,7 +143,11 @@ export default function ProfileScreen() {
       const { fileName } = await exportTransactionsToDevice(selectedBook.id);
       showExportSuccess(`Saved ${fileName}`);
     } catch (error) {
-      if (!(error instanceof ExportCancelledError)) {
+      if (error instanceof ExportCancelledError) {
+        // no-op
+      } else if (error instanceof MockModeUnsupportedError) {
+        showError(error, error.message);
+      } else {
         showError(error, "Couldn't export transactions.");
       }
     } finally {

@@ -473,6 +473,12 @@ export const mockAdapter: AxiosAdapter = async (config) => {
     return ok(config, undefined, 204);
   }
 
+  // Import/export need a real backend (xlsx parsing/generation) - fail clearly
+  // instead of falling through to the generic "no route" 404 below.
+  if ((m = route("/v1/books/:bookId/transactions/import", "POST"))) {
+    return fail(config, 501, "Import needs a real backend - not available while EXPO_PUBLIC_MOCK_API=true.");
+  }
+
   // Summary
   if ((m = route("/v1/books/:bookId/balance", "GET"))) {
     const book = state.books.find((b) => b.id === m!.bookId);
