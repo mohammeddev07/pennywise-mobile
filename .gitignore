@@ -46,6 +46,10 @@ yarn-error.*
 *.swo
 *~
 
+# Claude Code / agent-local config
+.claude/
+.agents/
+
 # TypeScript
 *.tsbuildinfo
 

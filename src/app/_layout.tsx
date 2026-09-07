@@ -21,6 +21,7 @@ import {
 
 import { tokens } from "@/shared/ui/theme/tokens";
 import { UndoToast } from "@/shared/ui/components/UndoToast";
+import { ExportToast } from "@/shared/ui/components/ExportToast";
 import { useAuthStore } from "@/features/auth/store";
 import { useBooksStore } from "@/features/books/store";
 import { useCategoriesStore } from "@/features/categories/store";
@@ -171,6 +172,7 @@ export default function RootLayout() {
             </Stack>
 
             <UndoToast />
+            <ExportToast />
           </View>
         </QueryClientProvider>
       </SafeAreaProvider>

@@ -2,8 +2,20 @@ import axios from "axios";
 import { router } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 
+declare module "axios" {
+  export interface AxiosRequestConfig {
+    _retriedForColdStart?: boolean;
+  }
+}
+
 export const ACCESS_TOKEN_KEY = "access_token";
 export const BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? "http://localhost:8080/api";
+
+// Render's free tier spins the backend down after ~15 min idle; the next request
+// can take 30-60s+ to wake it. The default timeout below covers a warm backend -
+// a request that times out gets one retry at COLD_START_RETRY_TIMEOUT_MS before
+// surfacing an error, so a cold start doesn't look like a dead connection.
+const COLD_START_RETRY_TIMEOUT_MS = 45_000;
 
 export const apiClient = axios.create({ baseURL: BASE_URL, timeout: 15_000 });
 
@@ -39,6 +51,10 @@ apiClient.interceptors.request.use(async (config) => {
   return config;
 });
 
+function isTimeout(err: unknown) {
+  return axios.isAxiosError(err) && (err.code === "ECONNABORTED" || err.code === "ETIMEDOUT");
+}
+
 apiClient.interceptors.response.use(
   (res) => res,
   async (err) => {
@@ -49,6 +65,14 @@ apiClient.interceptors.response.use(
         router.replace("/(auth)/login");
       });
     }
+
+    const config = err.config;
+    if (isTimeout(err) && config && !config._retriedForColdStart) {
+      config._retriedForColdStart = true;
+      config.timeout = COLD_START_RETRY_TIMEOUT_MS;
+      return apiClient(config);
+    }
+
     return Promise.reject(err);
   }
 );
