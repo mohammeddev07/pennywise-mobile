@@ -3,7 +3,7 @@ import * as SecureStore from "expo-secure-store";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
-import { ACCESS_TOKEN_KEY } from "@/shared/api/client";
+import { ACCESS_TOKEN_KEY, isAuthError } from "@/shared/api/client";
 import * as authApi from "@/shared/api/auth";
 import type { MeResponse } from "@/shared/types/api";
 import { useSettingsStore, type CurrencyCode } from "@/features/settings/store";
@@ -217,10 +217,23 @@ export const useAuthStore = create<State>()(
             sessionStatus: "authenticated",
             unlocked: true,
           });
-        } catch {
-          if (useAuthStore.getState().sessionStatus !== "unauthenticated") {
-            await useAuthStore.getState().logout();
+        } catch (err) {
+          if (isAuthError(err)) {
+            if (useAuthStore.getState().sessionStatus !== "unauthenticated") {
+              await useAuthStore.getState().logout();
+            }
+            return;
           }
+
+          // Timeout/network failure (e.g. a cold backend) - the token may still be
+          // valid, so don't wipe the session. Fall back to the cached user and let
+          // the screens' own requests retry; only a real 401/403 means logged out.
+          const cachedUser = useAuthStore.getState().user;
+          set({
+            accessToken,
+            sessionStatus: cachedUser ? "authenticated" : "unauthenticated",
+            unlocked: Boolean(cachedUser),
+          });
         }
       },
     }),
