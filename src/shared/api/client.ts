@@ -1,12 +1,14 @@
 import axios from "axios";
 import { router } from "expo-router";
 import * as SecureStore from "expo-secure-store";
+import { AppState, type AppStateStatus } from "react-native";
 
 import { mockAdapter } from "@/shared/api/mockAdapter";
 
 declare module "axios" {
   export interface AxiosRequestConfig {
     _retriedForColdStart?: boolean;
+    _coldStartCandidate?: boolean;
   }
 }
 
@@ -24,6 +26,14 @@ export const apiClient = axios.create({
   baseURL: BASE_URL,
   timeout: 15_000,
   ...(USE_MOCK_API ? { adapter: mockAdapter } : {}),
+});
+
+// App launch and every foreground resume may hit a backend that just spun down -
+// only the next request gets the cold-start retry ladder below; everything else
+// fails fast so a genuinely dead connection doesn't also pay the 60s tax.
+let coldStartCandidate = true;
+AppState.addEventListener("change", (state: AppStateStatus) => {
+  if (state === "active") coldStartCandidate = true;
 });
 
 let unauthorizedCleanup: Promise<void> | null = null;
@@ -55,11 +65,21 @@ apiClient.interceptors.request.use(async (config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  if (coldStartCandidate) {
+    config._coldStartCandidate = true;
+    coldStartCandidate = false;
+  }
   return config;
 });
 
-function isTimeout(err: unknown) {
+export function isTimeout(err: unknown) {
   return axios.isAxiosError(err) && (err.code === "ECONNABORTED" || err.code === "ETIMEDOUT");
+}
+
+// A timeout/network failure means "don't know," not "logged out" - only a real
+// 401/403 from the server means the token is actually invalid.
+export function isAuthError(err: unknown) {
+  return axios.isAxiosError(err) && (err.response?.status === 401 || err.response?.status === 403);
 }
 
 apiClient.interceptors.response.use(
@@ -74,7 +94,7 @@ apiClient.interceptors.response.use(
     }
 
     const config = err.config;
-    if (isTimeout(err) && config && !config._retriedForColdStart) {
+    if (isTimeout(err) && config && config._coldStartCandidate && !config._retriedForColdStart) {
       config._retriedForColdStart = true;
       config.timeout = COLD_START_RETRY_TIMEOUT_MS;
       return apiClient(config);
