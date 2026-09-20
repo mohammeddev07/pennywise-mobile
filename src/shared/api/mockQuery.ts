@@ -206,6 +206,24 @@ export function mockSearch(rows: Row[], body: SearchRequest): SearchResponse {
   };
 }
 
+// ---------------------------------------------------------------- export
+
+export const MOCK_EXPORT_HEADER = "id,type,amountMinor,occurredOn,categoryId,paymentMethod,createdAt";
+
+/**
+ * Every row matching the filter, in the requested order, as CSV. The real endpoint returns XLSX;
+ * the mock only has to prove the *rows* (ids, order, amounts) are the search's, so tests can check
+ * them without an XLSX parser. Never used by the app UI (`exportQueryToDevice` refuses in mock mode).
+ */
+export function mockExportCsv(rows: Row[], body: SearchRequest): string {
+  validate(body.filter, body.sort);
+  const matched = sortRows(rows.filter((r) => evalFilter(r, body.filter)), body.sort);
+  return [
+    MOCK_EXPORT_HEADER,
+    ...matched.map((r) => [r.id, r.type, r.amountMinor, r.occurredOn, r.categoryId, r.paymentMethod ?? "", r.createdAt].join(",")),
+  ].join("\n");
+}
+
 // ---------------------------------------------------------------- analyze
 
 function bucketKeyOf(date: Ymd, bucket: AnalyzeRequest["bucket"]) {

@@ -101,3 +101,37 @@ describe("applied filters and drafts", () => {
     expect(useFilterStore.getState().byScope).toEqual({});
   });
 });
+
+describe("drill-down", () => {
+  it("remembers the pre-drill filter, sort and scroll; a second drill keeps the original; Back restores it once", () => {
+    const s = useFilterStore.getState();
+    s.ensure(A, TODAY);
+    s.applyRoot(A, setQuickType(useFilterStore.getState().byScope[A].root, "EXPENSE"));
+    s.applySort(A, [{ field: "amountMinor", direction: "DESC" }]);
+    const before = useFilterStore.getState().byScope[A];
+
+    const drilled = setQuickType(before.root, "INCOME");
+    useFilterStore.getState().drillInto(A, drilled, "Salary · Jan 2026", 320);
+    useFilterStore.getState().drillInto(A, setQuickType(before.root, null), "Salary · Feb 2026", 999);
+
+    const during = useFilterStore.getState();
+    expect(during.drills[A]).toMatchObject({ label: "Salary · Feb 2026", scrollOffset: 320 }); // origin kept, label updated
+    expect(during.byScope[A].sort).toEqual(before.sort);
+    expect(during.byScope[A].revision).toBeGreaterThan(before.revision);
+
+    expect(useFilterStore.getState().restoreDrill(A)).toBe(true);
+    const after = useFilterStore.getState();
+    expect(after.byScope[A].root).toBe(before.root);
+    expect(after.byScope[A].sort).toEqual(before.sort);
+    expect(after.drills[A]).toBeUndefined();
+    expect(after.pendingScroll[A]).toBe(320);
+    expect(useFilterStore.getState().restoreDrill(A)).toBe(false); // nothing left to go back to
+  });
+
+  it("drills are per scope and never persisted", () => {
+    useFilterStore.getState().ensure(A, TODAY);
+    useFilterStore.getState().drillInto(A, setQuickType(useFilterStore.getState().byScope[A].root, "INCOME"), "x", 0);
+    expect(useFilterStore.getState().drills[B]).toBeUndefined();
+    expect(Object.keys(useFilterStore.persist.getOptions().partialize!(useFilterStore.getState()) as object)).toEqual(["byScope"]);
+  });
+});

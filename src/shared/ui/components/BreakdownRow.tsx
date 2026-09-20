@@ -1,10 +1,11 @@
-import React from "react";
+import React, { type ReactNode } from "react";
 import { View } from "react-native";
 
 import { AppText } from "@/shared/ui/components/AppText";
 import { tokens } from "@/shared/ui/theme/tokens";
 import { CategoryIcon } from "@/shared/ui/components/CategoryIcon";
 import { MoneyAmount } from "@/shared/ui/components/MoneyAmount";
+import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 
 /**
  * A category's share of spending as a horizontal comparison bar.
@@ -18,19 +19,43 @@ export function BreakdownRow({
   share,
   color = tokens.colors.accent,
   icon,
+  count,
+  shareLabel = "of spending",
+  selected = false,
+  onPress,
+  footer,
 }: {
   name: string;
   /** Pre-formatted currency string. */
   amount: string;
-  /** 0..1 */
-  share: number;
+  /** 0..1. `null` = no share to show (income, or a zero denominator): no bar, no percentage. */
+  share: number | null;
   color?: string;
   icon?: string;
+  /** Transactions behind the amount. */
+  count?: number;
+  shareLabel?: string;
+  /** Marks the row currently plotted / drilled into. */
+  selected?: boolean;
+  onPress?: () => void;
+  footer?: ReactNode;
 }) {
-  const pct = Math.round(share * 100);
+  const raw = share === null ? null : share * 100;
+  // A real but tiny share must not read as 0%, and a true 0 must not read as a sliver of spend.
+  const pctText = raw === null ? null : raw > 0 && raw < 1 ? "<1%" : `${Math.round(raw)}%`;
+  const detail = [pctText ? `${pctText} ${shareLabel}` : null, count === undefined ? null : `${count} ${count === 1 ? "transaction" : "transactions"}`]
+    .filter(Boolean)
+    .join(" · ");
 
-  return (
-    <View style={{ paddingVertical: tokens.space[3] }}>
+  const body = (
+    <View
+      style={{
+        paddingVertical: tokens.space[3],
+        borderLeftWidth: 2,
+        borderLeftColor: selected ? color : "transparent",
+        paddingLeft: selected ? tokens.space[2] : 0,
+      }}
+    >
       <View style={{ flexDirection: "row", alignItems: "center" }}>
         {icon ? (
           <View style={{ marginRight: tokens.space[3] }}>
@@ -43,29 +68,50 @@ export function BreakdownRow({
         <MoneyAmount value={amount} tone="neutral" size="base" weight="bold" />
       </View>
 
-      <View
-        style={{
-          height: 6,
-          marginTop: tokens.space[3],
-          borderRadius: tokens.radii.pill,
-          backgroundColor: tokens.colors.neutralSoft,
-          overflow: "hidden",
-        }}
-      >
+      {raw === null ? null : (
         <View
           style={{
-            width: `${Math.max(2, pct)}%`,
             height: 6,
+            marginTop: tokens.space[3],
             borderRadius: tokens.radii.pill,
-            backgroundColor: color,
+            backgroundColor: tokens.colors.neutralSoft,
+            overflow: "hidden",
           }}
-        />
-      </View>
+        >
+          {raw > 0 ? (
+            <View
+              style={{
+                width: `${Math.max(2, Math.min(100, raw))}%`,
+                height: 6,
+                borderRadius: tokens.radii.pill,
+                backgroundColor: color,
+              }}
+            />
+          ) : null}
+        </View>
+      )}
 
-      <AppText variant="sm" tone="muted" style={{ marginTop: tokens.space[2] }}>
-        {pct}% of spending
-      </AppText>
+      {detail ? (
+        <AppText variant="sm" tone="muted" style={{ marginTop: tokens.space[2] }}>
+          {detail}
+        </AppText>
+      ) : null}
+      {footer}
     </View>
+  );
+
+  return onPress ? (
+    <HapticPressable
+      onPress={onPress}
+      haptic="none"
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      accessibilityLabel={`${name}, ${amount}${detail ? `, ${detail}` : ""}`}
+    >
+      {body}
+    </HapticPressable>
+  ) : (
+    body
   );
 }
 

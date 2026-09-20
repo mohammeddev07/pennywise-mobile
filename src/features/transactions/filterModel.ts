@@ -893,6 +893,30 @@ export function defaultRoot(today: Ymd): FilterRoot {
   return setQuickDate(emptyRoot(), { ...resolveDatePreset("today", today), preset: "today" });
 }
 
+// ------------------------------------------------------------------ drill-down (Insights -> Activity)
+
+/**
+ * `AND(parentExpression, occurredOn within window, categoryId = id, type = t)`.
+ *
+ * The parent's own date slot is replaced by the analysed window/bucket, so the rows shown are
+ * exactly the rows the figure counted. Restrictions are appended to a top-level AND, never
+ * inside a nested OR; an OR root is wrapped first (`setQuickDate` does that). Returns null when
+ * the result would exceed the depth/condition limits, so the caller can say so instead of sending a
+ * request the server rejects.
+ */
+export function drillRoot(
+  root: FilterRoot,
+  target: { window: { startDate: Ymd; endDate: Ymd }; categoryId?: string | null; type?: TransactionType | null }
+): FilterRoot | null {
+  const dated = setQuickDate(root, target.window);
+  const extra: FilterNodeLocal[] = [];
+  if (target.categoryId) extra.push(makeCondition("categoryId", "EQ", target.categoryId));
+  if (target.type && readQuick(dated).type !== target.type) extra.push(makeCondition("type", "EQ", target.type));
+  const next: FilterRoot = { ...dated, children: [...dated.children, ...extra] };
+  // Structural limits only: ids come from the server's own analysis, so they are known-good values.
+  return depthOf(next) > QUERY_LIMITS.maxDepth || countConditions(next) > QUERY_LIMITS.maxConditions ? null : next;
+}
+
 // ------------------------------------------------------------------ request building
 
 export type BuiltQuery = {
