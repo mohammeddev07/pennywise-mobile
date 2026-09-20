@@ -1,0 +1,533 @@
+{
+ "screens": {
+  "phone/login": {
+   "small": [],
+   "unnamed": [],
+   "contrastFails": [],
+   "contrastChecked": 6,
+   "unknownBackgrounds": 1,
+   "cues": {
+    "moneyFigures": 0,
+    "withExplicitSign": 0,
+    "unsignedExamples": [],
+    "selected": 0,
+    "colouredWithoutSign": []
+   },
+   "overflowX": 0
+  },
+  "phone/home": {
+   "small": [],
+   "unnamed": [],
+   "contrastFails": [],
+   "contrastChecked": 31,
+   "unknownBackgrounds": 1,
+   "cues": {
+    "moneyFigures": 6,
+    "withExplicitSign": 2,
+    "unsignedExamples": [
+     "40,825.16",
+     "$349.40",
+     "$1,500.00"
+    ],
+    "selected": 0,
+    "colouredWithoutSign": []
+   },
+   "overflowX": 0
+  },
+  "phone/activity": {
+   "small": [],
+   "unnamed": [],
+   "contrastFails": [],
+   "contrastChecked": 39,
+   "unknownBackgrounds": 0,
+   "cues": {
+    "moneyFigures": 9,
+    "withExplicitSign": 8,
+    "unsignedExamples": [
+     "$35,825.16"
+    ],
+    "selected": 0,
+    "colouredWithoutSign": []
+   },
+   "overflowX": 0
+  },
+  "phone/insights": {
+   "small": [
+    {
+     "name": "Jul: $0.00, Jul 2025 · 0 transactions",
+     "w": 22,
+     "h": 155
+    },
+    {
+     "name": "Aug: $0.00, Aug 2025 · 0 transactions",
+     "w": 22,
+     "h": 155
+    },
+    {
+     "name": "Sep: $0.00, Sep 2025 · 0 transactions",
+     "w": 22,
+     "h": 155
+    },
+    {
+     "name": "Oct: $1,930.33, Oct 2025 · 9 transaction",
+     "w": 22,
+     "h": 155
+    },
+    {
+     "name": "Nov: $1,950.84, Nov 2025 · 9 transaction",
+     "w": 22,
+     "h": 155
+    },
+    {
+     "name": "Dec: $1,940.20, Dec 2025 · 9 transaction",
+     "w": 22,
+     "h": 155
+    },
+    {
+     "name": "Jan: $1,946.05, Jan 2026 · 9 transaction",
+     "w": 22,
+     "h": 155
+    },
+    {
+     "name": "Feb: $1,920.00, Feb 2026 · 9 transaction",
+     "w": 22,
+     "h": 155
+    },
+    {
+     "name": "Mar: $1,915.20, Mar 2026 · 9 transaction",
+     "w": 22,
+     "h": 155
+    },
+    {
+     "name": "Apr: $1,938.20, Apr 2026 · 9 transaction",
+     "w": 22,
+     "h": 155
+    },
+    {
+     "name": "May: $1,890.12, May 2026 · 9 transaction",
+     "w": 22,
+     "h": 155
+    },
+    {
+     "name": "Jun: $2,024.40, Jun 2026 · 10 transactio",
+     "w": 22,
+     "h": 155
+    }
+   ],
+   "unnamed": [],
+   "contrastFails": [],
+   "contrastChecked": 29,
+   "unknownBackgrounds": 0,
+   "cues": {
+    "moneyFigures": 4,
+    "withExplicitSign": 2,
+    "unsignedExamples": [
+     "$35,825.16",
+     "$17,455.34"
+    ],
+    "selected": 0,
+    "colouredWithoutSign": []
+   },
+   "overflowX": 0
+  },
+  "phone/profile": {
+   "small": [],
+   "unnamed": [],
+   "contrastFails": [],
+   "contrastChecked": 23,
+   "unknownBackgrounds": 1,
+   "cues": {
+    "moneyFigures": 1,
+    "withExplicitSign": 0,
+    "unsignedExamples": [
+     "$5,000.00"
+    ],
+    "selected": 0,
+    "colouredWithoutSign": []
+   },
+   "overflowX": 0
+  },
+  "phone/details": {
+   "small": [],
+   "unnamed": [],
+   "contrastFails": [],
+   "contrastChecked": 13,
+   "unknownBackgrounds": 0,
+   "cues": {
+    "moneyFigures": 1,
+    "withExplicitSign": 1,
+    "unsignedExamples": [],
+    "selected": 0,
+    "colouredWithoutSign": []
+   },
+   "overflowX": 0
+  },
+  "phone/edit": {
+   "small": [],
+   "unnamed": [],
+   "contrastFails": [],
+   "contrastChecked": 38,
+   "unknownBackgrounds": 12,
+   "cues": {
+    "moneyFigures": 35,
+    "withExplicitSign": 0,
+    "unsignedExamples": [
+     "7",
+     "0",
+     "1"
+    ],
+    "selected": 0,
+    "colouredWithoutSign": []
+   },
+   "overflowX": 0
+  },
+  "phone/add-amount": {
+   "small": [],
+   "unnamed": [],
+   "contrastFails": [],
+   "contrastChecked": 12,
+   "unknownBackgrounds": 11,
+   "cues": {
+    "moneyFigures": 15,
+    "withExplicitSign": 0,
+    "unsignedExamples": [
+     "6",
+     "9",
+     "0"
+    ],
+    "selected": 0,
+    "colouredWithoutSign": []
+   },
+   "overflowX": 0
+  },
+  "phone/sheet-categories": {
+   "small": [
+    {
+     "name": "Close",
+     "w": 390,
+     "h": 24
+    }
+   ],
+   "unnamed": [],
+   "contrastFails": [],
+   "contrastChecked": 12,
+   "unknownBackgrounds": 1,
+   "cues": {
+    "moneyFigures": 0,
+    "withExplicitSign": 0,
+    "unsignedExamples": [],
+    "selected": 0,
+    "colouredWithoutSign": []
+   },
+   "overflowX": 0
+  },
+  "wide/login": {
+   "small": [],
+   "unnamed": [],
+   "contrastFails": [],
+   "contrastChecked": 6,
+   "unknownBackgrounds": 1,
+   "cues": {
+    "moneyFigures": 0,
+    "withExplicitSign": 0,
+    "unsignedExamples": [],
+    "selected": 0,
+    "colouredWithoutSign": []
+   },
+   "overflowX": 0
+  },
+  "wide/home": {
+   "small": [],
+   "unnamed": [],
+   "contrastFails": [],
+   "contrastChecked": 32,
+   "unknownBackgrounds": 1,
+   "cues": {
+    "moneyFigures": 7,
+    "withExplicitSign": 2,
+    "unsignedExamples": [
+     "40,825.16",
+     "$349.40",
+     "$1,500.00"
+    ],
+    "selected": 0,
+    "colouredWithoutSign": []
+   },
+   "overflowX": 0
+  },
+  "wide/activity": {
+   "small": [],
+   "unnamed": [],
+   "contrastFails": [],
+   "contrastChecked": 61,
+   "unknownBackgrounds": 0,
+   "cues": {
+    "moneyFigures": 10,
+    "withExplicitSign": 9,
+    "unsignedExamples": [
+     "$35,825.16"
+    ],
+    "selected": 0,
+    "colouredWithoutSign": []
+   },
+   "overflowX": 0
+  },
+  "wide/insights": {
+   "small": [],
+   "unnamed": [],
+   "contrastFails": [],
+   "contrastChecked": 31,
+   "unknownBackgrounds": 0,
+   "cues": {
+    "moneyFigures": 5,
+    "withExplicitSign": 2,
+    "unsignedExamples": [
+     "$35,825.16",
+     "$17,455.34",
+     "$13,500.00"
+    ],
+    "selected": 0,
+    "colouredWithoutSign": []
+   },
+   "overflowX": 0
+  },
+  "wide/profile": {
+   "small": [],
+   "unnamed": [],
+   "contrastFails": [],
+   "contrastChecked": 23,
+   "unknownBackgrounds": 1,
+   "cues": {
+    "moneyFigures": 1,
+    "withExplicitSign": 0,
+    "unsignedExamples": [
+     "$5,000.00"
+    ],
+    "selected": 0,
+    "colouredWithoutSign": []
+   },
+   "overflowX": 0
+  },
+  "wide/details": {
+   "small": [],
+   "unnamed": [],
+   "contrastFails": [],
+   "contrastChecked": 13,
+   "unknownBackgrounds": 0,
+   "cues": {
+    "moneyFigures": 1,
+    "withExplicitSign": 1,
+    "unsignedExamples": [],
+    "selected": 0,
+    "colouredWithoutSign": []
+   },
+   "overflowX": 0
+  },
+  "wide/edit": {
+   "small": [],
+   "unnamed": [],
+   "contrastFails": [],
+   "contrastChecked": 41,
+   "unknownBackgrounds": 12,
+   "cues": {
+    "moneyFigures": 37,
+    "withExplicitSign": 0,
+    "unsignedExamples": [
+     "7",
+     "0",
+     "1"
+    ],
+    "selected": 0,
+    "colouredWithoutSign": []
+   },
+   "overflowX": 0
+  },
+  "wide/add-amount": {
+   "small": [],
+   "unnamed": [],
+   "contrastFails": [],
+   "contrastChecked": 12,
+   "unknownBackgrounds": 11,
+   "cues": {
+    "moneyFigures": 15,
+    "withExplicitSign": 0,
+    "unsignedExamples": [
+     "6",
+     "9",
+     "0"
+    ],
+    "selected": 0,
+    "colouredWithoutSign": []
+   },
+   "overflowX": 0
+  },
+  "wide/sheet-categories": {
+   "small": [
+    {
+     "name": "Close",
+     "w": 1280,
+     "h": 24
+    }
+   ],
+   "unnamed": [],
+   "contrastFails": [],
+   "contrastChecked": 12,
+   "unknownBackgrounds": 1,
+   "cues": {
+    "moneyFigures": 0,
+    "withExplicitSign": 0,
+    "unsignedExamples": [],
+    "selected": 0,
+    "colouredWithoutSign": []
+   },
+   "overflowX": 0
+  }
+ },
+ "keyboard": {
+  "activity": {
+   "focusStops": 30,
+   "reachedFirst30": [
+    "Export current results",
+    "Sort",
+    "Search transactions",
+    "Today",
+    "7 days",
+    "Month",
+    "All",
+    "Custom",
+    "Expenses",
+    "Income",
+    "Categories",
+    "Amount",
+    "Payment",
+    "Advanced",
+    "Rideshare, expense $40.00, T",
+    "Costco run: paper towels, de",
+    "Ristorante, expense $12.50, ",
+    "Reimbursement from the clien",
+    "Coffee, expense $18.00, Dini",
+    "Side project, income $300.00",
+    "Electric bill, expense $89.0",
+    "Trader Joe's, expense $54.00",
+    "Dinner with friends, expense",
+    "Gas, expense $25.00, Transpo",
+    "Whole Foods, expense $62.00,",
+    "Rent, expense $1,500.00, Ren",
+    "Monthly salary, income $4,50",
+    "Farmers market, expense $24.",
+    "Electric bill, expense $94.1",
+    "Home"
+   ],
+   "yInversions": 3,
+   "focusRingShownOn": "30/30"
+  },
+  "sheet": {
+   "tabsOutsideSheet": 0,
+   "of": 40,
+   "focusAfterEscape": "Categories",
+   "sheetClosed": true
+  }
+ },
+ "motion": {
+  "reduce": {
+   "matchMedia": true,
+   "runningAnimationsRightAfterOpen": [
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  "no-preference": {
+   "matchMedia": false,
+   "runningAnimationsRightAfterOpen": [
+    12,
+    9,
+    5,
+    0
+   ]
+  }
+ },
+ "scaling": {
+  "activity": {
+   "2": {
+    "overflowX": 0,
+    "hardClipped": [],
+    "ellipsized": 9,
+    "smallTargets": 0
+   },
+   "1.3": {
+    "overflowX": 0,
+    "hardClipped": [],
+    "ellipsized": 5,
+    "smallTargets": 0
+   },
+   "1.5": {
+    "overflowX": 0,
+    "hardClipped": [],
+    "ellipsized": 8,
+    "smallTargets": 0
+   }
+  },
+  "insights": {
+   "2": {
+    "overflowX": 0,
+    "hardClipped": [],
+    "ellipsized": 8,
+    "smallTargets": 0
+   },
+   "1.3": {
+    "overflowX": 0,
+    "hardClipped": [],
+    "ellipsized": 2,
+    "smallTargets": 0
+   },
+   "1.5": {
+    "overflowX": 0,
+    "hardClipped": [],
+    "ellipsized": 5,
+    "smallTargets": 0
+   }
+  },
+  "details": {
+   "2": {
+    "overflowX": 68,
+    "hardClipped": [],
+    "ellipsized": 1,
+    "smallTargets": 0
+   },
+   "1.3": {
+    "overflowX": 0,
+    "hardClipped": [],
+    "ellipsized": 0,
+    "smallTargets": 0
+   },
+   "1.5": {
+    "overflowX": 0,
+    "hardClipped": [],
+    "ellipsized": 0,
+    "smallTargets": 0
+   }
+  },
+  "edit": {
+   "2": {
+    "overflowX": 0,
+    "hardClipped": [],
+    "ellipsized": 0,
+    "smallTargets": 1
+   },
+   "1.3": {
+    "overflowX": 0,
+    "hardClipped": [],
+    "ellipsized": 0,
+    "smallTargets": 1
+   },
+   "1.5": {
+    "overflowX": 0,
+    "hardClipped": [],
+    "ellipsized": 0,
+    "smallTargets": 1
+   }
+  }
+ }
+}

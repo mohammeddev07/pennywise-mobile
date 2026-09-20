@@ -1,0 +1,6 @@
+JVM start -> health UP                         5227 ms
+first login (bcrypt + JWT)                     200 ms  (200)
+first search (10,000 rows, default sort)       83 ms  (200)
+second search                                  25 ms  (200)
+first analyze (MONTH, 4y)                      109 ms  (200)
+first export/query (10,000 rows -> xlsx)       852 ms  (200, 726 KiB)

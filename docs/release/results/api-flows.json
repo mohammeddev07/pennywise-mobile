@@ -1,0 +1,157 @@
+[
+ {
+  "name": "signup returns token + user",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "login with a wrong password is 401 INVALID_CREDENTIALS",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "login ok",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "GET /me with token",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "no token -> 401",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "tampered token -> 401",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "two books, distinct currencies",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "book rename with If-Match",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "book rename with stale version -> 412",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "created 240 transactions",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "idempotent replay returns the same row, no second create",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "search totalCount equals created rows",
+  "ok": true,
+  "detail": "got 240"
+ },
+ {
+  "name": "book switch isolation: other book has none of book A's rows",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "edit with If-Match bumps version and keeps createdAt",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "stale-version edit -> 412 (mobile shows the conflict card)",
+  "ok": true,
+  "detail": "status 412 ETAG_MISMATCH"
+ },
+ {
+  "name": "stale edit changed nothing",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "duplicate = new row with a new id",
+  "ok": true,
+  "detail": "status 201 "
+ },
+ {
+  "name": "delete with stale version -> 412",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "delete with current version",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "deleted row is gone (404) and out of search",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "count after edit/dup/delete",
+  "ok": true,
+  "detail": "got 240"
+ },
+ {
+  "name": "all 26 sort modes return 200; amount/date are ordered",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "three-key sort accepted",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "advanced filter ((cat IN) OR cash) AND amount BETWEEN AND note IS NULL matches independent count",
+  "ok": true,
+  "detail": "server 36 vs client 36"
+ },
+ {
+  "name": "text CONTAINS matches independent count",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "analyze totals equal independent sums",
+  "ok": true,
+  "detail": "exp 22892502/22892502 inc 7341774/7341774"
+ },
+ {
+  "name": "YEAR buckets sum to the same total as MONTH buckets",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "category drill-down returns exactly the counted rows",
+  "ok": true,
+  "detail": "drill 34 vs counted 34"
+ },
+ {
+  "name": "month drill-down returns exactly the bucket's rows",
+  "ok": true,
+  "detail": "drill 1 vs bucket 1"
+ },
+ {
+  "name": "export/query returns an .xlsx (zip magic PK)",
+  "ok": true,
+  "detail": "status 200, 6422 bytes"
+ },
+ {
+  "name": "import of the exported file answers 200 with a result",
+  "ok": true,
+  "detail": "status 200 {\"totalRows\":36,\"importedCount\":24,\"skippedBlankCount\":0,\"skippedDuplicateCount\":0,\"failedCount\":12,\"categoriesCreated\":[\"Cat 03\",\"Household and family supplies"
+ }
+]
