@@ -17,8 +17,7 @@ import { useTransactionsStore } from "@/features/transactions/store";
 import * as transactionsApi from "@/shared/api/transactions";
 import { getApiErrorMessage } from "@/shared/api/errors";
 import { getAccountEpoch, isCurrentAccountEpoch } from "@/shared/session/accountEpoch";
-import { formatCurrency, majorToMinor } from "@/shared/utils/formatCurrency";
-import type { PaymentMethod } from "@/shared/types/models";
+import { formatCurrency, parseAmountToMinor } from "@/shared/utils/formatCurrency";
 
 import { AppText } from "@/shared/ui/components/AppText";
 import { Button } from "@/shared/ui/components/Button";
@@ -34,15 +33,6 @@ import { DateTimeField } from "@/shared/ui/components/DateTimeField";
 
 const TITLE_MAX = 120;
 const NOTE_MAX = 280;
-
-function parseAmountToMinor(raw: string, currency: string) {
-  const cleaned = String(raw || "0")
-    .replace(/,/g, "")
-    .replace(/[^\d.-]/g, "");
-  const n = Number.parseFloat(cleaned);
-  if (!Number.isFinite(n)) return 0;
-  return majorToMinor(n, currency);
-}
 
 function parseWhen(iso: string) {
   try {
@@ -140,14 +130,13 @@ export default function AddTransactionDetails() {
     return head;
   }, [options, categoryId]);
 
-  const canSave =
-    amountMinor > 0 && Number.isSafeInteger(amountMinor) && Boolean(categoryId) && Boolean(selectedBook);
+  const canSave = amountMinor !== null && amountMinor > 0 && Boolean(categoryId) && Boolean(selectedBook);
 
   const onSave = async () => {
     // Guarding on `isSaving` is what stops a double submit: the request is
     // idempotent server-side, but a second tap must not start a second one.
     if (isSaving) return;
-    if (!canSave) {
+    if (!canSave || amountMinor === null) {
       setAttempted(true);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
       return;
@@ -163,7 +152,8 @@ export default function AddTransactionDetails() {
         categoryId: categoryId as string,
         title: title.trim() || undefined,
         note: note.trim() || undefined,
-        paymentMethod: "CASH" as PaymentMethod,
+        // No payment-method picker in this flow: leave it unspecified rather than
+        // fabricating CASH.
         occurredAt,
       });
       if (!isCurrentAccountEpoch(accountEpoch)) return;
@@ -186,7 +176,6 @@ export default function AddTransactionDetails() {
           bookId,
           occurredAt,
           currency,
-          paymentMethod: "CASH",
         },
       });
     } catch (err) {
@@ -264,7 +253,7 @@ export default function AddTransactionDetails() {
                 {kind === "EXPENSE" ? "EXPENSE" : "INCOME"}
               </AppText>
               <MoneyAmount
-                value={formatCurrency(amountMinor, currency)}
+                value={amountMinor === null ? "Invalid amount" : formatCurrency(amountMinor, currency)}
                 kind={kind}
                 size="2xl"
                 style={{ marginTop: tokens.space[1] }}

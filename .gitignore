@@ -56,3 +56,5 @@ yarn-error.*
 # OS specific
 Thumbs.db
 *.log
+# graphify knowledge graph output
+graphify-out/

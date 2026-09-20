@@ -18,6 +18,18 @@ import type {
  * run on a device/simulator with no network access to a real API server.
  */
 
+const TX_WRITABLE_FIELDS = new Set([
+  "type",
+  "amountMinor",
+  "categoryId",
+  "title",
+  "note",
+  "paymentMethod",
+  "occurredAt",
+  "occurredOn",
+]);
+const TX_NULLABLE_FIELDS = new Set(["title", "note", "paymentMethod"]);
+
 function uid(prefix: string) {
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}`;
 }
@@ -117,8 +129,11 @@ function seed() {
       categoryId: t.category.id,
       category: { id: t.category.id, name: t.category.name, type: t.category.type },
       categoryName: t.category.name,
-      paymentMethod: "CARD",
+      // Alternate rows leave the payment method unspecified so the UI's "Not
+      // specified" path is exercised in mock mode.
+      paymentMethod: t.dayOfMonth % 2 === 0 ? "CARD" : null,
       note: null,
+      externalId: null,
       version: 1,
       createdAt: nowIso(),
       updatedAt: nowIso(),
@@ -375,6 +390,8 @@ export const mockAdapter: AxiosAdapter = async (config) => {
 
   if ((m = route("/v1/books/:bookId/transactions", "POST"))) {
     const payload = body as Record<string, unknown>;
+    const unknownCreateField = Object.keys(payload).find((k) => !TX_WRITABLE_FIELDS.has(k));
+    if (unknownCreateField) return fail(config, 400, `Unknown field: ${unknownCreateField}`);
     const category = state.categories.find((c) => c.id === payload.categoryId);
     const occurredOn = (payload.occurredOn as string) ?? nowIso().slice(0, 10);
     const tx: TransactionResponse = {
@@ -390,6 +407,7 @@ export const mockAdapter: AxiosAdapter = async (config) => {
       categoryName: category?.name,
       paymentMethod: (payload.paymentMethod as TransactionResponse["paymentMethod"]) ?? null,
       note: (payload.note as string) ?? null,
+      externalId: null,
       version: 1,
       createdAt: nowIso(),
       updatedAt: nowIso(),
@@ -402,9 +420,32 @@ export const mockAdapter: AxiosAdapter = async (config) => {
   if ((m = route("/v1/books/:bookId/transactions/:txId", "PATCH"))) {
     const tx = state.transactions.find((t) => t.id === m!.txId && t.bookId === m!.bookId);
     if (!tx) return fail(config, 404, "Transaction not found");
-    Object.assign(tx, body);
-    if (body.categoryId) {
-      const category = state.categories.find((c) => c.id === body.categoryId);
+    const patch = body as Record<string, unknown>;
+    // Mirror the server's PATCH contract: unknown/audit fields are rejected, explicit null
+    // clears only title/note/paymentMethod, required fields reject null, createdAt and id
+    // never change, and a no-op leaves version/updatedAt alone.
+    const unknownField = Object.keys(patch).find((k) => !TX_WRITABLE_FIELDS.has(k));
+    if (unknownField) return fail(config, 400, `Unknown field: ${unknownField}`);
+    const nullRequired = Object.keys(patch).find((k) => patch[k] === null && !TX_NULLABLE_FIELDS.has(k));
+    if (nullRequired) return fail(config, 400, `Field must not be null: ${nullRequired}`);
+    if (Object.keys(patch).length === 0) return fail(config, 400, "PATCH request must contain at least one field");
+
+    const next: Record<string, unknown> = {};
+    for (const key of Object.keys(patch)) {
+      const value = patch[key];
+      next[key] = (key === "title" || key === "note") && typeof value === "string" && !value.trim() ? null : value;
+    }
+    if (typeof next.occurredAt === "string" && next.occurredOn === undefined) {
+      next.occurredOn = next.occurredAt.slice(0, 10);
+    } else if (typeof next.occurredOn === "string" && next.occurredAt === undefined) {
+      next.occurredAt = `${next.occurredOn}T00:00:00.000Z`;
+    }
+    const changed = Object.keys(next).some((k) => (tx as Record<string, unknown>)[k] !== next[k]);
+    if (!changed) return ok(config, tx);
+
+    Object.assign(tx, next);
+    if (next.categoryId) {
+      const category = state.categories.find((c) => c.id === next.categoryId);
       tx.category = category ? { id: category.id, name: category.name, type: category.type } : null;
       tx.categoryName = category?.name;
     }

@@ -80,15 +80,21 @@ export type TransactionResponse = {
   bookId: string;
   type: TransactionType;
   amountMinor: number;
+  /** Canonical book-local ledger date (YYYY-MM-DD). Lists and summaries group by this. */
   occurredOn: string;
+  /** Event instant (ISO, UTC). */
   occurredAt: string;
   title: string | null;
   categoryId: string;
   category?: TransactionCategoryResponse | null;
   categoryName?: string;
+  /** null = not specified. Never defaulted to CASH by the server or the client. */
   paymentMethod: PaymentMethod | null;
   note?: string | null;
+  /** Import identifier. Read-only; never sent in requests. */
+  externalId?: string | null;
   version: number;
+  /** Record creation instant. Immutable; distinct from occurredAt. */
   createdAt: string;
   updatedAt: string;
   deletedAt?: string | null;
@@ -115,14 +121,30 @@ export type TransactionCreatePayload = {
   type: TransactionType;
   amountMinor: number;
   categoryId: string;
-  title?: string;
-  note?: string;
-  paymentMethod?: PaymentMethod;
+  title?: string | null;
+  note?: string | null;
+  /** Omit or send null for "not specified". */
+  paymentMethod?: PaymentMethod | null;
   occurredAt?: string;
   occurredOn?: string;
 };
 
-export type TransactionUpdatePayload = Partial<TransactionCreatePayload>;
+/**
+ * PATCH body. Omitted = unchanged. `title`/`note`/`paymentMethod` accept an
+ * explicit `null` to clear (a blank string clears title/note too). The other
+ * fields reject `null`. Audit fields (id, createdAt, updatedAt, version,
+ * externalId) are rejected by the server and must never be sent.
+ */
+export type TransactionUpdatePayload = {
+  type?: TransactionType;
+  amountMinor?: number;
+  categoryId?: string;
+  title?: string | null;
+  note?: string | null;
+  paymentMethod?: PaymentMethod | null;
+  occurredAt?: string;
+  occurredOn?: string;
+};
 
 export type BudgetResponse = {
   id: string;

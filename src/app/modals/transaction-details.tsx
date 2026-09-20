@@ -7,7 +7,7 @@ import { format, parseISO } from "date-fns";
 
 import { tokens } from "@/shared/ui/theme/tokens";
 import { Button } from "@/shared/ui/components/Button";
-import { useTransactionsStore } from "@/features/transactions/store";
+import { paymentMethodLabel, useTransactionsStore } from "@/features/transactions/store";
 import { useCategoriesStore } from "@/features/categories/store";
 import { useBookCurrency } from "@/features/books/useBookCurrency";
 import { useUndoToastStore } from "@/shared/ui/state/useUndoToastStore";
@@ -157,6 +157,10 @@ export default function TransactionDetailsModal() {
   const occurredOn = tx?.occurredOn ? safeDate(tx.occurredOn) : occurred;
   const dateLabel = occurredOn ? format(occurredOn, "MMM d, yyyy") : "—";
   const timeLabel = occurred ? format(occurred, "h:mm a") : "—";
+  // createdAt/updatedAt are when the record was written, not when the money moved.
+  const created = tx?.createdAt ? safeDate(tx.createdAt) : null;
+  const updated = tx?.updatedAt ? safeDate(tx.updatedAt) : null;
+  const stampLabel = (d: Date | null) => (d ? format(d, "MMM d, yyyy 'at' h:mm a") : "—");
 
   const onDelete = () => {
     if (!tx || isMutating) return;
@@ -326,6 +330,26 @@ export default function TransactionDetailsModal() {
                 style={{ marginTop: tokens.space[2], color: tx.note?.trim() ? tokens.colors.text : tokens.colors.muted }}
               >
                 {tx.note?.trim() ? tx.note.trim() : "No note added."}
+              </AppText>
+
+              <AppText variant="xs" tone="muted" style={{ marginTop: tokens.space[5] }}>
+                PAYMENT
+              </AppText>
+              <AppText
+                variant="base"
+                style={{ marginTop: tokens.space[2], color: tx.paymentMethod ? tokens.colors.text : tokens.colors.muted }}
+              >
+                {paymentMethodLabel(tx.paymentMethod)}
+              </AppText>
+
+              <AppText variant="xs" tone="muted" style={{ marginTop: tokens.space[5] }}>
+                RECORD
+              </AppText>
+              <AppText variant="sm" tone="muted" style={{ marginTop: tokens.space[2] }}>
+                Created {stampLabel(created)}
+              </AppText>
+              <AppText variant="sm" tone="muted" style={{ marginTop: tokens.space[1] }}>
+                Updated {stampLabel(updated)}
               </AppText>
             </View>
           </View>

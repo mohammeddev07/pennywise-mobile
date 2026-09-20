@@ -30,6 +30,40 @@ export function majorToMinor(amount: number, currency: CurrencyInput) {
   return Math.round(amount * 10 ** currencyMinorUnitDigits(currency));
 }
 
+/**
+ * Numeric bounds shared with the backend (`domain/common/MoneyLimits.java`).
+ * Amounts are integer minor units in a Java `long`; a JS `number` is only exact
+ * up to 2^53 - 1, so a single transaction is capped well below that and any
+ * aggregate the server reports stays within the safe-integer range.
+ */
+export const MAX_TRANSACTION_AMOUNT_MINOR = 999_999_999_999_999;
+export const MAX_AGGREGATE_AMOUNT_MINOR = Number.MAX_SAFE_INTEGER;
+
+/**
+ * Exact decimal-string to minor-units conversion for user input.
+ *
+ * Returns `null` (never 0, never a rounded value) when the text is not a plain
+ * non-negative decimal, has more fraction digits than the currency allows (JPY
+ * allows none), or exceeds `MAX_TRANSACTION_AMOUNT_MINOR`. Thousands separators
+ * and surrounding whitespace are tolerated; everything else is rejected.
+ */
+export function parseAmountToMinor(raw: string, currency: CurrencyInput): number | null {
+  const text = String(raw ?? "")
+    .trim()
+    .replace(/,/g, "");
+  if (text === "") return null;
+  const digits = currencyMinorUnitDigits(currency);
+  const match = /^(\d+)(?:\.(\d*))?$/.exec(text);
+  if (!match) return null;
+  const [, intPart, fracPart = ""] = match;
+  if (fracPart.length > digits) return null;
+  const minorText = intPart + fracPart.padEnd(digits, "0");
+  if (minorText.replace(/^0+(?=\d)/, "").length > 15) return null;
+  const minor = Number(minorText);
+  if (!Number.isSafeInteger(minor) || minor > MAX_TRANSACTION_AMOUNT_MINOR) return null;
+  return minor;
+}
+
 export function formatCurrency(amountMinor: number, currency: CurrencyInput, maximumFractionDigits?: number) {
   const amount = minorToMajor(amountMinor, currency);
   const displayDigits = maximumFractionDigits ?? currencyMinorUnitDigits(currency);
