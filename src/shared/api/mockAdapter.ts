@@ -13,7 +13,7 @@ import type {
   TransactionResponse,
 } from "@/shared/types/api";
 import type { AnalyzeRequest, SearchRequest, TransactionQuery } from "@/shared/types/transactionQuery";
-import { MockQueryError, mockAnalyze, mockSearch } from "@/shared/api/mockQuery";
+import { MockQueryError, mockAnalyze, mockExportCsv, mockSearch } from "@/shared/api/mockQuery";
 
 /**
  * In-memory fake backend used when EXPO_PUBLIC_MOCK_API=true. Lets the app
@@ -505,8 +505,14 @@ async function handle(config: InternalAxiosRequestConfig): Promise<AxiosResponse
   }
 
   if ((m = route("/v1/books/:bookId/transactions/export/query", "POST"))) {
-    void (body as TransactionQuery);
-    return fail(config, 501, "Export needs a real backend - not available while EXPO_PUBLIC_MOCK_API=true.");
+    if (!state.books.some((b) => b.id === m!.bookId && !b.deletedAt)) return fail(config, 404, "Book not found", "NOT_FOUND");
+    try {
+      const csv = mockExportCsv(bookRows(m.bookId), body as TransactionQuery);
+      return ok(config, new TextEncoder().encode(csv).buffer);
+    } catch (e) {
+      if (e instanceof MockQueryError) return fail(config, e.status, e.message, e.code);
+      throw e;
+    }
   }
 
   if ((m = route("/v1/books/:bookId/transactions/:txId", "GET"))) {

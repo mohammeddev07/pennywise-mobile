@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ScrollView, View } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -19,6 +19,9 @@ import {
   isDatePrimarySort,
   type DatePreset,
 } from "@/features/transactions/filterModel";
+import { DrillBreadcrumb } from "@/features/transactions/ui/DrillBreadcrumb";
+import { useFilterStore } from "@/features/transactions/filterStore";
+import { setActivityScroll } from "@/features/transactions/activityScroll";
 import { CustomRangeSheet } from "@/features/transactions/ui/CustomRangeSheet";
 import { AdvancedFilterSheet } from "@/features/transactions/ui/AdvancedFilterSheet";
 import { SortSheet, describeSort } from "@/features/transactions/ui/SortSheet";
@@ -154,6 +157,12 @@ export default function TransactionsScreen() {
     [results.rows, filters.sort, today, results.hasNextPage]
   );
 
+  // After Back from a drill-down, return to where the list was. The previous filter's pages are still
+  // cached, so a deep offset is usually loaded; if not, the list simply lands as far down as it can.
+  const listRef = useRef<{ scrollToOffset: (o: { offset: number; animated: boolean }) => void } | null>(null);
+  const pendingScroll = useFilterStore((s) => s.pendingScroll[filters.scope]);
+  const clearPendingScroll = useFilterStore((s) => s.clearPendingScroll);
+
   const onExport = async () => {
     if (isExporting || !filters.query || !selectedBookId) return;
     setIsExporting(true);
@@ -174,6 +183,20 @@ export default function TransactionsScreen() {
   };
 
   const showRows = results.status === "ready" && (results.rowsCurrent || rows.length > 0);
+  const scope = filters.scope;
+  useEffect(() => {
+    if (pendingScroll === undefined || !showRows || !results.rowsCurrent) return;
+    if (rows.length === 0) {
+      // Nothing to scroll in (the restored filter matches no rows): drop the request so it can't fire later.
+      clearPendingScroll(scope);
+      return;
+    }
+    const frame = requestAnimationFrame(() => {
+      listRef.current?.scrollToOffset({ offset: pendingScroll, animated: false });
+      clearPendingScroll(scope);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [pendingScroll, showRows, results.rowsCurrent, rows.length, scope, clearPendingScroll]);
   const updating = results.isUpdating;
   const totals = results.totals;
 
@@ -216,6 +239,8 @@ export default function TransactionsScreen() {
             </View>
           }
         />
+
+        <DrillBreadcrumb scope={filters.scope} />
 
         {searchOpen ? (
           <FormField
@@ -458,6 +483,9 @@ export default function TransactionsScreen() {
         ) : (
           <View style={{ flex: 1, opacity: updating && !results.rowsCurrent ? 0.5 : 1 }}>
             <FlashList
+              ref={listRef as never}
+              onScroll={(e) => setActivityScroll(scope, e.nativeEvent.contentOffset.y)}
+              scrollEventThrottle={64}
               key={filters.scope}
               data={rows}
               keyExtractor={(r) => r.id}

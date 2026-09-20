@@ -35,8 +35,18 @@ export function makeScope(accountId: string | null | undefined, bookId: string |
 type Applied = { root: FilterRoot; sort: SortState; revision: number };
 type Draft = { root: FilterRoot; sort: SortState };
 
+/**
+ * "Where I came from" for a drill-down: the filter (and Activity scroll offset) that was applied
+ * before Insights opened Activity with a narrower expression. Back restores all three.
+ */
+export type Drill = { previousRoot: FilterRoot; previousSort: SortState; scrollOffset: number; label: string };
+
 type State = {
   byScope: Record<ScopeKey, Applied>;
+  /** Not persisted: a restart has no scroll position to go back to. */
+  drills: Record<ScopeKey, Drill | undefined>;
+  /** Set by `restoreDrill`; Activity scrolls there once the restored rows are on screen, then clears it. */
+  pendingScroll: Record<ScopeKey, number | undefined>;
   /** Advanced-sheet drafts. Never persisted; Cancel simply drops it. */
   drafts: Record<ScopeKey, Draft | undefined>;
 
@@ -49,6 +59,15 @@ type State = {
   reset: (scope: ScopeKey, today: Ymd) => void;
   /** Clears every condition, date included ("All dates"). */
   clearAll: (scope: ScopeKey) => void;
+
+  /**
+   * Applies `root` as a drill-down. The first drill remembers what to go back to; drilling again
+   * from an already drilled view keeps that original, so Back always lands where the user started.
+   */
+  drillInto: (scope: ScopeKey, root: FilterRoot, label: string, scrollOffset: number) => void;
+  /** Re-applies the pre-drill filter and sort; returns whether there was a drill to leave. */
+  restoreDrill: (scope: ScopeKey) => boolean;
+  clearPendingScroll: (scope: ScopeKey) => void;
 
   beginDraft: (scope: ScopeKey) => void;
   setDraft: (scope: ScopeKey, draft: Partial<Draft>) => void;
@@ -88,6 +107,8 @@ export const useFilterStore = create<State>()(
 
       return {
         byScope: {},
+        drills: {},
+        pendingScroll: {},
         drafts: {},
 
         ensure: (scope, today) => {
@@ -104,6 +125,27 @@ export const useFilterStore = create<State>()(
         applySort: (scope, sort) => commit(scope, get().byScope[scope]?.root ?? emptyRoot(), sanitizeSort(sort)),
         reset: (scope, today) => commit(scope, defaultRoot(today), []),
         clearAll: (scope) => commit(scope, emptyRoot(), get().byScope[scope]?.sort ?? []),
+
+        drillInto: (scope, root, label, scrollOffset) => {
+          const current = get().byScope[scope];
+          const existing = get().drills[scope];
+          const drill: Drill = existing
+            ? { ...existing, label }
+            : { previousRoot: current?.root ?? emptyRoot(), previousSort: current?.sort ?? [], scrollOffset, label };
+          set((s) => ({ drills: { ...s.drills, [scope]: drill } }));
+          commit(scope, root, current?.sort ?? []);
+        },
+        restoreDrill: (scope) => {
+          const drill = get().drills[scope];
+          if (!drill) return false;
+          commit(scope, drill.previousRoot, drill.previousSort);
+          set((s) => ({
+            drills: { ...s.drills, [scope]: undefined },
+            pendingScroll: { ...s.pendingScroll, [scope]: drill.scrollOffset },
+          }));
+          return true;
+        },
+        clearPendingScroll: (scope) => set((s) => ({ pendingScroll: { ...s.pendingScroll, [scope]: undefined } })),
 
         beginDraft: (scope) => {
           const current = get().byScope[scope];
@@ -132,7 +174,7 @@ export const useFilterStore = create<State>()(
         },
         cancelDraft: (scope) => set((s) => ({ drafts: { ...s.drafts, [scope]: undefined } })),
 
-        clearAllScopes: () => set({ byScope: {}, drafts: {} }),
+        clearAllScopes: () => set({ byScope: {}, drafts: {}, drills: {}, pendingScroll: {} }),
       };
     },
     {

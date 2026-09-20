@@ -239,8 +239,8 @@ export function useRecentTransactions(limit: number, bookIdOverride?: string) {
 
 /**
  * Full-window aggregates (per-bucket totals, largest expense) from the server - every
- * transaction in the window, not whichever rows happen to be loaded. Used by Home's
- * 7-day chart and Insights' largest expense until P1.5 moves Insights onto `useAnalysis`.
+ * transaction in the window, not whichever rows happen to be loaded. Used by Home's 7-day chart;
+ * Insights uses `useAnalysis` so it honours the shared applied filter.
  */
 export function useWindowAnalysis(
   window: { startDate: string; endDate: string } | null,
