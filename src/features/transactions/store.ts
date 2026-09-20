@@ -30,7 +30,7 @@ export type NewTransaction = TransactionCreatePayload & {
 
 export type TransactionPatch = TransactionUpdatePayload;
 
-type PersistedShapeV5 = {
+type PersistedShape = {
   transactions: Transaction[];
 };
 
@@ -56,13 +56,27 @@ export function isPaymentMethod(x: any): x is PaymentMethod {
   return typeof x === "string" && (PAYMENT_SET as string[]).includes(x);
 }
 
-export function normalizePaymentMethod(input: any): PaymentMethod {
+/** Unknown or missing input is `null` ("Not specified"), never a fabricated CASH. */
+export function normalizePaymentMethod(input: any): PaymentMethod | null {
+  if (input === null || input === undefined) return null;
   if (isPaymentMethod(input)) return input;
-  const s = String(input ?? "").toUpperCase().replace(/[\s-]+/g, "_");
+  const s = String(input).toUpperCase().replace(/[\s-]+/g, "_");
   if (s === "BANK") return "BANK_TRANSFER";
   if (s === "CREDIT" || s === "DEBIT") return "CARD";
   if (isPaymentMethod(s)) return s;
-  return "CASH";
+  return null;
+}
+
+const PAYMENT_LABELS: Record<PaymentMethod, string> = {
+  CASH: "Cash",
+  CARD: "Card",
+  BANK_TRANSFER: "Bank transfer",
+  WALLET: "Wallet",
+  OTHER: "Other",
+};
+
+export function paymentMethodLabel(value: PaymentMethod | null | undefined) {
+  return value ? PAYMENT_LABELS[value] : "Not specified";
 }
 
 export function normalizeTransactionType(input: any): TransactionType {
@@ -88,7 +102,11 @@ function makeLegacyId() {
 
 export function mapTransactionResponse(input: TransactionResponse | any): Transaction {
   const now = new Date().toISOString();
-  const occurredAt = String(input.occurredAt ?? input.createdAt ?? now);
+  // occurredAt is the event instant and createdAt the record's creation time. They are
+  // never substituted for each other: a row missing occurredAt falls back to its own
+  // ledger date, not to when it was written.
+  const occurredOnRaw = typeof input.occurredOn === "string" && input.occurredOn ? input.occurredOn : null;
+  const occurredAt = String(input.occurredAt ?? (occurredOnRaw ? `${occurredOnRaw}T00:00:00.000Z` : now));
   const categoryName = String(input.categoryName ?? input.category?.name ?? input.category ?? "Uncategorized").trim() || "Uncategorized";
 
   return {
@@ -102,10 +120,11 @@ export function mapTransactionResponse(input: TransactionResponse | any): Transa
     note: typeof input.note === "string" && input.note.trim() ? input.note.trim() : undefined,
     paymentMethod: normalizePaymentMethod(input.paymentMethod),
     occurredAt,
-    occurredOn: String(input.occurredOn ?? occurredOnFrom(occurredAt)),
+    occurredOn: occurredOnRaw ?? occurredOnFrom(occurredAt),
+    externalId: typeof input.externalId === "string" && input.externalId ? input.externalId : null,
     version: Number(input.version ?? 0) || 0,
-    createdAt: String(input.createdAt ?? occurredAt),
-    updatedAt: String(input.updatedAt ?? input.createdAt ?? occurredAt),
+    createdAt: String(input.createdAt ?? now),
+    updatedAt: String(input.updatedAt ?? input.createdAt ?? now),
   };
 }
 
@@ -116,7 +135,7 @@ function toCreatePayload(tx: Transaction): TransactionCreatePayload {
     categoryId: tx.categoryId,
     title: tx.title,
     note: tx.note,
-    paymentMethod: tx.paymentMethod,
+    paymentMethod: tx.paymentMethod ?? undefined,
     occurredAt: tx.occurredAt,
   };
 }
@@ -228,14 +247,15 @@ export const useTransactionsStore = create<State>()(
     }),
     {
       name: "pennywise_transactions_v1",
-      version: 5,
+      version: 6,
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (s) => ({ transactions: s.transactions }),
-      migrate: async (persisted: any) => {
-        if (!persisted) return { transactions: [] } as PersistedShapeV5;
-        const txs: any[] = Array.isArray(persisted.transactions) ? persisted.transactions : [];
-        const migrated = txs.map(mapTransactionResponse);
-        return { transactions: migrated } as PersistedShapeV5;
+      migrate: async () => {
+        // v5 and earlier rewrote every null paymentMethod as CASH on the way into the
+        // cache, so persisted rows cannot tell a real CASH from a fabricated one. Drop
+        // them and let the app re-fetch canonical rows (root layout loads on start)
+        // instead of guessing.
+        return { transactions: [] } as PersistedShape;
       },
     }
   )

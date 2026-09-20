@@ -19,7 +19,7 @@ import { Button } from "@/shared/ui/components/Button";
 import { Card } from "@/shared/ui/components/Card";
 import { EmptyState } from "@/shared/ui/components/EmptyState";
 import { Skeleton } from "@/shared/ui/components/Skeleton";
-import { useTransactionsStore, type TransactionKind } from "@/features/transactions/store";
+import { paymentMethodLabel, useTransactionsStore, type TransactionKind } from "@/features/transactions/store";
 import { useCategoriesStore } from "@/features/categories/store";
 import { TypeToggle } from "@/shared/ui/components/TypeToggle";
 import { useBookCurrency } from "@/features/books/useBookCurrency";
@@ -27,8 +27,8 @@ import {
   currencyMinorUnitDigits,
   currencySymbol,
   formatCurrency,
-  majorToMinor,
   minorToMajor,
+  parseAmountToMinor,
 } from "@/shared/utils/formatCurrency";
 import { useUndoToastStore } from "@/shared/ui/state/useUndoToastStore";
 import { Icon } from "@/shared/ui/components/Icon";
@@ -37,15 +37,6 @@ function minorToAmount(amountMinor: number, currency: string) {
   const amount = minorToMajor(Math.abs(amountMinor), currency);
   const digits = currencyMinorUnitDigits(currency);
   return amount % 1 === 0 ? String(amount.toFixed(0)) : amount.toFixed(digits);
-}
-
-function parseAmountToMinor(raw: string, currency: string) {
-  const cleaned = String(raw || "0")
-    .replace(/,/g, "")
-    .replace(/[^\d.]/g, "");
-  const n = Number.parseFloat(cleaned);
-  if (!Number.isFinite(n)) return 0;
-  return majorToMinor(n, currency);
 }
 
 function parseWhen(iso: string) {
@@ -115,8 +106,10 @@ export default function EditTransactionModal() {
     setOccurredAt(parseWhen(tx.occurredAt));
   }, [currency, tx]);
 
-  const amountCents = useMemo(() => parseAmountToMinor(amount, currency), [amount, currency]);
-  const canSave = !!tx && Number.isSafeInteger(amountCents) && amountCents > 0;
+  // null = not a valid amount (bad text, too many decimals for this currency, or over the cap).
+  const amountMinor = useMemo(() => parseAmountToMinor(amount, currency), [amount, currency]);
+  const amountValid = amountMinor !== null && amountMinor > 0;
+  const canSave = !!tx && amountValid;
 
   const categoryOptions = useMemo(() => {
     if (!tx) return [];
@@ -139,16 +132,18 @@ export default function EditTransactionModal() {
 
   const onSave = async () => {
     setAttemptedSave(true);
-    if (!tx || !Number.isSafeInteger(amountCents) || amountCents <= 0 || !categoryId || isSaving) return;
+    if (!tx || amountMinor === null || amountMinor <= 0 || !categoryId || isSaving) return;
 
     setIsSaving(true);
     try {
+      // Blank title/note are sent as explicit null: PATCH omits nothing here, and null
+      // clears. paymentMethod is not edited on this screen, so it is omitted (unchanged).
       const ok = await updateTransaction(tx.id, {
         type: kind,
-        amountMinor: amountCents,
-        title: title.trim(),
+        amountMinor,
+        title: title.trim() || null,
         categoryId,
-        note: note.trim(),
+        note: note.trim() || null,
         occurredAt: occurredAt.toISOString(),
       });
 
@@ -156,6 +151,7 @@ export default function EditTransactionModal() {
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ["balance", tx.bookId] }),
           queryClient.invalidateQueries({ queryKey: ["summary", tx.bookId] }),
+          queryClient.invalidateQueries({ queryKey: ["summaryRange", tx.bookId] }),
         ]);
         Keyboard.dismiss();
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
@@ -250,11 +246,11 @@ export default function EditTransactionModal() {
                   kind={kind === "EXPENSE" ? "expense" : "income"}
                   currencySymbol={currencySymbol(currency)}
                   fractionDigits={fractionDigits}
-                  helperText={formatCurrency(amountCents, currency)}
-                  helperIsMoney
+                  helperText={amountMinor === null ? "Invalid amount" : formatCurrency(amountMinor, currency)}
+                  helperIsMoney={amountMinor !== null}
                   error={
-                    attemptedSave && (!Number.isSafeInteger(amountCents) || amountCents <= 0)
-                      ? "Enter a valid amount greater than zero."
+                    attemptedSave && !amountValid
+                      ? `Enter a valid amount greater than zero${fractionDigits > 0 ? ` with at most ${fractionDigits} decimals` : ""}.`
                       : undefined
                   }
                 />
@@ -316,6 +312,18 @@ export default function EditTransactionModal() {
                 <View className="h-px bg-stroke" />
                 <SelectRow label="Time" value={format(occurredAt, "h:mm a")} onPress={() => setShowMode("time")} />
               </Card>
+
+              {/* Read-only record metadata: the date above is the transaction date; these
+                  are when the record itself was written and last changed. */}
+              <View className="gap-1">
+                <AppText variant="xs" tone="muted">
+                  Payment: {paymentMethodLabel(tx.paymentMethod)}
+                </AppText>
+                <AppText variant="xs" tone="muted">
+                  Created {format(parseWhen(tx.createdAt), "MMM d, yyyy 'at' h:mm a")} · Updated{" "}
+                  {format(parseWhen(tx.updatedAt), "MMM d, yyyy 'at' h:mm a")}
+                </AppText>
+              </View>
 
               {Platform.OS === "ios" ? (
                 <View className="gap-3">

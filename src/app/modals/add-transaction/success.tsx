@@ -17,16 +17,7 @@ import { useScreenPaddingX } from "@/shared/ui/components/Screen";
 import type { TransactionKind } from "@/features/transactions/store";
 import { useAddTransactionDraftStore } from "@/features/transactions/addDraftStore";
 import { useBooksStore } from "@/features/books/store";
-import { formatCurrency, majorToMinor } from "@/shared/utils/formatCurrency";
-
-function parseAmountToMinor(raw: string, currency: string) {
-  const cleaned = String(raw || "0")
-    .replace(/,/g, "")
-    .replace(/[^\d.-]/g, "");
-  const n = Number.parseFloat(cleaned);
-  if (!Number.isFinite(n)) return 0;
-  return majorToMinor(n, currency);
-}
+import { formatCurrency, parseAmountToMinor } from "@/shared/utils/formatCurrency";
 
 function whenLabel(iso?: string) {
   if (!iso) return "";
@@ -72,7 +63,7 @@ export default function AddTransactionSuccess() {
   const category = (params.categoryName ?? "Uncategorized").trim() || "Uncategorized";
   const title = (params.title ?? "").trim();
   const amountMinor = useMemo(
-    () => parseAmountToMinor(params.amount ?? "0", currency),
+    () => parseAmountToMinor(params.amount ?? "0", currency) ?? 0,
     [params.amount, currency]
   );
   const when = whenLabel(params.occurredAt);

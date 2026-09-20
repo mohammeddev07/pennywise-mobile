@@ -51,13 +51,18 @@ export type Transaction = {
   categoryName: string;
   note?: string;
 
-  paymentMethod: PaymentMethod;
+  /** null = not specified. Display "Not specified"; never substitute CASH. */
+  paymentMethod: PaymentMethod | null;
 
-  /** User-selected time of transaction (ISO). */
+  /** Event instant (ISO, UTC). */
   occurredAt: string;
+  /** Canonical book-local ledger date (YYYY-MM-DD). */
   occurredOn: string;
 
-  /** System write time (ISO). */
+  /** Read-only import identifier. */
+  externalId: string | null;
+
+  /** Record creation instant (ISO). Immutable; not the transaction date. */
   createdAt: string;
   updatedAt: string;
   version: number;
