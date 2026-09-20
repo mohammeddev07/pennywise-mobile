@@ -12,6 +12,8 @@ import type {
   RangeSummaryResponse,
   TransactionResponse,
 } from "@/shared/types/api";
+import type { AnalyzeRequest, SearchRequest, TransactionQuery } from "@/shared/types/transactionQuery";
+import { MockQueryError, mockAnalyze, mockSearch } from "@/shared/api/mockQuery";
 
 /**
  * In-memory fake backend used when EXPO_PUBLIC_MOCK_API=true. Lets the app
@@ -167,6 +169,42 @@ function seed() {
 
 seed();
 
+function bookRows(bookId: string) {
+  return state.transactions.filter((t) => t.bookId === bookId && !t.deletedAt);
+}
+
+/** Test/dev hooks: the mock backend's state, plus a bulk seeder for paging scenarios. */
+export const mockBackend = {
+  state,
+  /** Adds `count` deterministic expense rows spread over consecutive days ending `endDate`. */
+  seedTransactions(bookId: string, count: number, endDate: string) {
+    const category = state.categories.find((c) => c.bookId === bookId && c.type === "EXPENSE")!;
+    const base = new Date(`${endDate}T00:00:00Z`).getTime();
+    for (let i = 0; i < count; i++) {
+      const occurredOn = new Date(base - Math.floor(i / 3) * 86_400_000).toISOString().slice(0, 10);
+      state.transactions.push({
+        id: `bulk_${String(i).padStart(5, "0")}`,
+        bookId,
+        type: "EXPENSE",
+        amountMinor: 100 + i,
+        occurredOn,
+        occurredAt: `${occurredOn}T12:00:00.000Z`,
+        title: `Bulk ${i}`,
+        categoryId: category.id,
+        category: { id: category.id, name: category.name, type: category.type },
+        categoryName: category.name,
+        paymentMethod: i % 2 === 0 ? "CARD" : null,
+        note: null,
+        externalId: null,
+        version: 1,
+        createdAt: new Date(base + i).toISOString(),
+        updatedAt: new Date(base + i).toISOString(),
+        deletedAt: null,
+      });
+    }
+  },
+};
+
 function spentForCategoryMonth(bookId: string, categoryId: string, month: string) {
   return state.transactions
     .filter(
@@ -191,12 +229,12 @@ function ok<T>(config: InternalAxiosRequestConfig, data: T, status = 200): Axios
   };
 }
 
-function fail(config: InternalAxiosRequestConfig, status: number, message: string): Promise<never> {
+function fail(config: InternalAxiosRequestConfig, status: number, message: string, code?: string): Promise<never> {
   const error = Object.assign(new Error(message), {
     isAxiosError: true,
     config,
     response: {
-      data: { message },
+      data: code ? { error: { code, message }, message } : { message },
       status,
       statusText: message,
       headers: {},
@@ -236,7 +274,28 @@ function matchPath(pattern: string, path: string): Record<string, string> | null
   return params;
 }
 
+/** Parses `If-Match: "3"` the way the server does; null when absent or malformed. */
+function ifMatchVersion(config: AxiosRequestConfig): number | null {
+  const headers = (config.headers ?? {}) as Record<string, unknown> & { get?: (name: string) => unknown };
+  const raw = (typeof headers.get === "function" ? headers.get("If-Match") : undefined) ?? headers["If-Match"];
+  if (typeof raw !== "string") return null;
+  const n = Number(raw.replace(/"/g, ""));
+  return Number.isInteger(n) ? n : null;
+}
+
+function abortedError(config: InternalAxiosRequestConfig) {
+  return Object.assign(new Error("canceled"), { name: "CanceledError", code: "ERR_CANCELED", isAxiosError: true, config });
+}
+
 export const mockAdapter: AxiosAdapter = async (config) => {
+  if (config.signal?.aborted) throw abortedError(config);
+  const result = await handle(config);
+  // A request cancelled while "in flight" must not deliver a response.
+  if (config.signal?.aborted) throw abortedError(config);
+  return result;
+};
+
+async function handle(config: InternalAxiosRequestConfig): Promise<AxiosResponse> {
   const method = (config.method ?? "get").toUpperCase();
   const url = config.url ?? "";
   const params = (config.params ?? {}) as Record<string, unknown>;
@@ -357,6 +416,13 @@ export const mockAdapter: AxiosAdapter = async (config) => {
     Object.assign(category, body);
     category.version += 1;
     category.updatedAt = nowIso();
+    // The server joins the category name in, so a rename shows on every transaction.
+    for (const t of state.transactions) {
+      if (t.categoryId === category.id) {
+        t.category = { id: category.id, name: category.name, type: category.type };
+        t.categoryName = category.name;
+      }
+    }
     return ok(config, category);
   }
 
@@ -417,9 +483,45 @@ export const mockAdapter: AxiosAdapter = async (config) => {
     return ok(config, tx, 201);
   }
 
+  if ((m = route("/v1/books/:bookId/transactions/search", "POST"))) {
+    if (!state.books.some((b) => b.id === m!.bookId && !b.deletedAt)) return fail(config, 404, "Book not found", "NOT_FOUND");
+    try {
+      return ok(config, mockSearch(bookRows(m.bookId), body as SearchRequest));
+    } catch (e) {
+      if (e instanceof MockQueryError) return fail(config, e.status, e.message, e.code);
+      throw e;
+    }
+  }
+
+  if ((m = route("/v1/books/:bookId/transactions/analyze", "POST"))) {
+    const book = state.books.find((b) => b.id === m!.bookId && !b.deletedAt);
+    if (!book) return fail(config, 404, "Book not found", "NOT_FOUND");
+    try {
+      return ok(config, mockAnalyze(bookRows(m.bookId), state.categories.filter((c) => c.bookId === m!.bookId), body as unknown as AnalyzeRequest, book, state.budgets.filter((b) => b.bookId === m!.bookId)));
+    } catch (e) {
+      if (e instanceof MockQueryError) return fail(config, e.status, e.message, e.code);
+      throw e;
+    }
+  }
+
+  if ((m = route("/v1/books/:bookId/transactions/export/query", "POST"))) {
+    void (body as TransactionQuery);
+    return fail(config, 501, "Export needs a real backend - not available while EXPO_PUBLIC_MOCK_API=true.");
+  }
+
+  if ((m = route("/v1/books/:bookId/transactions/:txId", "GET"))) {
+    if (m.txId === "export") return fail(config, 501, "Export needs a real backend - not available while EXPO_PUBLIC_MOCK_API=true.");
+    const tx = state.transactions.find((t) => t.id === m!.txId && t.bookId === m!.bookId && !t.deletedAt);
+    if (!tx) return fail(config, 404, "Transaction not found", "NOT_FOUND");
+    return ok(config, { ...tx });
+  }
+
   if ((m = route("/v1/books/:bookId/transactions/:txId", "PATCH"))) {
-    const tx = state.transactions.find((t) => t.id === m!.txId && t.bookId === m!.bookId);
-    if (!tx) return fail(config, 404, "Transaction not found");
+    const tx = state.transactions.find((t) => t.id === m!.txId && t.bookId === m!.bookId && !t.deletedAt);
+    if (!tx) return fail(config, 404, "Transaction not found", "NOT_FOUND");
+    const expected = ifMatchVersion(config);
+    if (expected === null) return fail(config, 400, "If-Match header is required", "MISSING_IF_MATCH");
+    if (expected !== tx.version) return fail(config, 412, "Resource was modified. Re-fetch and retry.", "ETAG_MISMATCH");
     const patch = body as Record<string, unknown>;
     // Mirror the server's PATCH contract: unknown/audit fields are rejected, explicit null
     // clears only title/note/paymentMethod, required fields reject null, createdAt and id
@@ -455,8 +557,11 @@ export const mockAdapter: AxiosAdapter = async (config) => {
   }
 
   if ((m = route("/v1/books/:bookId/transactions/:txId", "DELETE"))) {
-    const tx = state.transactions.find((t) => t.id === m!.txId && t.bookId === m!.bookId);
-    if (!tx) return fail(config, 404, "Transaction not found");
+    const tx = state.transactions.find((t) => t.id === m!.txId && t.bookId === m!.bookId && !t.deletedAt);
+    if (!tx) return fail(config, 404, "Transaction not found", "NOT_FOUND");
+    const expected = ifMatchVersion(config);
+    if (expected === null) return fail(config, 400, "If-Match header is required", "MISSING_IF_MATCH");
+    if (expected !== tx.version) return fail(config, 412, "Resource was modified. Re-fetch and retry.", "ETAG_MISMATCH");
     tx.deletedAt = nowIso();
     return ok(config, undefined, 204);
   }
@@ -646,4 +751,11 @@ export const mockAdapter: AxiosAdapter = async (config) => {
   }
 
   return fail(config, 404, `Mock adapter: no route for ${method} ${url}`);
-};
+}
+
+
+// QA hook for mock mode only (EXPO_PUBLIC_MOCK_API=true): lets a browser console or an E2E script seed
+// hundreds of rows to exercise paging without clicking them in one by one.
+if (process.env.EXPO_PUBLIC_MOCK_API === "true") {
+  (globalThis as { __pennywiseMockBackend?: typeof mockBackend }).__pennywiseMockBackend = mockBackend;
+}

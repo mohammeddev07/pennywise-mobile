@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
-import { useQueryClient } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
@@ -13,10 +12,8 @@ import { useBooksStore } from "@/features/books/store";
 import { useBookCurrency } from "@/features/books/useBookCurrency";
 import { useCategoriesStore } from "@/features/categories/store";
 import { useAddTransactionDraftStore } from "@/features/transactions/addDraftStore";
-import { useTransactionsStore } from "@/features/transactions/store";
-import * as transactionsApi from "@/shared/api/transactions";
+import { createTransaction } from "@/features/transactions/actions";
 import { getApiErrorMessage } from "@/shared/api/errors";
-import { getAccountEpoch, isCurrentAccountEpoch } from "@/shared/session/accountEpoch";
 import { formatCurrency, parseAmountToMinor } from "@/shared/utils/formatCurrency";
 
 import { AppText } from "@/shared/ui/components/AppText";
@@ -55,7 +52,6 @@ function parseWhen(iso: string) {
 export default function AddTransactionDetails() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const queryClient = useQueryClient();
   const paddingX = useScreenPaddingX();
 
   const books = useBooksStore((s) => s.books);
@@ -142,11 +138,12 @@ export default function AddTransactionDetails() {
       return;
     }
 
-    const accountEpoch = getAccountEpoch();
     setIsSaving(true);
     setSubmitError("");
     try {
-      const tx = await transactionsApi.createTransaction(bookId, idempotencyKey, {
+      // Create + centralised invalidation (search, analyze, balance, summary, ...). The draft's
+      // idempotency key makes a double submit a replay, not a second row.
+      const created = await createTransaction(bookId, idempotencyKey, {
         type: kind,
         amountMinor,
         categoryId: categoryId as string,
@@ -156,13 +153,8 @@ export default function AddTransactionDetails() {
         // fabricating CASH.
         occurredAt,
       });
-      if (!isCurrentAccountEpoch(accountEpoch)) return;
-
-      useTransactionsStore.getState().addTransaction(tx);
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["balance", bookId] }),
-        queryClient.invalidateQueries({ queryKey: ["summary", bookId] }),
-      ]);
+      // null = the account changed while this was in flight; the result is not ours to show.
+      if (!created) return;
 
       router.replace({
         pathname: "/modals/add-transaction/success",

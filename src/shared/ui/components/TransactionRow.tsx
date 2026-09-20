@@ -1,13 +1,13 @@
 import { Alert, View } from "react-native";
 import { format, isSameDay, parseISO, subDays } from "date-fns";
 import { useRouter } from "expo-router";
-import { useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 
 import { tokens } from "@/shared/ui/theme/tokens";
-import type { Transaction } from "@/features/transactions/store";
+import type { Transaction } from "@/features/transactions/model";
 import { useBookCurrency } from "@/features/books/useBookCurrency";
-import { useTransactionsStore } from "@/features/transactions/store";
+import { deleteTransaction, duplicateTransaction } from "@/features/transactions/actions";
+import { confirmDestructive } from "@/shared/ui/utils/confirm";
 import { useCategoriesStore } from "@/features/categories/store";
 import { useUndoToastStore } from "@/shared/ui/state/useUndoToastStore";
 import { Card } from "@/shared/ui/components/Card";
@@ -63,10 +63,7 @@ export function TransactionRow({
   showDay?: boolean;
 }) {
   const router = useRouter();
-  const queryClient = useQueryClient();
 
-  const duplicateTransaction = useTransactionsStore((s) => s.duplicateTransaction);
-  const removeTransaction = useTransactionsStore((s) => s.removeTransaction);
   const showError = useUndoToastStore((s) => s.showError);
   const currency = useBookCurrency(item.bookId);
   const isIncome = item.type === "INCOME";
@@ -86,39 +83,20 @@ export function TransactionRow({
     .join(" · ");
 
   const onDelete = () => {
-    Alert.alert("Delete transaction?", "This action cannot be undone.", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await removeTransaction(item.id);
-            await Promise.all([
-              queryClient.invalidateQueries({ queryKey: ["balance", item.bookId] }),
-              queryClient.invalidateQueries({ queryKey: ["summary", item.bookId] }),
-            ]);
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
-          } catch (error) {
-            showError(error, "Could not delete transaction.");
-          }
-        },
-      },
-    ]);
+    confirmDestructive("Delete transaction?", "This action cannot be undone.", async () => {
+      try {
+        await deleteTransaction(item);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+      } catch (error) {
+        showError(error, "Could not delete transaction.");
+      }
+    });
   };
 
   const onDuplicate = () => {
-    duplicateTransaction(item.id)
-      .then(async (duplicatedId) => {
-        if (duplicatedId) {
-          await Promise.all([
-            queryClient.invalidateQueries({ queryKey: ["balance", item.bookId] }),
-            queryClient.invalidateQueries({ queryKey: ["summary", item.bookId] }),
-          ]);
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-        } else {
-          showError(undefined, "Transaction is no longer available.");
-        }
+    duplicateTransaction(item)
+      .then((copy) => {
+        if (copy) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       })
       .catch((error) => showError(error, "Could not duplicate transaction."));
   };
@@ -134,7 +112,7 @@ export function TransactionRow({
 
   const row = (
     <HapticPressable
-      onPress={() => router.push({ pathname: "/modals/transaction-details", params: { id: item.id } })}
+      onPress={() => router.push({ pathname: "/modals/transaction-details", params: { id: item.id, bookId: item.bookId } })}
       onLongPress={openActions}
       // Opening the detail screen is a read - silent. The write it may lead to
       // fires its own confirmation.

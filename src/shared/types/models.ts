@@ -45,8 +45,8 @@ export type Transaction = {
   type: TransactionType;
   amountMinor: number;
 
-  /** Primary label shown in lists (what the user remembers). */
-  title: string;
+  /** What the user typed. null when there is none - lists fall back to the category name. */
+  title: string | null;
   categoryId: string;
   categoryName: string;
   note?: string;

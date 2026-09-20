@@ -3,7 +3,7 @@ import { View, ScrollView } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
-import { format, isSameDay, parseISO, subDays } from "date-fns";
+import { format } from "date-fns";
 
 import { tokens } from "@/shared/ui/theme/tokens";
 import { Screen } from "@/shared/ui/components/Screen";
@@ -23,7 +23,8 @@ import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { useAuthStore } from "@/features/auth/store";
 import { useBooksStore } from "@/features/books/store";
 import { useCategoriesStore } from "@/features/categories/store";
-import { useTransactionsStore } from "@/features/transactions/store";
+import { useWindowAnalysis, useRecentTransactions } from "@/features/transactions/queries";
+import { addDaysYmd, todayInTimeZone, ymdToLocalDate } from "@/shared/utils/ledgerDate";
 import { useBudgetsStore } from "@/features/budgets/store";
 import { useSettingsStore } from "@/features/settings/store";
 import * as summaryApi from "@/shared/api/summary";
@@ -48,15 +49,6 @@ function greeting(now = new Date()) {
   if (h < 12) return { emoji: "\u{1F305}", text: "Good morning" };
   if (h < 18) return { emoji: "\u2600\uFE0F", text: "Good afternoon" };
   return { emoji: "\u{1F319}", text: "Good evening" };
-}
-
-function safeDate(iso: string) {
-  try {
-    const d = parseISO(iso);
-    return Number.isNaN(d.getTime()) ? null : d;
-  } catch {
-    return null;
-  }
 }
 
 type BudgetItem = {
@@ -146,7 +138,6 @@ export default function Home() {
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
   const books = useBooksStore((s) => s.books);
   const ensureBook = useBooksStore((s) => s.ensureBook);
-  const transactions = useTransactionsStore((s) => s.transactions);
   const categories = useCategoriesStore((s) => s.categories);
   const budgets = useBudgetsStore((s) => s.budgets);
   const primaryCurrency = useSettingsStore((s) => s.primaryCurrency);
@@ -154,11 +145,9 @@ export default function Home() {
   const [isRestoringBook, setIsRestoringBook] = useState(false);
 
   const booksPersist = (useBooksStore as any).persist;
-  const txPersist = (useTransactionsStore as any).persist;
   const budgetsPersist = (useBudgetsStore as any).persist;
 
   const [booksHydrated, setBooksHydrated] = useState<boolean>(() => booksPersist?.hasHydrated?.() ?? true);
-  const [txHydrated, setTxHydrated] = useState<boolean>(() => txPersist?.hasHydrated?.() ?? true);
   const [budgetsHydrated, setBudgetsHydrated] = useState<boolean>(() => budgetsPersist?.hasHydrated?.() ?? true);
   const [hydrationError, setHydrationError] = useState(false);
 
@@ -169,11 +158,6 @@ export default function Home() {
       unsubs.push(unsub);
       if (booksPersist?.hasHydrated && !booksPersist.hasHydrated()) booksPersist?.rehydrate?.();
     }
-    if (txPersist?.onFinishHydration) {
-      const unsub = txPersist.onFinishHydration(() => setTxHydrated(true));
-      unsubs.push(unsub);
-      if (txPersist?.hasHydrated && !txPersist.hasHydrated()) txPersist?.rehydrate?.();
-    }
     if (budgetsPersist?.onFinishHydration) {
       const unsub = budgetsPersist.onFinishHydration(() => setBudgetsHydrated(true));
       unsubs.push(unsub);
@@ -181,17 +165,16 @@ export default function Home() {
     }
     const timeoutId = setTimeout(() => {
       const booksReady = booksPersist?.hasHydrated ? booksPersist.hasHydrated() : true;
-      const txReady = txPersist?.hasHydrated ? txPersist.hasHydrated() : true;
       const budgetsReady = budgetsPersist?.hasHydrated ? budgetsPersist.hasHydrated() : true;
-      if (!booksReady || !txReady || !budgetsReady) setHydrationError(true);
+      if (!booksReady || !budgetsReady) setHydrationError(true);
     }, 3000);
     return () => {
       clearTimeout(timeoutId);
       for (const unsub of unsubs) unsub?.();
     };
-  }, [booksPersist, budgetsPersist, txPersist]);
+  }, [booksPersist, budgetsPersist]);
 
-  const isHydrated = booksHydrated && txHydrated && budgetsHydrated;
+  const isHydrated = booksHydrated && budgetsHydrated;
   const selectedBookName = useMemo(
     () => books.find((b) => b.id === selectedBookId)?.name ?? "Personal",
     [books, selectedBookId]
@@ -216,28 +199,20 @@ export default function Home() {
     enabled: Boolean(selectedBookId),
   });
 
-  const bookTransactions = useMemo(
-    () => transactions.filter((t) => t.bookId === selectedBookId),
-    [transactions, selectedBookId]
-  );
-
-  // Last seven days of spending, from the transactions already loaded. Days
-  // with no activity render as an empty column rather than being skipped, so
-  // the shape of the week stays honest.
+  // Last seven days of spending, from the server's per-day totals. Days with no activity
+  // render as an empty column rather than being skipped, so the shape of the week stays honest.
+  const weekWindow = useMemo(() => {
+    const end = todayInTimeZone(selectedBook?.timezone);
+    return { startDate: addDaysYmd(end, -6), endDate: end };
+  }, [selectedBook?.timezone]);
+  const weekQuery = useWindowAnalysis(weekWindow, "DAY");
   const weekSpend = useMemo<AreaPoint[]>(() => {
-    const days = Array.from({ length: 7 }, (_, i) => subDays(new Date(), 6 - i));
-
-    return days.map((day) => {
-      const total = bookTransactions.reduce((sum, tx) => {
-        if (tx.type !== "EXPENSE") return sum;
-        const when = safeDate(tx.occurredOn || tx.occurredAt);
-        if (!when || !isSameDay(when, day)) return sum;
-        return sum + tx.amountMinor;
-      }, 0);
-
-      return { label: format(day, "EEEEE"), value: total };
+    const byDay = new Map((weekQuery.data?.buckets ?? []).map((b) => [b.key, b.expenseTotalMinor]));
+    return Array.from({ length: 7 }, (_, i) => {
+      const day = addDaysYmd(weekWindow.startDate, i);
+      return { label: format(ymdToLocalDate(day), "EEEEE"), value: byDay.get(day) ?? 0 };
     });
-  }, [bookTransactions]);
+  }, [weekQuery.data, weekWindow]);
 
   const weekTotal = useMemo(() => weekSpend.reduce((sum, d) => sum + d.value, 0), [weekSpend]);
 
@@ -285,21 +260,13 @@ export default function Home() {
     return { rows: rows.slice(0, 4), total };
   }, [categories, summaryQuery.data?.byCategory]);
 
-  const recentTransactions = useMemo(
-    () =>
-      [...bookTransactions]
-        .sort((a, b) => (Date.parse(b.occurredAt) || 0) - (Date.parse(a.occurredAt) || 0))
-        .slice(0, 4),
-    [bookTransactions]
-  );
+  const recentTransactions = useRecentTransactions(4).data ?? [];
 
   const retryHydration = () => {
     setHydrationError(false);
     setBooksHydrated(booksPersist?.hasHydrated?.() ?? true);
-    setTxHydrated(txPersist?.hasHydrated?.() ?? true);
     setBudgetsHydrated(budgetsPersist?.hasHydrated?.() ?? true);
     booksPersist?.rehydrate?.();
-    txPersist?.rehydrate?.();
     budgetsPersist?.rehydrate?.();
   };
 

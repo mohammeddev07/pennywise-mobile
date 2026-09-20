@@ -15,6 +15,8 @@ import { useBooksStore } from "@/features/books/store";
 import { useUndoToastStore } from "@/shared/ui/state/useUndoToastStore";
 import { useImportResultStore } from "@/features/imports/store";
 import { importTransactions } from "@/shared/api/transactions";
+import { queryClient } from "@/shared/api/queryClient";
+import { invalidateTransactionData } from "@/features/transactions/queries";
 
 const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
@@ -55,6 +57,8 @@ export default function ImportTransactionsModal() {
         mimeType: file.mimeType ?? XLSX_MIME,
       });
       setImportResult(response);
+      // Imported rows change every list, total, balance and budget for the book.
+      if (response.importedCount > 0) await invalidateTransactionData(queryClient, selectedBookId);
       router.replace("/modals/import-results");
     } catch (error) {
       showError(error, "Couldn't import transactions.");

@@ -1,26 +1,39 @@
-import { useEffect, useMemo, useState } from "react";
-import { Platform, ScrollView, View } from "react-native";
+import { useMemo, useState } from "react";
+import { ScrollView, View } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
-import DateTimePicker, {
-  DateTimePickerAndroid,
-  type DateTimePickerEvent,
-} from "@react-native-community/datetimepicker";
-import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
-import { addMonths, format, isSameDay, parseISO, startOfMonth, subDays } from "date-fns";
-import { useQuery } from "@tanstack/react-query";
+import Animated, { FadeIn } from "react-native-reanimated";
 
 import { tokens } from "@/shared/ui/theme/tokens";
-import * as summaryApi from "@/shared/api/summary";
-import { useTransactionsStore, type Transaction } from "@/features/transactions/store";
-import { TransactionRow } from "@/shared/ui/components/TransactionRow";
 import { useBooksStore } from "@/features/books/store";
 import { useCategoriesStore } from "@/features/categories/store";
 import { useBookCurrency } from "@/features/books/useBookCurrency";
+import { useActivityFilters } from "@/features/transactions/useActivityFilters";
+import { useActivityResults } from "@/features/transactions/queries";
+import { buildActivityRows, type ActivityRow } from "@/features/transactions/activityRows";
+import {
+  allDatesWindow,
+  dateRangeLabel,
+  hasAdvancedNodes,
+  isDatePrimarySort,
+  type DatePreset,
+} from "@/features/transactions/filterModel";
+import { CustomRangeSheet } from "@/features/transactions/ui/CustomRangeSheet";
+import { AdvancedFilterSheet } from "@/features/transactions/ui/AdvancedFilterSheet";
+import { SortSheet, describeSort } from "@/features/transactions/ui/SortSheet";
+import {
+  AmountFilterSheet,
+  CategoryFilterSheet,
+  PaymentFilterSheet,
+} from "@/features/transactions/ui/QuickFilterSheets";
+import { useDebouncedText } from "@/features/transactions/ui/useDebouncedText";
+import { exportQueryToDevice, ExportCancelledError, MockModeUnsupportedError } from "@/shared/utils/exportFile";
+import { useExportToastStore } from "@/shared/ui/state/useExportToastStore";
+import { useUndoToastStore } from "@/shared/ui/state/useUndoToastStore";
+import { TransactionRow } from "@/shared/ui/components/TransactionRow";
 import { EmptyState } from "@/shared/ui/components/EmptyState";
 import { AppText } from "@/shared/ui/components/AppText";
-import { Button } from "@/shared/ui/components/Button";
 import { FilterChip } from "@/shared/ui/components/FilterChip";
 import { FormField } from "@/shared/ui/components/FormField";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
@@ -28,78 +41,26 @@ import { IconButton } from "@/shared/ui/components/IconButton";
 import { MoneyAmount } from "@/shared/ui/components/MoneyAmount";
 import { ScreenHeader } from "@/shared/ui/components/ScreenHeader";
 import { Skeleton } from "@/shared/ui/components/Skeleton";
-import { BottomSheetModal, SheetCloseButton } from "@/shared/ui/components/BottomSheetModal";
-import { WebDateInput } from "@/shared/ui/components/WebDateInput";
 import { useScreenPaddingX, useTabBarClearance } from "@/shared/ui/components/Screen";
 import { formatCurrency } from "@/shared/utils/formatCurrency";
 import { balanceColor } from "@/shared/ui/theme/money";
 import { Icon } from "@/shared/ui/components/Icon";
-
-type RangeKey = "today" | "week" | "month" | "all" | "custom";
-
-type CustomRange = { start: Date; end: Date };
-
-type Row =
-  | { type: "header"; id: string; title: string; netMinor: number }
-  | { type: "tx"; id: string; tx: Transaction };
-
-function inRange(tx: Transaction, range: RangeKey, month: Date, custom: CustomRange | null) {
-  if (range === "all") return true;
-
-  const dayKey = transactionDayKey(tx);
-  if (!dayKey) return false;
-
-  if (range === "today") {
-    return dayKey === format(new Date(), "yyyy-MM-dd");
-  }
-
-  if (range === "week") {
-    const start = format(subDays(new Date(), 6), "yyyy-MM-dd");
-    const end = format(new Date(), "yyyy-MM-dd");
-    return dayKey >= start && dayKey <= end;
-  }
-
-  if (range === "custom") {
-    if (!custom) return false;
-    const start = format(custom.start <= custom.end ? custom.start : custom.end, "yyyy-MM-dd");
-    const end = format(custom.start <= custom.end ? custom.end : custom.start, "yyyy-MM-dd");
-    return dayKey >= start && dayKey <= end;
-  }
-
-  return dayKey.startsWith(format(month, "yyyy-MM"));
-}
-
-function safeDate(iso: string) {
-  try {
-    const d = parseISO(iso);
-    if (Number.isNaN(d.getTime())) return null;
-    return d;
-  } catch {
-    return null;
-  }
-}
-
-function dayTitle(d: Date) {
-  const now = new Date();
-  if (isSameDay(d, now)) return "Today";
-  if (isSameDay(d, subDays(now, 1))) return "Yesterday";
-  return format(d, "MMM d");
-}
-
-function transactionDayKey(tx: Transaction) {
-  if (/^\d{4}-\d{2}-\d{2}$/.test(tx.occurredOn)) return tx.occurredOn;
-  const date = safeDate(tx.occurredAt);
-  return date ? format(date, "yyyy-MM-dd") : "";
-}
+import {
+  addDaysYmd,
+  addMonthsYmd,
+  endOfMonthYmd,
+  formatMonthYmd,
+  formatYmd,
+  startOfMonthYmd,
+  type Ymd,
+} from "@/shared/utils/ledgerDate";
 
 /**
- * Day separator: the label on the left, that day's net on the right.
- *
- * Groups are made with a header, spacing and a divider rather than a rounded
- * container per day - a long history reads as one list instead of a stack of
- * boxes.
+ * Day header. The net on the right appears only when the whole day is loaded; while
+ * more pages may still add to it, the header shows the label alone rather than a
+ * partial sum passed off as the day's total.
  */
-function DayHeader({ title, netMinor, currency }: { title: string; netMinor: number; currency: string }) {
+function DayHeader({ title, netMinor, currency }: { title: string; netMinor: number | null; currency: string }) {
   return (
     <View
       style={{
@@ -113,210 +74,21 @@ function DayHeader({ title, netMinor, currency }: { title: string; netMinor: num
       <AppText variant="xs" tone="muted">
         {title.toUpperCase()}
       </AppText>
-
-      {/* The rule carries the day's subtotal out to the right edge, so a group
-          reads as one band without needing a container around it. */}
       <View style={{ flex: 1, height: 1, backgroundColor: tokens.colors.divider }} />
-
-      <MoneyAmount
-        value={formatCurrency(Math.abs(netMinor), currency, 0)}
-        kind={netMinor < 0 ? "EXPENSE" : "INCOME"}
-        size="sm"
-        weight="semibold"
-      />
+      {netMinor === null ? null : (
+        <MoneyAmount
+          value={formatCurrency(Math.abs(netMinor), currency, 0)}
+          kind={netMinor < 0 ? "EXPENSE" : "INCOME"}
+          size="sm"
+          weight="semibold"
+        />
+      )}
     </View>
   );
 }
 
-/**
- * Custom date-range picker, opened from the "Custom" chip. Stays on the
- * Activity screen - start and end are picked here, in a sheet, never on a
- * separate route.
- *
- * Visibility is owned entirely by the caller's `isCustomPickerOpen` state,
- * passed in as `visible`. This component never decides to open itself - not
- * from `selectedFilter === "custom"`, not from a prop identity change, not
- * from its own effects. Every exit path (Cancel, the backdrop, the hardware
- * back button, Apply) calls `onClose` and nothing here ever flips `visible`
- * back to true.
- *
- * Android picks each date through `DateTimePickerAndroid.open`, the one-shot
- * imperative API, instead of mounting the declarative `<DateTimePicker>`.
- * The declarative Android component re-presents its dialog from an internal
- * `useEffect` keyed on the `onChange` callback's identity - since a fresh
- * closure is passed every render, any unrelated re-render of this screen
- * while the dialog was open (typing, a store update, even the parent
- * recreating an inline object prop) reopened it, and it could resurface
- * right after Cancel/OK or the back button. The imperative call has no such
- * effect, so it cannot self-reopen.
- */
-function CustomRangeSheet({
-  visible,
-  onClose,
-  initial,
-  onApply,
-  onClear,
-}: {
-  visible: boolean;
-  onClose: () => void;
-  initial: CustomRange;
-  onApply: (range: CustomRange) => void;
-  onClear: () => void;
-}) {
-  const [draftStart, setDraftStart] = useState(initial.start);
-  const [draftEnd, setDraftEnd] = useState(initial.end);
-  const [editing, setEditing] = useState<"start" | "end">("start");
-
-  // Seeds the draft exactly once per open. `initial` is memoized by the
-  // caller, so this does not refire on every unrelated parent re-render.
-  useEffect(() => {
-    if (!visible) return;
-    setDraftStart(initial.start);
-    setDraftEnd(initial.end);
-    setEditing("start");
-  }, [visible, initial]);
-
-  const openStart = () => {
-    setEditing("start");
-    if (Platform.OS === "android") {
-      DateTimePickerAndroid.open({
-        value: draftStart,
-        mode: "date",
-        onChange: (_event: DateTimePickerEvent, selected?: Date) => {
-          if (selected) setDraftStart(selected);
-        },
-      });
-    }
-  };
-
-  const openEnd = () => {
-    setEditing("end");
-    if (Platform.OS === "android") {
-      DateTimePickerAndroid.open({
-        value: draftEnd,
-        mode: "date",
-        onChange: (_event: DateTimePickerEvent, selected?: Date) => {
-          if (selected) setDraftEnd(selected);
-        },
-      });
-    }
-  };
-
-  return (
-    <BottomSheetModal
-      visible={visible}
-      onClose={onClose}
-      title="Custom range"
-      rightAction={<SheetCloseButton onPress={onClose} />}
-    >
-      <View style={{ flexDirection: "row", gap: tokens.space[3] }}>
-        <HapticPressable
-          onPress={openStart}
-          haptic="none"
-          pressScale={0.99}
-          accessibilityRole="button"
-          style={{
-            flex: 1,
-            height: tokens.layout.controlHeight,
-            justifyContent: "center",
-            paddingHorizontal: tokens.space[4],
-            borderRadius: tokens.radii.md,
-            borderWidth: 1.5,
-            borderColor: editing === "start" ? tokens.colors.accent : tokens.colors.stroke,
-            backgroundColor: tokens.colors.surface,
-          }}
-        >
-          <AppText variant="xs" tone="muted">
-            START DATE
-          </AppText>
-          <AppText variant="base" weight="semibold" style={{ marginTop: 2 }}>
-            {format(draftStart, "MMM d, yyyy")}
-          </AppText>
-        </HapticPressable>
-
-        <HapticPressable
-          onPress={openEnd}
-          haptic="none"
-          pressScale={0.99}
-          accessibilityRole="button"
-          style={{
-            flex: 1,
-            height: tokens.layout.controlHeight,
-            justifyContent: "center",
-            paddingHorizontal: tokens.space[4],
-            borderRadius: tokens.radii.md,
-            borderWidth: 1.5,
-            borderColor: editing === "end" ? tokens.colors.accent : tokens.colors.stroke,
-            backgroundColor: tokens.colors.surface,
-          }}
-        >
-          <AppText variant="xs" tone="muted">
-            END DATE
-          </AppText>
-          <AppText variant="base" weight="semibold" style={{ marginTop: 2 }}>
-            {format(draftEnd, "MMM d, yyyy")}
-          </AppText>
-        </HapticPressable>
-      </View>
-
-      {Platform.OS === "ios" ? (
-        <Animated.View
-          key={editing}
-          entering={FadeIn.duration(tokens.motion.fast)}
-          style={{ marginTop: tokens.space[4] }}
-        >
-          <DateTimePicker
-            value={editing === "start" ? draftStart : draftEnd}
-            mode="date"
-            display="spinner"
-            themeVariant="dark"
-            textColor={tokens.colors.text}
-            onChange={(_event, selected) => {
-              if (!selected) return;
-              if (editing === "start") setDraftStart(selected);
-              else setDraftEnd(selected);
-            }}
-          />
-        </Animated.View>
-      ) : Platform.OS === "web" ? (
-        <View style={{ marginTop: tokens.space[4] }}>
-          <WebDateInput
-            mode="date"
-            value={editing === "start" ? draftStart : draftEnd}
-            onChange={(next) => {
-              if (editing === "start") setDraftStart(next);
-              else setDraftEnd(next);
-            }}
-          />
-        </View>
-      ) : null}
-
-      <View style={{ flexDirection: "row", gap: tokens.space[3], marginTop: tokens.space[5] }}>
-        <Button
-          label="Reset"
-          variant="secondary"
-          size="md"
-          style={{ flex: 1 }}
-          onPress={() => {
-            onClear();
-            onClose();
-          }}
-        />
-        <Button
-          label="Apply"
-          size="md"
-          style={{ flex: 1 }}
-          onPress={() => {
-            onApply({
-              start: draftStart <= draftEnd ? draftStart : draftEnd,
-              end: draftStart <= draftEnd ? draftEnd : draftStart,
-            });
-            onClose();
-          }}
-        />
-      </View>
-    </BottomSheetModal>
-  );
+function isWholeMonth(start: Ymd, end: Ymd) {
+  return start === startOfMonthYmd(start) && end === endOfMonthYmd(start);
 }
 
 export default function TransactionsScreen() {
@@ -324,275 +96,94 @@ export default function TransactionsScreen() {
   const paddingX = useScreenPaddingX();
   const tabClearance = useTabBarClearance();
 
-  const transactions = useTransactionsStore((s) => s.transactions);
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
   const categories = useCategoriesStore((s) => s.categories);
-
-  const txPersist = (useTransactionsStore as any).persist;
-  const booksPersist = (useBooksStore as any).persist;
-
-  const [txHydrated, setTxHydrated] = useState<boolean>(() => {
-    const has = txPersist?.hasHydrated?.();
-    return typeof has === "boolean" ? has : true;
-  });
-  const [booksHydrated, setBooksHydrated] = useState<boolean>(() => {
-    const has = booksPersist?.hasHydrated?.();
-    return typeof has === "boolean" ? has : true;
-  });
-  const [hydrationError, setHydrationError] = useState(false);
-
-  useEffect(() => {
-    const unsubs: Array<() => void> = [];
-
-    if (txPersist?.onFinishHydration) {
-      const unsub = txPersist.onFinishHydration(() => setTxHydrated(true));
-      unsubs.push(unsub);
-      if (txPersist?.hasHydrated && !txPersist.hasHydrated()) txPersist?.rehydrate?.();
-    }
-
-    if (booksPersist?.onFinishHydration) {
-      const unsub = booksPersist.onFinishHydration(() => setBooksHydrated(true));
-      unsubs.push(unsub);
-      if (booksPersist?.hasHydrated && !booksPersist.hasHydrated()) booksPersist?.rehydrate?.();
-    }
-
-    const timeoutId = setTimeout(() => {
-      const txReady = txPersist?.hasHydrated ? txPersist.hasHydrated() : true;
-      const booksReady = booksPersist?.hasHydrated ? booksPersist.hasHydrated() : true;
-      if (!txReady || !booksReady) {
-        setHydrationError(true);
-      }
-    }, 3000);
-
-    return () => {
-      clearTimeout(timeoutId);
-      for (const unsub of unsubs) unsub?.();
-    };
-  }, [booksPersist, txPersist]);
-
-  const retryHydration = () => {
-    setHydrationError(false);
-    setTxHydrated(txPersist?.hasHydrated?.() ?? true);
-    setBooksHydrated(booksPersist?.hasHydrated?.() ?? true);
-    txPersist?.rehydrate?.();
-    booksPersist?.rehydrate?.();
-  };
-
-  const isHydrated = txHydrated && booksHydrated;
-
   const currency = useBookCurrency(selectedBookId);
+  const showExportSuccess = useExportToastStore((s) => s.showSuccess);
+  const showError = useUndoToastStore((s) => s.showError);
 
-  const [range, setRange] = useState<RangeKey>("today");
-  const [selectedMonth, setSelectedMonth] = useState(() => startOfMonth(new Date()));
-  const [customRange, setCustomRange] = useState<CustomRange | null>(null);
-  // Sole gate for the custom-range sheet's visibility. Never derived from
-  // `range === "custom"` - that identity is what caused the picker to
-  // reappear on its own, since `range` stays "custom" long after the user
-  // has closed the sheet.
-  const [isCustomPickerOpen, setIsCustomPickerOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const filters = useActivityFilters();
+  const results = useActivityResults(filters.query);
+  const { quick, today } = filters;
 
-  useEffect(() => {
-    setCategoryFilter(null);
-  }, [selectedBookId]);
-
-  const bookTransactions = useMemo(() => {
-    return transactions.filter((t) => t.bookId === selectedBookId);
-  }, [transactions, selectedBookId]);
-
-  const bookCategories = useMemo(() => {
-    return categories.filter((c) => c.bookId === selectedBookId);
-  }, [categories, selectedBookId]);
-
-  const activeCategory = useMemo(() => {
-    return categoryFilter ? (bookCategories.find((c) => c.id === categoryFilter) ?? null) : null;
-  }, [bookCategories, categoryFilter]);
-
-  const rangeTransactions = useMemo(() => {
-    return bookTransactions.filter((tx) => inRange(tx, range, selectedMonth, customRange));
-  }, [bookTransactions, range, selectedMonth, customRange]);
-
-  const categoryTransactions = useMemo(() => {
-    if (!categoryFilter) return rangeTransactions;
-    return rangeTransactions.filter((tx) => tx.categoryId === categoryFilter);
-  }, [rangeTransactions, categoryFilter]);
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-
-    return categoryTransactions.filter((tx) => {
-      if (!q) return true;
-
-      const hay = [tx.title ?? "", tx.categoryName ?? "", tx.note ?? "", tx.type ?? ""]
-        .join(" ")
-        .toLowerCase();
-
-      return hay.includes(q);
-    });
-  }, [query, categoryTransactions]);
-
-  // Custom Range is the only preset backed by a server-computed summary - it's the
-  // one place the 100-transaction client load cap (see _layout.tsx) would otherwise
-  // silently undercount. Today/7 Days/Month/Recent still compute client-side; see
-  // the range-summary rollout notes for why those are a separate follow-up.
-  const rangeSummaryQuery = useQuery({
-    queryKey: [
-      "summaryRange",
-      selectedBookId,
-      customRange ? format(customRange.start, "yyyy-MM-dd") : null,
-      customRange ? format(customRange.end, "yyyy-MM-dd") : null,
-    ],
-    queryFn: () => {
-      if (!customRange) throw new Error("customRange is required");
-      const [start, end] =
-        customRange.start <= customRange.end
-          ? [customRange.start, customRange.end]
-          : [customRange.end, customRange.start];
-      return summaryApi.getRangeSummary(
-        selectedBookId,
-        format(start, "yyyy-MM-dd"),
-        format(end, "yyyy-MM-dd")
-      );
-    },
-    enabled: Boolean(selectedBookId) && range === "custom" && Boolean(customRange),
-  });
-
-  const totals = useMemo(() => {
-    if (range === "custom" && rangeSummaryQuery.data) {
-      const data = rangeSummaryQuery.data;
-
-      if (!categoryFilter) {
-        return {
-          incomeCents: data.incomeTotalMinor,
-          expenseCents: data.expenseTotalMinor,
-          netCents: data.incomeTotalMinor - data.expenseTotalMinor,
-          count: data.transactionCount,
-        };
-      }
-
-      // A category is always a single type (enforced server-side), so its one
-      // byCategory entry fully determines income/expense/net/count for it - no
-      // separate per-category endpoint needed. No entry = zero activity in range.
-      const entry = data.byCategory.find((c) => c.categoryId === categoryFilter);
-      const income = entry?.type === "INCOME" ? entry.totalMinor : 0;
-      const expense = entry?.type === "EXPENSE" ? entry.totalMinor : 0;
-      return {
-        incomeCents: income,
-        expenseCents: expense,
-        netCents: income - expense,
-        count: entry?.transactionCount ?? 0,
-      };
-    }
-
-    let income = 0;
-    let expense = 0;
-
-    for (const tx of categoryTransactions) {
-      if (tx.type === "INCOME") income += tx.amountMinor;
-      else expense += tx.amountMinor;
-    }
-
-    return {
-      incomeCents: income,
-      expenseCents: expense,
-      netCents: income - expense,
-      count: categoryTransactions.length,
-    };
-  }, [range, categoryFilter, rangeSummaryQuery.data, categoryTransactions]);
-
-  const rows = useMemo<Row[]>(() => {
-    const sorted = [...filtered].sort((a, b) => {
-      const da = safeDate(a.occurredAt)?.getTime() ?? 0;
-      const db = safeDate(b.occurredAt)?.getTime() ?? 0;
-      return db - da;
-    });
-
-    // Day nets are computed up front so the header can show them without
-    // scanning forward while rendering.
-    const netByDay = new Map<string, number>();
-    for (const tx of sorted) {
-      const key = transactionDayKey(tx) || "unknown";
-      const delta = tx.type === "INCOME" ? tx.amountMinor : -tx.amountMinor;
-      netByDay.set(key, (netByDay.get(key) ?? 0) + delta);
-    }
-
-    const out: Row[] = [];
-    let lastKey = "";
-
-    for (const tx of sorted) {
-      const key = transactionDayKey(tx) || "unknown";
-      const d = key === "unknown" ? null : safeDate(key);
-
-      if (key !== lastKey) {
-        lastKey = key;
-        out.push({
-          type: "header",
-          id: `h_${key}`,
-          title: d ? dayTitle(d) : "Unknown date",
-          netMinor: netByDay.get(key) ?? 0,
-        });
-      }
-
-      out.push({ type: "tx", id: tx.id, tx });
-    }
-
-    return out;
-  }, [filtered]);
-
-  const customRangeLabel = customRange
-    ? `${format(customRange.start, "MMM d")} – ${format(customRange.end, "MMM d")}`
-    : "Custom range";
-
-  // Stable identity unless `customRange` itself changes, so the sheet's seed
-  // effect only fires on an actual open, not on every unrelated re-render of
-  // this screen while it happens to be visible.
-  const customSheetInitial = useMemo(
-    () => customRange ?? { start: subDays(new Date(), 6), end: new Date() },
-    [customRange]
+  const bookCategories = useMemo(
+    () =>
+      categories
+        .filter((c) => c.bookId === selectedBookId && !c.isDisabled)
+        .map((c) => ({ id: c.id, name: c.name, type: c.type, icon: c.icon, color: c.color })),
+    [categories, selectedBookId]
   );
 
-  const summaryLabel =
-    range === "today"
-      ? "Today"
-      : range === "week"
-        ? "Last 7 days"
-        : range === "month"
-          ? format(selectedMonth, "MMMM")
-          : range === "custom"
-            ? customRangeLabel
-            : "Loaded activity";
+  // Sheets. Each is owned by exactly one boolean here; nothing below opens one implicitly.
+  const [customOpen, setCustomOpen] = useState(false);
+  const [categoryOpen, setCategoryOpen] = useState(false);
+  const [amountOpen, setAmountOpen] = useState(false);
+  const [paymentOpen, setPaymentOpen] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [sortOpen, setSortOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
-  const emptyTitle = query.trim()
-    ? "No matches"
-    : bookTransactions.length === 0
-      ? "No transactions yet"
-      : activeCategory
-        ? `No ${activeCategory.name} activity`
-        : range === "today"
-          ? "Nothing today"
-          : range === "week"
-            ? "Nothing in the last 7 days"
-            : range === "month"
-              ? `Nothing in ${format(selectedMonth, "MMMM")}`
-              : range === "custom"
-                ? `Nothing in ${customRangeLabel}`
-                : "No loaded transactions";
+  const [searchText, setSearchText] = useDebouncedText(quick.description, filters.setDescription);
 
-  const emptyMessage = query.trim()
-    ? "Try a different search or clear the filter."
-    : bookTransactions.length === 0
-      ? "Your transactions will appear here."
-      : activeCategory
-        ? `Try a different category, or clear the "${activeCategory.name}" filter.`
-        : range === "today"
-          ? "No transaction dated today is present in the latest loaded records."
-          : range === "week"
-            ? "No transaction from the last 7 days is present in the latest loaded records."
-            : range === "custom"
-              ? "No transaction falls inside the selected date range."
-              : "Only the latest loaded records are available in this version.";
+  // ---- date chips -------------------------------------------------------------
+  const date = quick.date;
+  const isPreset = (p: DatePreset) => date?.preset === p;
+  const monthView = date !== null && isWholeMonth(date.startDate, date.endDate);
+  const customActive = date !== null && !isPreset("today") && !isPreset("7d") && !monthView;
+  const rangeLabel = date ? dateRangeLabel(date, filters.describeContext) : "All dates";
+  const allWindow = useMemo(() => allDatesWindow(today), [today]);
+
+  const setMonth = (start: Ymd) => {
+    const isCurrent = start === startOfMonthYmd(today);
+    filters.setDate({ startDate: start, endDate: endOfMonthYmd(start), preset: isCurrent ? "month" : undefined });
+  };
+
+  // ---- derived UI -------------------------------------------------------------
+  const dateChipId = useMemo(() => {
+    // The date slot is the top-level occurredOn BETWEEN node; its chip is the range chips' job.
+    return filters.root.children.find((c) => c.kind === "condition" && c.field === "occurredOn" && c.operator === "BETWEEN")?.id;
+  }, [filters.root]);
+  const activeChips = useMemo(() => filters.chips.filter((c) => c.id !== dateChipId), [filters.chips, dateChipId]);
+
+  const filterCount = activeChips.length;
+  const hasFilters = filterCount > 0 || date !== null;
+
+  const rows = useMemo<ActivityRow[]>(
+    () => buildActivityRows(results.rows, filters.sort, { today, hasMore: Boolean(results.hasNextPage) }),
+    [results.rows, filters.sort, today, results.hasNextPage]
+  );
+
+  const onExport = async () => {
+    if (isExporting || !filters.query || !selectedBookId) return;
+    setIsExporting(true);
+    try {
+      // The exact applied filter and sort - every matching row, not the visible page.
+      const { fileName } = await exportQueryToDevice(selectedBookId, {
+        filter: filters.query.filter,
+        ...(filters.query.sort.length > 0 ? { sort: filters.query.sort } : {}),
+      });
+      showExportSuccess(`Saved ${fileName}`);
+    } catch (error) {
+      if (error instanceof ExportCancelledError) return;
+      if (error instanceof MockModeUnsupportedError) showError(error, error.message);
+      else showError(error, "Couldn't export these transactions.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const showRows = results.status === "ready" && (results.rowsCurrent || rows.length > 0);
+  const updating = results.isUpdating;
+  const totals = results.totals;
+
+  const emptyTitle = filterCount > 0 ? "No matches" : date !== null ? `Nothing in ${rangeLabel}` : "No transactions yet";
+  const emptyMessage =
+    filterCount > 0
+      ? "Try changing or clearing the filters."
+      : date !== null
+        ? "No transaction falls inside this date range."
+        : "Your transactions will appear here.";
 
   return (
     <View
@@ -606,24 +197,31 @@ export default function TransactionsScreen() {
         <ScreenHeader
           title="Activity"
           right={
-            <IconButton
-              icon={searchOpen ? "close" : "search"}
-              accessibilityLabel={searchOpen ? "Close search" : "Search transactions"}
-              onPress={() => {
-                setSearchOpen((open) => {
-                  if (open) setQuery("");
-                  return !open;
-                });
-              }}
-            />
+            <View style={{ flexDirection: "row", gap: tokens.space[2] }}>
+              <IconButton
+                icon="download-outline"
+                accessibilityLabel="Export current results"
+                disabled={isExporting || results.totalCount === 0}
+                onPress={onExport}
+              />
+              <IconButton icon="swap-vertical" accessibilityLabel="Sort" onPress={() => setSortOpen(true)} />
+              <IconButton
+                icon={searchOpen ? "close" : "search"}
+                accessibilityLabel={searchOpen ? "Close search" : "Search transactions"}
+                onPress={() => {
+                  if (searchOpen) setSearchText("");
+                  setSearchOpen((open) => !open);
+                }}
+              />
+            </View>
           }
         />
 
         {searchOpen ? (
           <FormField
-            value={query}
-            onChangeText={setQuery}
-            placeholder="Search transactions"
+            value={searchText}
+            onChangeText={setSearchText}
+            placeholder="Search title or note"
             autoCorrect={false}
             autoCapitalize="none"
             autoFocus
@@ -633,7 +231,7 @@ export default function TransactionsScreen() {
           />
         ) : null}
 
-        {/* Range */}
+        {/* Date range */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -641,48 +239,83 @@ export default function TransactionsScreen() {
           contentContainerStyle={{ gap: tokens.space[2], paddingRight: paddingX }}
           style={{ marginTop: tokens.space[4] }}
         >
-          <FilterChip label="Today" active={range === "today"} onPress={() => setRange("today")} />
-          <FilterChip label="7 days" active={range === "week"} onPress={() => setRange("week")} />
-          <FilterChip label="Month" active={range === "month"} onPress={() => setRange("month")} />
-          <FilterChip label="Recent" active={range === "all"} onPress={() => setRange("all")} />
+          <FilterChip label="Today" active={isPreset("today")} onPress={() => filters.setDate({ startDate: today, endDate: today, preset: "today" })} />
           <FilterChip
-            label="Custom"
+            label="7 days"
+            active={isPreset("7d")}
+            onPress={() => filters.setDate({ startDate: shiftDays(today, -6), endDate: today, preset: "7d" })}
+          />
+          <FilterChip label="Month" active={monthView} onPress={() => setMonth(startOfMonthYmd(today))} />
+          <FilterChip label="All" active={date === null} onPress={() => filters.setDate(null)} />
+          <FilterChip
+            label={customActive ? rangeLabel : "Custom"}
             icon="calendar-outline"
-            active={range === "custom"}
-            onPress={() => setIsCustomPickerOpen(true)}
+            active={customActive}
+            onPress={() => setCustomOpen(true)}
           />
         </ScrollView>
 
-        {/* Category */}
-        {bookCategories.length > 0 ? (
+        {/* Quick filters */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ gap: tokens.space[2], paddingRight: paddingX }}
+          style={{ marginTop: tokens.space[2] }}
+        >
+          <FilterChip label="Expenses" tone="expense" active={quick.type === "EXPENSE"} clearable onPress={() => filters.setType(quick.type === "EXPENSE" ? null : "EXPENSE")} />
+          <FilterChip label="Income" tone="income" active={quick.type === "INCOME"} clearable onPress={() => filters.setType(quick.type === "INCOME" ? null : "INCOME")} />
+          <FilterChip
+            label={quick.categoryIds.length > 0 ? `Categories · ${quick.categoryIds.length}` : "Categories"}
+            active={quick.categoryIds.length > 0}
+            onPress={() => setCategoryOpen(true)}
+          />
+          <FilterChip
+            label="Amount"
+            active={quick.amountMinMinor !== null || quick.amountMaxMinor !== null}
+            onPress={() => setAmountOpen(true)}
+          />
+          <FilterChip
+            label="Payment"
+            active={quick.paymentMethods.length > 0 || quick.paymentUnspecified}
+            onPress={() => setPaymentOpen(true)}
+          />
+          <FilterChip
+            label="Advanced"
+            icon="settings-outline"
+            active={hasAdvancedNodes(filters.root)}
+            onPress={() => setAdvancedOpen(true)}
+          />
+        </ScrollView>
+
+        {/* Everything applied, removable one by one. */}
+        {activeChips.length > 0 ? (
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
-            contentContainerStyle={{ gap: tokens.space[2], paddingRight: paddingX }}
+            contentContainerStyle={{ gap: tokens.space[2], paddingRight: paddingX, alignItems: "center" }}
             style={{ marginTop: tokens.space[2] }}
           >
-            <FilterChip
-              label="All categories"
-              active={!categoryFilter}
-              onPress={() => setCategoryFilter(null)}
-            />
-            {bookCategories.map((c) => (
-              <FilterChip
-                key={c.id}
-                label={c.name}
-                icon={c.icon}
-                iconColor={c.color}
-                active={categoryFilter === c.id}
-                clearable
-                onPress={() => setCategoryFilter((cur) => (cur === c.id ? null : c.id))}
-              />
+            {activeChips.map((chip) => (
+              <FilterChip key={chip.id} label={chip.label} active clearable onPress={() => filters.removeChip(chip.id)} />
             ))}
+            <HapticPressable
+              onPress={filters.clearAll}
+              haptic="none"
+              accessibilityRole="button"
+              accessibilityLabel="Clear all filters"
+              style={{ minHeight: tokens.layout.minTap, justifyContent: "center", paddingHorizontal: tokens.space[3] }}
+            >
+              <AppText variant="sm" tone="muted" weight="semibold">
+                Clear all
+              </AppText>
+            </HapticPressable>
           </ScrollView>
         ) : null}
 
-        {/* Month stepper, only while browsing a month */}
-        {range === "month" ? (
+        {/* Month stepper, only while browsing a calendar month */}
+        {monthView && date ? (
           <View
             style={{
               marginTop: tokens.space[3],
@@ -695,95 +328,111 @@ export default function TransactionsScreen() {
               icon="chevron-back"
               size={tokens.layout.minTap}
               accessibilityLabel="Previous month"
-              onPress={() => setSelectedMonth((m) => addMonths(m, -1))}
+              onPress={() => setMonth(addMonthsYmd(date.startDate, -1))}
             />
             <AppText variant="base" weight="semibold">
-              {format(selectedMonth, "MMMM yyyy")}
+              {formatMonthYmd(date.startDate)}
             </AppText>
             <IconButton
               icon="chevron-forward"
               size={tokens.layout.minTap}
               accessibilityLabel="Next month"
-              onPress={() => setSelectedMonth((m) => addMonths(m, 1))}
+              onPress={() => setMonth(addMonthsYmd(date.startDate, 1))}
             />
           </View>
         ) : null}
 
-        {/* Summary. Quiet by design: the list is the subject of this screen.
-            Every period shows all three figures - a lone net hides whether a
-            quiet week was actually quiet or just balanced. */}
-        <Animated.View
-          key={`${range}-${range === "custom" ? customRangeLabel : ""}-${range === "month" ? format(selectedMonth, "yyyy-MM") : ""}`}
-          entering={FadeIn.duration(tokens.motion.fast)}
-          style={{ marginTop: tokens.space[6] }}
-        >
-          <AppText variant="xs" tone="muted">
-            {summaryLabel.toUpperCase()}
-          </AppText>
-
-          <View style={{ flexDirection: "row", marginTop: tokens.space[2], gap: tokens.space[4] }}>
-            <View style={{ flex: 1 }}>
-              <AppText variant="sm" tone="muted">
-                Spent
-              </AppText>
-              <MoneyAmount
-                value={formatCurrency(totals.expenseCents, currency)}
-                kind="EXPENSE"
-                size="lg"
-                style={{ marginTop: 2 }}
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <AppText variant="sm" tone="muted">
-                Received
-              </AppText>
-              <MoneyAmount
-                value={formatCurrency(totals.incomeCents, currency)}
-                kind="INCOME"
-                size="lg"
-                style={{ marginTop: 2 }}
-              />
-            </View>
-          </View>
-
-          <View style={{ marginTop: tokens.space[4] }}>
-            <AppText variant="sm" tone="muted">
-              Net
+        {/* Summary: totals over EVERY matching transaction (server-side), never the loaded rows.
+            While the applied filter is changing they are withheld, not shown stale. */}
+        <Animated.View key={filters.revision} entering={FadeIn.duration(tokens.motion.fast)} style={{ marginTop: tokens.space[6] }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: tokens.space[2] }}>
+            <AppText variant="xs" tone="muted" style={{ flex: 1 }} numberOfLines={1}>
+              {rangeLabel.toUpperCase()}
             </AppText>
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "baseline",
-                gap: tokens.space[2],
-                marginTop: 2,
-              }}
-            >
-              <MoneyAmount
-                value={formatCurrency(totals.netCents, currency)}
-                tone="neutral"
-                size="xl"
-                color={balanceColor(totals.netCents)}
-              />
-              <AppText variant="sm" tone="muted">
-                · {totals.count} {totals.count === 1 ? "transaction" : "transactions"}
+            {updating ? (
+              <AppText variant="xs" tone="muted" accessibilityLiveRegion="polite">
+                UPDATING…
               </AppText>
-            </View>
+            ) : null}
           </View>
+          {date === null ? (
+            <AppText variant="xs" tone="subtle" style={{ marginTop: 2 }}>
+              {formatYmd(allWindow.startDate)} – {formatYmd(allWindow.endDate)}
+            </AppText>
+          ) : null}
+
+          {totals ? (
+            <>
+              <View style={{ flexDirection: "row", marginTop: tokens.space[2], gap: tokens.space[4], opacity: updating ? 0.6 : 1 }}>
+                <View style={{ flex: 1 }}>
+                  <AppText variant="sm" tone="muted">
+                    Spent
+                  </AppText>
+                  <MoneyAmount value={formatCurrency(totals.expenseTotalMinor, currency)} kind="EXPENSE" size="lg" style={{ marginTop: 2 }} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <AppText variant="sm" tone="muted">
+                    Received
+                  </AppText>
+                  <MoneyAmount value={formatCurrency(totals.incomeTotalMinor, currency)} kind="INCOME" size="lg" style={{ marginTop: 2 }} />
+                </View>
+              </View>
+
+              <View style={{ marginTop: tokens.space[4], opacity: updating ? 0.6 : 1 }}>
+                <AppText variant="sm" tone="muted">
+                  Net
+                </AppText>
+                <View style={{ flexDirection: "row", alignItems: "baseline", gap: tokens.space[2], marginTop: 2 }}>
+                  <MoneyAmount
+                    value={formatCurrency(totals.netMinor, currency)}
+                    tone="neutral"
+                    size="xl"
+                    color={balanceColor(totals.netMinor)}
+                  />
+                  <AppText variant="sm" tone="muted">
+                    · {totals.matchedCount} {totals.matchedCount === 1 ? "transaction" : "transactions"}
+                  </AppText>
+                </View>
+              </View>
+            </>
+          ) : results.totalsError ? (
+            <View style={{ marginTop: tokens.space[3] }}>
+              <AppText variant="sm" tone="danger">
+                Couldn’t load totals.
+              </AppText>
+              <HapticPressable onPress={() => void results.refetch()} haptic="none" accessibilityRole="button" style={{ minHeight: tokens.layout.minTap, justifyContent: "center" }}>
+                <AppText variant="sm" weight="semibold" style={{ color: tokens.colors.accent }}>
+                  Retry
+                </AppText>
+              </HapticPressable>
+            </View>
+          ) : (
+            <View style={{ marginTop: tokens.space[3], gap: tokens.space[3] }}>
+              <Skeleton height={44} borderRadius={tokens.radii.md} />
+              <Skeleton height={48} borderRadius={tokens.radii.md} />
+            </View>
+          )}
+
+          {filters.sort.length > 0 || !isDatePrimarySort(filters.sort) ? (
+            <AppText variant="xs" tone="subtle" style={{ marginTop: tokens.space[3] }}>
+              Sorted by {describeSort(filters.sort)}
+            </AppText>
+          ) : null}
         </Animated.View>
       </View>
 
       <View style={{ flex: 1, paddingHorizontal: paddingX }}>
-        {hydrationError ? (
+        {results.status === "error" ? (
           <View style={{ flex: 1, justifyContent: "center" }}>
             <EmptyState
               title="Couldn’t load transactions"
-              message="Retry to refresh your transaction history."
+              message="Check your connection and try again."
               actionLabel="Retry"
               tone="danger"
-              onAction={retryHydration}
+              onAction={() => void results.refetch()}
             />
           </View>
-        ) : !isHydrated ? (
+        ) : !showRows ? (
           <View style={{ gap: tokens.space[3], paddingTop: tokens.space[6] }}>
             <Skeleton height={tokens.layout.listRowHeight} borderRadius={tokens.radii.md} />
             <Skeleton height={tokens.layout.listRowHeight} borderRadius={tokens.radii.md} />
@@ -792,65 +441,116 @@ export default function TransactionsScreen() {
         ) : rows.length === 0 ? (
           <View style={{ flex: 1, justifyContent: "center" }}>
             <EmptyState
-              emoji={bookTransactions.length === 0 ? "\u{1F335}" : undefined}
+              emoji={!hasFilters ? "\u{1F335}" : undefined}
               iconName="receipt-outline"
               title={emptyTitle}
               message={emptyMessage}
-              actionLabel="Add transaction"
-              onAction={() => router.push("/modals/add-transaction")}
+              actionLabel={filterCount > 0 ? "Clear filters" : date !== null ? "Show all dates" : "Add transaction"}
+              onAction={
+                filterCount > 0
+                  ? filters.clearAll
+                  : date !== null
+                    ? () => filters.setDate(null)
+                    : () => router.push("/modals/add-transaction")
+              }
             />
           </View>
         ) : (
-          <FlashList
-            key={`${range}-${range === "custom" ? customRangeLabel : ""}-${range === "month" ? format(selectedMonth, "yyyy-MM") : ""}`}
-            data={rows}
-            keyExtractor={(r) => r.id}
-            renderItem={({ item, index }) => {
-              if (item.type === "header") {
-                return <DayHeader title={item.title} netMinor={item.netMinor} currency={currency} />;
+          <View style={{ flex: 1, opacity: updating && !results.rowsCurrent ? 0.5 : 1 }}>
+            <FlashList
+              key={filters.scope}
+              data={rows}
+              keyExtractor={(r) => r.id}
+              getItemType={(r) => r.type}
+              renderItem={({ item }) =>
+                item.type === "header" ? (
+                  <DayHeader title={item.title} netMinor={item.netMinor} currency={currency} />
+                ) : (
+                  <View>
+                    <TransactionRow item={item.tx} embedded showDay={!isDatePrimarySort(filters.sort)} />
+                    {item.divider ? <View style={{ height: 1, backgroundColor: tokens.colors.divider }} /> : null}
+                  </View>
+                )
               }
-
-              // A divider only between two transactions, never under the last
-              // row of a day - the next day's header already separates them.
-              const next = rows[index + 1];
-              const showDivider = next?.type === "tx";
-
-              return (
-                // Rows stagger in a few frames apart so a long history settles
-                // as a list rather than snapping in as a block. The delay is
-                // capped so nothing further down the screen waits on it.
-                <Animated.View
-                  entering={FadeInDown.duration(tokens.motion.base).delay(
-                    Math.min(index, 8) * tokens.motion.listStagger
-                  )}
-                >
-                  <TransactionRow item={item.tx} embedded showDay={false} />
-                  {showDivider ? (
-                    <View style={{ height: 1, backgroundColor: tokens.colors.divider }} />
-                  ) : null}
-                </Animated.View>
-              );
-            }}
-            contentContainerStyle={{ paddingBottom: tabClearance }}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-          />
+              onEndReached={() => {
+                if (results.hasNextPage && !results.isFetchingNextPage) void results.fetchNextPage();
+              }}
+              onEndReachedThreshold={0.6}
+              ListHeaderComponent={
+                <AppText variant="xs" tone="subtle" style={{ paddingTop: tokens.space[3] }}>
+                  {results.totalCount === 0
+                    ? ""
+                    : `Showing ${results.rows.length} of ${results.totalCount}`}
+                </AppText>
+              }
+              ListFooterComponent={
+                results.isFetchingNextPage ? (
+                  <View style={{ paddingTop: tokens.space[3] }}>
+                    <Skeleton height={tokens.layout.listRowHeight} borderRadius={tokens.radii.md} />
+                  </View>
+                ) : !results.hasNextPage && results.rows.length < results.totalCount ? (
+                  <AppText variant="sm" tone="muted" style={{ paddingVertical: tokens.space[4] }}>
+                    Only the first {results.rows.length.toLocaleString()} matches can be listed. Narrow the filters or change the sort to see the rest.
+                  </AppText>
+                ) : null
+              }
+              contentContainerStyle={{ paddingBottom: tabClearance }}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              refreshing={results.isUpdating && results.rowsCurrent}
+              onRefresh={() => void results.refetch()}
+            />
+          </View>
         )}
       </View>
 
       <CustomRangeSheet
-        visible={isCustomPickerOpen}
-        onClose={() => setIsCustomPickerOpen(false)}
-        initial={customSheetInitial}
-        onApply={(next) => {
-          setCustomRange(next);
-          setRange("custom");
-        }}
-        onClear={() => {
-          setCustomRange(null);
-          setRange("today");
-        }}
+        visible={customOpen}
+        onClose={() => setCustomOpen(false)}
+        initial={date ? { startDate: date.startDate, endDate: date.endDate } : { startDate: shiftDays(today, -6), endDate: today }}
+        onApply={(range) => filters.setDate(range)}
+        onReset={filters.reset}
       />
+
+      <CategoryFilterSheet
+        visible={categoryOpen}
+        onClose={() => setCategoryOpen(false)}
+        options={bookCategories}
+        selected={quick.categoryIds}
+        onChange={filters.setCategories}
+      />
+
+      <AmountFilterSheet
+        visible={amountOpen}
+        onClose={() => setAmountOpen(false)}
+        currency={currency}
+        min={quick.amountMinMinor}
+        max={quick.amountMaxMinor}
+        onChange={filters.setAmount}
+      />
+
+      <PaymentFilterSheet
+        visible={paymentOpen}
+        onClose={() => setPaymentOpen(false)}
+        methods={quick.paymentMethods}
+        unspecified={quick.paymentUnspecified}
+        onChange={filters.setPayment}
+      />
+
+      <AdvancedFilterSheet
+        visible={advancedOpen}
+        onClose={() => setAdvancedOpen(false)}
+        scope={filters.scope}
+        model={filters.modelContext}
+        describeContext={filters.describeContext}
+        categories={bookCategories}
+      />
+
+      <SortSheet visible={sortOpen} onClose={() => setSortOpen(false)} scope={filters.scope} />
     </View>
   );
+}
+
+function shiftDays(ymd: Ymd, days: number): Ymd {
+  return addDaysYmd(ymd, days);
 }

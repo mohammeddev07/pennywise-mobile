@@ -14,7 +14,7 @@ import { Card } from "@/shared/ui/components/Card";
 import { MoneyAmount } from "@/shared/ui/components/MoneyAmount";
 import { SuccessCheck } from "@/shared/ui/components/SuccessCheck";
 import { useScreenPaddingX } from "@/shared/ui/components/Screen";
-import type { TransactionKind } from "@/features/transactions/store";
+import type { TransactionKind } from "@/features/transactions/model";
 import { useAddTransactionDraftStore } from "@/features/transactions/addDraftStore";
 import { useBooksStore } from "@/features/books/store";
 import { formatCurrency, parseAmountToMinor } from "@/shared/utils/formatCurrency";

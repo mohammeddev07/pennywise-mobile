@@ -5,7 +5,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 
 import { tokens } from "@/shared/ui/theme/tokens";
 import { useCategoriesStore } from "@/features/categories/store";
-import { useTransactionsStore } from "@/features/transactions/store";
+import { useRecentTransactions } from "@/features/transactions/queries";
 import { useAddTransactionDraftStore } from "@/features/transactions/addDraftStore";
 
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
@@ -96,7 +96,6 @@ export default function AddTransactionCategory() {
   const loadCategories = useCategoriesStore((s) => s.loadCategories);
   const consumeLastCreatedCategoryId = useCategoriesStore((s) => s.consumeLastCreatedCategoryId);
 
-  const transactions = useTransactionsStore((s) => s.transactions);
 
   const selected = useAddTransactionDraftStore((s) => s.categoryId);
   const setCategory = useAddTransactionDraftStore((s) => s.setCategory);
@@ -107,15 +106,9 @@ export default function AddTransactionCategory() {
 
   // Loading (persist hydration) – categories + transactions
   const catsPersist = (useCategoriesStore as any).persist;
-  const txPersist = (useTransactionsStore as any).persist;
 
   const [hydratedCats, setHydratedCats] = useState<boolean>(() => {
     const has = catsPersist?.hasHydrated?.();
-    return typeof has === "boolean" ? has : true;
-  });
-
-  const [hydratedTx, setHydratedTx] = useState<boolean>(() => {
-    const has = txPersist?.hasHydrated?.();
     return typeof has === "boolean" ? has : true;
   });
 
@@ -127,15 +120,7 @@ export default function AddTransactionCategory() {
     }
   }, [catsPersist]);
 
-  useEffect(() => {
-    if (txPersist?.onFinishHydration) {
-      const unsub = txPersist.onFinishHydration(() => setHydratedTx(true));
-      if (txPersist?.hasHydrated && !txPersist.hasHydrated()) txPersist?.rehydrate?.();
-      return () => unsub?.();
-    }
-  }, [txPersist]);
-
-  const hydrated = hydratedCats && hydratedTx;
+  const hydrated = hydratedCats;
 
   // The persisted cache can be stale or partial; refetch so an existing
   // category is always selectable instead of prompting a duplicate.
@@ -162,6 +147,8 @@ export default function AddTransactionCategory() {
     }, [categories, choose, consumeLastCreatedCategoryId])
   );
 
+  const recentRows = useRecentTransactions(200, bookId || undefined).data;
+
   const allCats = useMemo(() => {
     const base: CatMeta[] = categories
       .filter((c) => c.bookId === bookId && c.type === kind && !c.isDisabled)
@@ -178,7 +165,8 @@ export default function AddTransactionCategory() {
     const map = new Map<string, CatMeta>();
     for (const c of base) map.set(c.id, c);
 
-    for (const tx of transactions) {
+    // Ranking hint only: the latest 200 server-sorted rows for this book.
+    for (const tx of recentRows ?? []) {
       if (tx.bookId !== bookId) continue;
       if (tx.type !== kind) continue;
 
@@ -191,7 +179,7 @@ export default function AddTransactionCategory() {
     }
 
     return Array.from(map.values());
-  }, [categories, transactions, bookId, kind]);
+  }, [categories, recentRows, bookId, kind]);
 
   const recent = useMemo(() => {
     return allCats
@@ -225,7 +213,6 @@ export default function AddTransactionCategory() {
 
   const retryHydrate = () => {
     catsPersist?.rehydrate?.();
-    txPersist?.rehydrate?.();
   };
 
   return (
