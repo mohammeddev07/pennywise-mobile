@@ -176,6 +176,8 @@ function bookRows(bookId: string) {
 /** Test/dev hooks: the mock backend's state, plus a bulk seeder for paging scenarios. */
 export const mockBackend = {
   state,
+  /** QA/test switch: every request fails like a dropped connection (no response), to exercise offline/stale UI. */
+  offline: false,
   /** Adds `count` deterministic expense rows spread over consecutive days ending `endDate`. */
   seedTransactions(bookId: string, count: number, endDate: string) {
     const category = state.categories.find((c) => c.bookId === bookId && c.type === "EXPENSE")!;
@@ -289,6 +291,9 @@ function abortedError(config: InternalAxiosRequestConfig) {
 
 export const mockAdapter: AxiosAdapter = async (config) => {
   if (config.signal?.aborted) throw abortedError(config);
+  if (mockBackend.offline) {
+    throw Object.assign(new Error("Network Error"), { isAxiosError: true, config, code: "ERR_NETWORK", toJSON: () => ({}) });
+  }
   const result = await handle(config);
   // A request cancelled while "in flight" must not deliver a response.
   if (config.signal?.aborted) throw abortedError(config);

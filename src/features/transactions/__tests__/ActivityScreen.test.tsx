@@ -18,6 +18,13 @@ jest.mock("@react-native-community/datetimepicker", () => ({
 }));
 jest.mock("expo-file-system/legacy", () => ({}));
 
+// The jest window is 750dp wide, i.e. "medium"; tests pick the layout class they exercise.
+let mockLayoutClass: "compact" | "medium" = "compact";
+jest.mock("@/shared/ui/components/Screen", () => ({
+  ...jest.requireActual("@/shared/ui/components/Screen"),
+  useLayoutClass: () => mockLayoutClass,
+}));
+
 const book = mockBackend.state.books[0];
 
 function renderScreen() {
@@ -29,6 +36,7 @@ function renderScreen() {
 }
 
 beforeEach(() => {
+  mockLayoutClass = "compact";
   useAuthStore.setState({ user: { id: "user-A", email: "a@x.io", defaultCurrencyCode: "USD", createdAt: "" } });
   useBooksStore.setState({ selectedBookId: book.id, books: [book as never] });
   useCategoriesStore.setState({ categories: mockBackend.state.categories as never });
@@ -104,5 +112,44 @@ describe("Activity screen (against the mock API)", () => {
     }
     await waitFor(() => expect(screen.getByText(/· 1 transaction$/)).toBeTruthy());
     expect(todayInTimeZone(book.timezone)).toMatch(/^\d{4}/);
+  });
+
+  it("tablet: a sortable table over the same query state, with the same rows", async () => {
+    mockLayoutClass = "medium";
+    renderScreen();
+    await waitFor(() => expect(screen.getByText("Spent")).toBeTruthy());
+    fireEvent.press(screen.getByText("All"));
+    await waitFor(() => expect(screen.getByLabelText(/^Sort by Amount/)).toBeTruthy());
+    // No day headers in the table: the Date column carries the day.
+    expect(screen.queryAllByText(/^TODAY$|^YESTERDAY$/)).toHaveLength(0);
+
+    fireEvent.press(screen.getByLabelText(/^Sort by Amount/));
+    await waitFor(() => expect(screen.getByLabelText("Sort by Amount, currently descending")).toBeTruthy());
+    const scope = Object.keys(useFilterStore.getState().byScope)[0];
+    expect(useFilterStore.getState().byScope[scope].sort[0]).toEqual({ field: "amountMinor", direction: "DESC" });
+    await waitFor(() => {
+      const titles = screen.getAllByText(/Monthly salary|Rent|Side project|Electric bill/).map((n) => n.props.children);
+      expect(titles.slice(0, 2)).toEqual(["Monthly salary", "Rent"]);
+    });
+
+    fireEvent.press(screen.getByLabelText(/^Sort by Amount/)); // same column again flips direction
+    await waitFor(() => expect(useFilterStore.getState().byScope[scope].sort[0]).toEqual({ field: "amountMinor", direction: "ASC" }));
+  });
+
+  it("offline after a filter change: a plain error with Retry (no endless UPDATING); Retry recovers", async () => {
+    renderScreen();
+    await waitFor(() => expect(screen.getByText("Spent")).toBeTruthy());
+    mockBackend.offline = true;
+    try {
+      fireEvent.press(screen.getByText("All"));
+      await waitFor(() => expect(screen.getByText("Couldn’t load transactions")).toBeTruthy(), { timeout: 3000 });
+      expect(screen.queryByText("UPDATING…")).toBeNull();
+      expect(screen.getByText(/Can't connect to server/)).toBeTruthy();
+    } finally {
+      mockBackend.offline = false;
+    }
+    fireEvent.press(screen.getAllByText("Retry")[0]);
+    await waitFor(() => expect(screen.queryByText("Couldn’t load transactions")).toBeNull());
+    await waitFor(() => expect(screen.getByText(/· \d+ transactions/)).toBeTruthy());
   });
 });

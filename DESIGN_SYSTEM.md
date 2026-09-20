@@ -65,7 +65,7 @@ hairline, never by a shadow.
 | --------- | ----------- | ------------------------------------------ |
 | `text`    | `#F5F7F8`   | Primary text                               |
 | `muted`   | `#98A2AD`   | Secondary text, inactive nav, icons        |
-| `subtle`  | `#66707A`   | Tertiary: placeholders, axis labels, locks |
+| `subtle`  | `#7D8791`   | Tertiary: placeholders, hints, locks. 5.0:1 on `surface` (was `#66707A`, 3.6:1) |
 | `stroke`  | `#FFFFFF12` | Borders (7%)                               |
 | `divider` | `#FFFFFF0F` | In-card separators (6%)                    |
 
@@ -140,7 +140,8 @@ family name (`fonts.*` for words, `numerals.*` for numbers).
 
 | Variant | Size / line | Weight              | Use                                |
 | ------- | ----------- | ------------------- | ---------------------------------- |
-| `xs`    | 11 / 15     | semibold, +2 track  | Overlines, metadata, field labels  |
+| `xs`    | 11 / 15     | semibold, +2 track  | **Caps overlines only** - field labels, section titles |
+| `caption` | 12 / 17   | medium, +0.1 track  | Sentence-case helper text, tooltips, axis labels, table cells |
 | `sm`    | 13 / 19     | regular             | Secondary text, chips, helper text |
 | `base`  | 15 / 21     | regular             | Body; `weight="semibold"` for rows |
 | `lg`    | 17 / 23     | bold                | Card and section titles            |
@@ -149,8 +150,9 @@ family name (`fonts.*` for words, `numerals.*` for numbers).
 | `3xl`   | 30 / 38     | bold                | Largest page title                 |
 
 `xs` is written in caps at the call site (`SectionHeader` does this for you) —
-it is the overline, not small body text. There is no smaller variant: tiny
-low-contrast grey text is banned.
+it is the overline, not small body text. Its +2 tracking makes sentence case
+read as spaced-out and clips narrow labels, so any sentence-case note uses
+`caption`. There is no smaller variant: tiny low-contrast grey text is banned.
 
 ### Numbers — Sora
 
@@ -195,6 +197,7 @@ Anything else is a bug.
 | Chip / horizontal list gap | 8                      |
 | Bottom tab clearance       | `useTabBarClearance()` |
 
+Gutters: 20 under 360dp, 24 on phones, 32 from 600dp (`useScreenPaddingX()`).
 Screens must not hardcode either the gutter or the tab clearance — take them
 from `useScreenPaddingX()` and `useTabBarClearance()` (both exported by
 `Screen`), so a small-handset tightening or a nav height change lands
@@ -204,11 +207,12 @@ everywhere at once.
 
 Allowed values only: **`14, 18, 22, 28, 32, 9999`** — `tokens.radii`.
 **Nothing in the app corners tighter than 14.**
+(Tailwind names differ from token names: Tailwind `lg`=22 is `radii.md`, `xl`=28 is `radii.lg`, `2xl`=32 is `radii.xl`. Prefer tokens in `style`.)
 
 | Element                              | Radius                 |
 | ------------------------------------ | ---------------------- |
 | Small chips, tiny tiles              | 14 (`sm`)              |
-| Keypad keys                          | 18 (`key`)             |
+| Keypad keys                          | 22 (`key`)             |
 | Inputs, fields                       | 22 (`md`)              |
 | Cards, list containers               | 28 (`lg`)              |
 | Sheets                               | 32 (`xl`)              |
@@ -241,11 +245,25 @@ Not every section needs a card.
 
 ## 7. Touch targets
 
-Minimum 44×44. Icon buttons are 48×48. Buttons: `md` = 48 tall, `lg` = 56.
+Minimum 44×44. Every control lands on one of three height tiers
+(`tokens.layout`):
+
+| Tier      | Height | Controls                                                    |
+| --------- | ------ | ----------------------------------------------------------- |
+| `control` | 56     | `FormField`, `DateTimeField`, `SelectRow`, `SegmentedControl`, `Button size="lg"` |
+| `controlSm` | 48   | `Button size="md"`, `IconButton`, header actions            |
+| `chip`    | 44     | `FilterChip`, `BookPill` (= `minTap`; chips sit in clipped scroll rows, so `hitSlop` cannot help) |
+
 Rows are at least 56 tall, 60 when they carry a label plus a value.
 
-A disabled button keeps a visible surface and mutes only its label — it must
-never fade into the background.
+A disabled button keeps a visible surface and mutes only its label
+(`subtle`, never faded twice) — it must never fade into the background.
+`HapticPressable` fades a disabled bare control to 0.4; a control that paints its
+own disabled surface passes `disabledOpacity={1}`.
+
+Focus: `FormField` shows a solid accent border (1px in every state, so nothing
+shifts). On web every `HapticPressable` draws a 2px accent inset ring for keyboard
+(`:focus-visible`) focus only.
 
 ## 7b. Motion
 
@@ -258,8 +276,10 @@ effect** — the pressed control moves first, the screen answers. Nothing exceed
 pulsing, or bouncing.
 
 Counting figures use `useCountUp`, which animates **only on a data change** —
-900ms on mount, 600ms when a save moves the number. Returning to a tab never
-re-counts.
+600ms when a save moves the number. The first value to land is shown as-is (counting
+up from 0 flashed a false "$0.00"), returning to a tab never re-counts, and under
+**reduced motion** nothing counts, bars do not stagger in, press feedback drops its
+scale and sheets fade instead of sliding (`useReducedMotion`).
 
 ## 7c. Haptics
 
@@ -322,8 +342,10 @@ exactly how the app drifted.
 | `Card`                                             | Rounded surface container, `card` / `surface` / `soft` variants   |
 | `Button`                                           | `primary` `secondary` `outline` `ghost` `danger`, sizes `md` `lg` |
 | `AppText`                                          | The only text primitive — `variant`, `tone`, `weight`             |
-| `FormField`                                        | **The** text field — label, hint, error, multiline, count, pill   |
-| `Input`                                            | Thin compat wrapper over `FormField`; prefer `FormField`          |
+| `FormField`                                        | **The** text field — label, hint, error, disabled, multiline, count, pill |
+| `IconButton`                                       | **The** circular icon action (back, close, add, more). Never hand-roll one |
+| `LinkButton`                                       | Text-only inline action ("Retry", "View all"); 44px target       |
+| `Container` / `Screen width=`                      | Column cap: `form` 520 · `content` 720 · `wide` 1040             |
 | `TypeToggle`                                       | Expense/Income switch, colored by `amountColor`                   |
 | `SegmentedControl`                                 | Equal-width segments with a sliding, color-crossfading indicator  |
 | `FilterChip`                                       | **The** chip — filters, categories, ranges. No screen-local chips |
@@ -342,8 +364,9 @@ exactly how the app drifted.
 | `HapticPressable`                                  | The only pressable — never bare `Pressable`                       |
 | `EmptyState` `Skeleton` `UndoToast` `RingProgress` | States and feedback                                               |
 
-Icons are **Ionicons only**, at one size per context: 22 navigation, 20 rows and
-buttons, 16–18 inline. Do not mix icon families.
+Icons are **Lucide only** (through `Icon`, which speaks Ionicons *names*), at one
+size per context: `tokens.icon.nav` 22, `row` 19, `chip`/`inline` 16. Do not mix
+icon families or import an icon package at a call site.
 
 Every data-backed surface must render **Loading, Error, Empty and Success**.
 Loading is `Skeleton`, never a bare spinner in a list.
@@ -450,3 +473,41 @@ these sources at build time. To change the mark, edit the shape functions in
 - [ ] Loading / Error / Empty / Success all present
 - [ ] Text fields do not navigate
 - [ ] `npx tsc --noEmit` passes
+
+
+---
+
+## 11. Layout classes and containers
+
+`useLayoutClass()` (in `Screen`): **compact** < 600 (phones), **medium** 600–1023
+(tablet portrait), **expanded** ≥ 1024 (tablet landscape, desktop web).
+
+Width caps are outer widths, gutters included, applied with `Container` or
+`Screen width=`. On a phone every cap exceeds the screen, so phones are untouched.
+
+| Cap       | px   | Used by                                                                 |
+| --------- | ---- | ----------------------------------------------------------------------- |
+| `form`    | 520  | auth, onboarding, add flow, every route-level `Sheet`, `BottomSheetModal`, the tab dock |
+| `content` | 720  | Home, Profile, Categories (`Screen` default)                            |
+| `wide`    | 1040 | Activity, Insights                                                      |
+
+Per-screen decisions and the reasoning live in `docs/ui-polish-spec.md`.
+
+## 12. Activity table, states, overlays (P2.2)
+
+- **Activity** is a sortable table from 600dp up (`ActivityTable.tsx`): header click -> `nextSort` on the *same*
+  applied `SortState` the phone sort sheet edits. Under 680px of content the table scrolls sideways; nothing else does.
+- **Data states** are explicit: loading = skeleton; updating = dimmed figures + "UPDATING"; empty book vs no matches
+  vs empty date range are three different messages; a failed refresh with rows on screen keeps the rows under a
+  "Showing saved results" banner (message from `getApiErrorMessage`, so offline reads "Can't connect"); a failed first
+  load is an `EmptyState tone="danger"` with Retry. Figures are never replaced by a zero while loading.
+- **Overlays**: Escape closes the topmost layer only (sheet first, then route); `BottomSheetModal` swipes down to
+  dismiss; a failed save keeps the draft, shows the error in the always-visible footer and scrolls conflicts/field
+  errors into view (`useScrollToError`).
+
+## 13. Verification rules that came out of P2.3
+
+- **Never call `Alert.alert` directly** - it is a silent no-op on web. Use `alertCompat` / `confirmDestructive` (`shared/ui/utils/confirm.ts`).
+- **A money figure that is coloured must also carry its sign**, including the amount being typed (`AmountInput`).
+- **Every interactive element is >= 44px**; a smaller visual (chart day label, bar) gets a full-size target, not `hitSlop` inside a clipping parent.
+- Release builds must pass `npm run release:check` (no mock mode, https API URL with `/api`).

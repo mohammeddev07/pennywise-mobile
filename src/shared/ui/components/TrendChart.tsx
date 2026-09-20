@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import Animated, { FadeInDown } from "react-native-reanimated";
+import Animated, { FadeInDown, useReducedMotion } from "react-native-reanimated";
 
 import { AppText } from "@/shared/ui/components/AppText";
 import { MoneyAmount } from "@/shared/ui/components/MoneyAmount";
@@ -21,6 +21,18 @@ export type TrendPoint = {
   /** Only part of this calendar period is inside the analysed window; drawn outlined and starred. */
   partial?: boolean;
 };
+
+/**
+ * Bars above this count get a tighter gap and label every other slot, so a
+ * 12-month chart on a 390px phone keeps its labels whole ("Aug", not "A...").
+ */
+const DENSE_BARS = 8;
+
+/** Inactive bar fill: the muted grey at 60%, ~3.8:1 on the card. The old surfacePressed fill was 1.3:1 - the data was near invisible. */
+const LABEL_WIDTH = 44;
+const LABEL_ROW = tokens.typography.caption.lineHeight;
+
+const BAR_FILL = withAlpha(tokens.colors.muted, 0.6);
 
 /** Smallest bar that still reads as "some spend". Zero is never given this: it draws no bar at all. */
 const MIN_POSITIVE_BAR = 2;
@@ -67,6 +79,11 @@ export function TrendChart({
 
   const max = Math.max(1, ...data.map((d) => d.value));
   const plotHeight = height - 44; // leaves room for the axis labels
+  const dense = data.length > DENSE_BARS;
+  const reduceMotion = useReducedMotion();
+  const gap = dense ? tokens.space[1] : tokens.space[2];
+  const [rowWidth, setRowWidth] = useState(0);
+  const slot = data.length > 0 ? (rowWidth - gap * (data.length - 1)) / data.length : 0;
 
   return (
     <View accessibilityLabel={accessibilityLabel} style={{ height }}>
@@ -74,10 +91,12 @@ export function TrendChart({
         style={{
           flex: 1,
           flexDirection: "row",
-          alignItems: "flex-end",
+          // stretch: each bar's press target spans the whole plot height (a zero bar was a 1px-tall target)
+          alignItems: "stretch",
           justifyContent: "space-between",
-          gap: tokens.space[2],
+          gap,
         }}
+        onLayout={(e) => setRowWidth(e.nativeEvent.layout.width)}
       >
         {data.map((point, index) => {
           const isActive = selected === index || (selected === null && point.current);
@@ -113,7 +132,7 @@ export function TrendChart({
                 >
                   <MoneyAmount value={formatValue(point.value)} tone="neutral" size="sm" />
                   {point.caption ? (
-                    <AppText variant="xs" tone="muted" numberOfLines={1}>
+                    <AppText variant="caption" tone="muted" numberOfLines={1}>
                       {point.caption}
                     </AppText>
                   ) : null}
@@ -121,7 +140,8 @@ export function TrendChart({
               ) : null}
 
               <Animated.View
-                entering={FadeInDown.duration(tokens.motion.base).delay(index * tokens.motion.listStagger)}
+                // Entry runs once per mounted bar (not per refetch) and never under reduced motion.
+                entering={reduceMotion ? undefined : FadeInDown.duration(tokens.motion.base).delay(index * tokens.motion.listStagger)}
                 style={[
                   {
                     width: "100%",
@@ -129,7 +149,7 @@ export function TrendChart({
                     height: barHeight,
                     borderRadius: tokens.radii.sm,
                     overflow: "hidden",
-                    backgroundColor: tokens.colors.surfacePressed,
+                    backgroundColor: BAR_FILL,
                   },
                   point.partial ? { borderWidth: 1, borderStyle: "dashed", borderColor: tokens.colors.muted } : null,
                   isActive ? tokens.glow.accentSoft : null,
@@ -146,22 +166,42 @@ export function TrendChart({
               </Animated.View>
               {/* Honest zero baseline: every bar stands on it; an empty period is just the line. */}
               <View style={{ width: "100%", height: 1, backgroundColor: tokens.colors.stroke }} />
-
-              <AppText
-                variant="xs"
-                numberOfLines={1}
-                style={{
-                  marginTop: tokens.space[2],
-                  letterSpacing: 0,
-                  color: isActive ? tokens.colors.text : tokens.colors.subtle,
-                }}
-              >
-                {point.label}
-                {point.partial ? "*" : ""}
-              </AppText>
             </HapticPressable>
           );
         })}
+      </View>
+
+      {/*
+        Axis labels live in their own full-width row, each centred on its bar
+        with a fixed 44px box. A label may therefore be wider than its bar
+        without being clipped ("A..."), and a dense chart shows every other one.
+      */}
+      <View style={{ height: LABEL_ROW, marginTop: tokens.space[2] }} pointerEvents="none">
+        {slot > 0
+          ? data.map((point, index) => {
+              if (dense && index % 2 === 1) return null;
+              const isActive = selected === index || (selected === null && point.current);
+              return (
+                <AppText
+                  key={`${point.label}-${index}`}
+                  variant="caption"
+                  numberOfLines={1}
+                  ellipsizeMode="clip"
+                  importantForAccessibility="no"
+                  style={{
+                    position: "absolute",
+                    left: index * (slot + gap) + slot / 2 - LABEL_WIDTH / 2,
+                    width: LABEL_WIDTH,
+                    textAlign: "center",
+                    color: isActive ? tokens.colors.text : tokens.colors.muted,
+                  }}
+                >
+                  {point.label}
+                  {point.partial ? "*" : ""}
+                </AppText>
+              );
+            })
+          : null}
       </View>
     </View>
   );

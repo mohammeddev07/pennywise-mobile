@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useReducedMotion } from "react-native-reanimated";
 
 /**
  * Counts a figure up to its value.
@@ -8,17 +9,18 @@ import { useEffect, useRef, useState } from "react";
  * to the tab reads as a glitch, not as polish - so the target is compared
  * against the last one and a repeat of the same number animates nothing.
  *
- * Mount uses the long easeOutExpo; a later change (a save landing) uses the
- * shorter one, because the user already knows what they just did.
+ * The first value that lands is shown as-is - counting up from 0 flashed a
+ * false "$0.00" before the real balance. Only a later change (a save landing)
+ * counts, and never under reduced motion.
  */
 export function useCountUp(
   target: number | undefined,
   {
-    mountDuration = 900,
     changeDuration = 600,
     enabled = true,
-  }: { mountDuration?: number; changeDuration?: number; enabled?: boolean } = {}
+  }: { changeDuration?: number; enabled?: boolean } = {}
 ) {
+  const reduceMotion = useReducedMotion();
   const [value, setValue] = useState(target ?? 0);
   const previous = useRef<number | undefined>(undefined);
   const frame = useRef<number | null>(null);
@@ -34,14 +36,14 @@ export function useCountUp(
 
     previous.current = target;
 
-    if (!enabled) {
+    if (isFirst || !enabled || reduceMotion) {
       setValue(target);
       return;
     }
 
     const start = Date.now();
-    const origin = isFirst ? 0 : (from as number);
-    const duration = isFirst ? mountDuration : changeDuration;
+    const origin = from as number;
+    const duration = changeDuration;
 
     const tick = () => {
       const t = Math.min(1, (Date.now() - start) / duration);
@@ -63,7 +65,7 @@ export function useCountUp(
       if (frame.current !== null) cancelAnimationFrame(frame.current);
       frame.current = null;
     };
-  }, [changeDuration, enabled, mountDuration, target]);
+  }, [changeDuration, enabled, reduceMotion, target]);
 
   return value;
 }

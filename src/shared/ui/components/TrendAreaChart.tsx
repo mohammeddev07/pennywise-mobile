@@ -36,7 +36,8 @@ export function TrendAreaChart({
   const [width, setWidth] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
 
-  const labelRow = 24;
+  // 44 = the minimum touch target: each day label is the tap target for that point.
+  const labelRow = tokens.layout.minTap;
   const plotHeight = Math.max(40, height - labelRow - 8);
   const padY = 12;
 
@@ -112,7 +113,7 @@ export function TrendAreaChart({
                 borderColor: tokens.colors.stroke,
               }}
             >
-              <AppText variant="xs" weight="semibold" numberOfLines={1}>
+              <AppText variant="caption" weight="semibold" numberOfLines={1}>
                 {formatValue(data[selected as number].value)}
               </AppText>
             </View>
@@ -148,7 +149,7 @@ export function TrendAreaChart({
                   }}
                 >
                   <AppText
-                    variant="xs"
+                    variant="caption"
                     style={{
                       letterSpacing: 0,
                       color: isActive ? tokens.colors.text : tokens.colors.subtle,

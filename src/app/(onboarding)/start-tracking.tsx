@@ -10,6 +10,7 @@ import { Skeleton } from "@/shared/ui/components/Skeleton";
 import { useBooksStore } from "@/features/books/store";
 import { useSettingsStore } from "@/features/settings/store";
 import { useAuthStore } from "@/features/auth/store";
+import { Container } from "@/shared/ui/components/Screen";
 
 export default function StartTrackingRoute() {
   return <Redirect href="/(onboarding)/currency" />;
@@ -67,68 +68,73 @@ function LegacyStartTrackingScreen() {
 
   const hydrated = booksHydrated && settingsHydrated;
 
-  const bookName = useMemo(() => books.find((b) => b.id === selectedBookId)?.name ?? "Personal", [books, selectedBookId]);
+  const bookName = useMemo(
+    () => books.find((b) => b.id === selectedBookId)?.name ?? "Personal",
+    [books, selectedBookId],
+  );
 
   return (
-    <View className="flex-1 bg-app px-5 pt-16 pb-10">
-      <AppText variant="2xl">Time to start tracking</AppText>
-      <AppText variant="base" tone="muted" className="mt-2">
-        Confirm your setup and open your dashboard.
-      </AppText>
+    <View className="flex-1 bg-app">
+      <Container width="form" className="flex-1 px-5 pt-16 pb-10">
+        <AppText variant="2xl">Time to start tracking</AppText>
+        <AppText variant="base" tone="muted" className="mt-2">
+          Confirm your setup and open your dashboard.
+        </AppText>
 
-      {hydrationError ? (
-        <View className="flex-1 justify-center">
-          <EmptyState
-            title="Couldn’t finish setup"
-            message="Retry to load your selected book and currency."
-            actionLabel="Retry"
-            onAction={retryHydration}
-            className="px-0"
+        {hydrationError ? (
+          <View className="flex-1 justify-center">
+            <EmptyState
+              title="Couldn’t finish setup"
+              message="Retry to load your selected book and currency."
+              actionLabel="Retry"
+              onAction={retryHydration}
+              className="px-0"
+            />
+          </View>
+        ) : !hydrated ? (
+          <View className="mt-8 gap-3">
+            <Skeleton height={120} borderRadius={20} />
+            <Skeleton height={160} borderRadius={20} />
+          </View>
+        ) : !bookName ? (
+          <View className="flex-1 justify-center">
+            <EmptyState
+              title="No active book"
+              message="Select a book to complete onboarding."
+              actionLabel="Choose book"
+              onAction={() => router.replace("/(onboarding)/books")}
+              className="px-0"
+            />
+          </View>
+        ) : (
+          <Card variant="surface" className="mt-8">
+            <AppText variant="xs" tone="muted" className="uppercase">
+              Ready
+            </AppText>
+
+            <AppText variant="xl" className="mt-3">
+              You&apos;re all set
+            </AppText>
+
+            <AppText variant="base" tone="muted" className="mt-3">
+              Book: {bookName}
+            </AppText>
+            <AppText variant="base" tone="muted" className="mt-1">
+              Currency: {currency}
+            </AppText>
+          </Card>
+        )}
+
+        <View className="mt-auto">
+          <Button
+            label="Open dashboard"
+            onPress={() => {
+              completeOnboarding();
+              router.replace("/(tabs)/home");
+            }}
           />
         </View>
-      ) : !hydrated ? (
-        <View className="mt-8 gap-3">
-          <Skeleton height={120} borderRadius={20} />
-          <Skeleton height={160} borderRadius={20} />
-        </View>
-      ) : !bookName ? (
-        <View className="flex-1 justify-center">
-          <EmptyState
-            title="No active book"
-            message="Select a book to complete onboarding."
-            actionLabel="Choose book"
-            onAction={() => router.replace("/(onboarding)/books")}
-            className="px-0"
-          />
-        </View>
-      ) : (
-        <Card variant="surface" className="mt-8">
-          <AppText variant="xs" tone="muted" className="uppercase">
-            Ready
-          </AppText>
-
-          <AppText variant="xl" className="mt-3">
-            You&apos;re all set
-          </AppText>
-
-          <AppText variant="base" tone="muted" className="mt-3">
-            Book: {bookName}
-          </AppText>
-          <AppText variant="base" tone="muted" className="mt-1">
-            Currency: {currency}
-          </AppText>
-        </Card>
-      )}
-
-      <View className="mt-auto">
-        <Button
-          label="Open dashboard"
-          onPress={() => {
-            completeOnboarding();
-            router.replace("/(tabs)/home");
-          }}
-        />
-      </View>
+      </Container>
     </View>
   );
 }

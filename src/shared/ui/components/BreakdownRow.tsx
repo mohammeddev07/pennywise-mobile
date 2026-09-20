@@ -62,10 +62,13 @@ export function BreakdownRow({
             <CategoryIcon icon={icon} color={color} size={30} />
           </View>
         ) : null}
-        <AppText variant="base" weight="semibold" numberOfLines={1} style={{ flex: 1 }}>
+        {/* Two lines: a long category name wraps instead of hiding behind an ellipsis. */}
+        <AppText variant="base" weight="semibold" numberOfLines={2} style={{ flex: 1, minWidth: 0, paddingRight: tokens.space[3] }}>
           {name}
         </AppText>
-        <MoneyAmount value={amount} tone="neutral" size="base" weight="bold" />
+        <View style={{ flexShrink: 0 }}>
+          <MoneyAmount value={amount} tone="neutral" size="base" weight="bold" />
+        </View>
       </View>
 
       {raw === null ? null : (

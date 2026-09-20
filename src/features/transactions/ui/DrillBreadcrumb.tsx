@@ -35,7 +35,7 @@ export function DrillBreadcrumb({ scope }: { scope: ScopeKey }) {
         <AppText variant="sm" weight="semibold" style={{ color: tokens.colors.accent }}>
           Back to previous filter
         </AppText>
-        <AppText variant="xs" tone="muted" numberOfLines={1}>
+        <AppText variant="caption" tone="muted" numberOfLines={1}>
           {drill.label}
         </AppText>
       </View>

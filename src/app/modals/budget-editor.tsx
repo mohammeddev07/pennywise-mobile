@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { tokens } from "@/shared/ui/theme/tokens";
+import { IconButton } from "@/shared/ui/components/IconButton";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { Button } from "@/shared/ui/components/Button";
 import { useBudgetsStore } from "@/features/budgets/store";
@@ -13,7 +14,7 @@ import { Sheet } from "@/shared/ui/components/Sheet";
 import { AppText } from "@/shared/ui/components/AppText";
 import { MoneyAmount } from "@/shared/ui/components/MoneyAmount";
 import { Card } from "@/shared/ui/components/Card";
-import { Input } from "@/shared/ui/components/Input";
+import { FormField } from "@/shared/ui/components/FormField";
 import { EmptyState } from "@/shared/ui/components/EmptyState";
 import { Skeleton } from "@/shared/ui/components/Skeleton";
 import { useUndoToastStore } from "@/shared/ui/state/useUndoToastStore";
@@ -176,13 +177,7 @@ export default function BudgetEditor() {
         className="flex-1"
         title={category ? `${category.name} Budget` : "Budget"}
         leftAction={
-          <HapticPressable
-            onPress={() => router.back()}
-            className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
-            android_ripple={{ color: tokens.colors.ripple, borderless: true }}
-          >
-            <Icon name="chevron-back" size={20} color={tokens.colors.text} />
-          </HapticPressable>
+          <IconButton icon="chevron-back" accessibilityLabel="Back" onPress={() => router.back()} />
         }
         footer={category?.type === "EXPENSE" ? (
           <View className="gap-3">
@@ -273,7 +268,7 @@ export default function BudgetEditor() {
             </Card>
 
             <View className="mt-6">
-              <Input
+              <FormField
                 label="Monthly budget"
                 value={value}
                 onChangeText={setValue}
@@ -286,7 +281,7 @@ export default function BudgetEditor() {
                 }
               />
 
-              <AppText variant="xs" tone="muted" className="mt-3">
+              <AppText variant="caption" tone="muted" className="mt-3">
                 This target drives budget progress and over-spend warnings across Home and Categories.
               </AppText>
             </View>

@@ -13,7 +13,7 @@ import { Button } from "@/shared/ui/components/Button";
 import { Card } from "@/shared/ui/components/Card";
 import { MoneyAmount } from "@/shared/ui/components/MoneyAmount";
 import { SuccessCheck } from "@/shared/ui/components/SuccessCheck";
-import { useScreenPaddingX } from "@/shared/ui/components/Screen";
+import { useScreenPaddingX, Container } from "@/shared/ui/components/Screen";
 import type { TransactionKind } from "@/features/transactions/model";
 import { useAddTransactionDraftStore } from "@/features/transactions/addDraftStore";
 import { useBooksStore } from "@/features/books/store";
@@ -86,71 +86,73 @@ export default function AddTransactionSuccess() {
         paddingBottom: insets.bottom + tokens.space[4],
       }}
     >
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-        <SuccessCheck />
+    <Container width="form" style={{ flex: 1 }}>
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+          <SuccessCheck />
 
-        {/*
-          The moment is choreographed rather than simultaneous: check, then
-          headline, then receipt, then actions. Each beat is short and the
-          whole sequence lands inside the success budget, so the screen is
-          still by the time the user reaches for a button.
-        */}
-        <Animated.View entering={FadeInDown.duration(tokens.motion.base).delay(240)}>
-          <AppText variant="2xl" style={{ marginTop: tokens.space[6] }}>
-            Logged
-          </AppText>
-          <AppText variant="sm" tone="muted" style={{ marginTop: tokens.space[2], textAlign: "center" }}>
-            {/* The success sub-line is one of the four places emoji are allowed. */}
-            Saved to {bookName} — totals are up to date ✨
-          </AppText>
-        </Animated.View>
+          {/*
+            The moment is choreographed rather than simultaneous: check, then
+            headline, then receipt, then actions. Each beat is short and the
+            whole sequence lands inside the success budget, so the screen is
+            still by the time the user reaches for a button.
+          */}
+          <Animated.View entering={FadeInDown.duration(tokens.motion.base).delay(240)}>
+            <AppText variant="2xl" style={{ marginTop: tokens.space[6] }}>
+              Logged
+            </AppText>
+            <AppText variant="sm" tone="muted" style={{ marginTop: tokens.space[2], textAlign: "center" }}>
+              {/* The success sub-line is one of the four places emoji are allowed. */}
+              Saved to {bookName} — totals are up to date ✨
+            </AppText>
+          </Animated.View>
+
+          <Animated.View
+            entering={FadeInDown.duration(tokens.motion.slow).delay(360)}
+            style={{ marginTop: tokens.space[7], width: "100%" }}
+          >
+            <Card variant="surface" padding={20}>
+              <AppText variant="xs" style={{ color: amountColor(kind) }}>
+                {kind === "INCOME" ? "INCOME" : "EXPENSE"}
+              </AppText>
+
+              <MoneyAmount
+                value={formatCurrency(amountMinor, currency)}
+                kind={kind}
+                size="amount"
+                style={{ marginTop: tokens.space[2] }}
+              />
+
+              <View
+                style={{
+                  height: 1,
+                  backgroundColor: tokens.colors.divider,
+                  marginVertical: tokens.space[4],
+                }}
+              />
+
+              <AppText variant="base" weight="semibold" numberOfLines={1}>
+                {title || category}
+              </AppText>
+              <AppText variant="sm" tone="muted" numberOfLines={1} style={{ marginTop: 2 }}>
+                {[category, when].filter(Boolean).join(" · ")}
+              </AppText>
+            </Card>
+          </Animated.View>
+        </View>
 
         <Animated.View
-          entering={FadeInDown.duration(tokens.motion.slow).delay(360)}
-          style={{ marginTop: tokens.space[7], width: "100%" }}
+          entering={FadeIn.duration(tokens.motion.base).delay(450)}
+          style={{ gap: tokens.space[3] }}
         >
-          <Card variant="surface" padding={20}>
-            <AppText variant="xs" style={{ color: amountColor(kind) }}>
-              {kind === "INCOME" ? "INCOME" : "EXPENSE"}
-            </AppText>
-
-            <MoneyAmount
-              value={formatCurrency(amountMinor, currency)}
-              kind={kind}
-              size="amount"
-              style={{ marginTop: tokens.space[2] }}
-            />
-
-            <View
-              style={{
-                height: 1,
-                backgroundColor: tokens.colors.divider,
-                marginVertical: tokens.space[4],
-              }}
-            />
-
-            <AppText variant="base" weight="semibold" numberOfLines={1}>
-              {title || category}
-            </AppText>
-            <AppText variant="sm" tone="muted" numberOfLines={1} style={{ marginTop: 2 }}>
-              {[category, when].filter(Boolean).join(" · ")}
-            </AppText>
-          </Card>
+          <Button
+            label="Add another"
+            variant="secondary"
+            size="lg"
+            onPress={() => router.replace("/modals/add-transaction")}
+          />
+          <Button label="Done" size="lg" onPress={() => router.replace("/(tabs)/home")} />
         </Animated.View>
-      </View>
-
-      <Animated.View
-        entering={FadeIn.duration(tokens.motion.base).delay(450)}
-        style={{ gap: tokens.space[3] }}
-      >
-        <Button
-          label="Add another"
-          variant="secondary"
-          size="lg"
-          onPress={() => router.replace("/modals/add-transaction")}
-        />
-        <Button label="Done" size="lg" onPress={() => router.replace("/(tabs)/home")} />
-      </Animated.View>
+    </Container>
     </View>
   );
 }

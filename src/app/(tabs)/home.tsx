@@ -18,6 +18,7 @@ import { StatBlock } from "@/shared/ui/components/StatBlock";
 import { HeroAmount, MoneyAmount } from "@/shared/ui/components/MoneyAmount";
 import { TrendAreaChart, type AreaPoint } from "@/shared/ui/components/TrendAreaChart";
 import { BreakdownRow } from "@/shared/ui/components/BreakdownRow";
+import { LinkButton } from "@/shared/ui/components/Button";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 
 import { useAuthStore } from "@/features/auth/store";
@@ -470,7 +471,7 @@ export default function Home() {
                 data={weekSpend}
                 height={190}
                 formatValue={(minor) => formatCurrency(minor, dashboardCurrency)}
-                accessibilityLabel="Spending over the last seven days"
+                accessibilityLabel={`Spending over the last seven days. ${weekSpend.map((p) => `${p.label} ${formatCurrency(p.value, dashboardCurrency)}`).join(", ")}`}
               />
             </View>
           </View>
@@ -481,15 +482,7 @@ export default function Home() {
               <SectionHeader
                 title="Top spending"
                 action={
-                  <HapticPressable
-                    onPress={() => router.push("/(tabs)/analytics")}
-                    haptic="none"
-                    style={{ minHeight: tokens.layout.minTap, justifyContent: "center" }}
-                  >
-                    <AppText variant="sm" weight="semibold" style={{ color: tokens.colors.accent }}>
-                      Insights
-                    </AppText>
-                  </HapticPressable>
+                  <LinkButton label="Insights" onPress={() => router.push("/(tabs)/analytics")} />
                 }
               />
               <View style={{ marginTop: tokens.space[1] }}>
@@ -512,15 +505,7 @@ export default function Home() {
             <SectionHeader
               title="Recent"
               action={
-                <HapticPressable
-                  onPress={() => router.push("/(tabs)/transactions")}
-                  haptic="none"
-                  style={{ minHeight: tokens.layout.minTap, justifyContent: "center" }}
-                >
-                  <AppText variant="sm" weight="semibold" style={{ color: tokens.colors.accent }}>
-                    View all
-                  </AppText>
-                </HapticPressable>
+                <LinkButton label="View all" onPress={() => router.push("/(tabs)/transactions")} />
               }
             />
 
@@ -554,15 +539,7 @@ export default function Home() {
               <SectionHeader
                 title="Budgets"
                 action={
-                  <HapticPressable
-                    onPress={() => router.push("/(tabs)/categories")}
-                    haptic="none"
-                    style={{ minHeight: tokens.layout.minTap, justifyContent: "center" }}
-                  >
-                    <AppText variant="sm" weight="semibold" style={{ color: tokens.colors.accent }}>
-                      Manage
-                    </AppText>
-                  </HapticPressable>
+                  <LinkButton label="Manage" onPress={() => router.push("/(tabs)/categories")} />
                 }
               />
               <ScrollView

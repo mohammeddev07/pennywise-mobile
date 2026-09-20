@@ -12,6 +12,7 @@ import { tokens } from "@/shared/ui/theme/tokens";
 import { useBooksStore } from "@/features/books/store";
 import { useSettingsStore } from "@/features/settings/store";
 import { Icon } from "@/shared/ui/components/Icon";
+import { Container } from "@/shared/ui/components/Screen";
 
 export default function BooksRoute() {
   return <Redirect href="/(onboarding)/currency" />;
@@ -76,87 +77,89 @@ function LegacyBooksScreen() {
   };
 
   return (
-    <View className="flex-1 bg-app px-5 pt-16 pb-10">
-      <AppText variant="2xl">Your books</AppText>
-      <AppText variant="base" tone="muted" className="mt-2">
-        Choose a book to start tracking.
-      </AppText>
+    <View className="flex-1 bg-app">
+      <Container width="form" className="flex-1 px-5 pt-16 pb-10">
+        <AppText variant="2xl">Your books</AppText>
+        <AppText variant="base" tone="muted" className="mt-2">
+          Choose a book to start tracking.
+        </AppText>
 
-      {hydrationError ? (
-        <View className="flex-1 justify-center">
-          <EmptyState
-            title="Couldn’t load books"
-            message="Retry to continue onboarding."
-            actionLabel="Retry"
-            onAction={retryHydration}
-            className="px-0"
-          />
-        </View>
-      ) : !hydrated ? (
-        <View className="mt-8 gap-3">
-          <Skeleton height={72} borderRadius={20} />
-          <Skeleton height={72} borderRadius={20} />
-        </View>
-      ) : books.length === 0 ? (
-        <View className="flex-1 justify-center">
-          <EmptyState
-            title="No books yet"
-            message="Create your first book to start tracking."
-            actionLabel={isCreating ? "Creating..." : "Create Personal book"}
-            onAction={createFirstBook}
-            className="px-0"
-          />
-        </View>
-      ) : (
-        <View className="mt-8 gap-3">
-          {books.map((book) => {
-            const active = book.id === selectedBookId;
-            return (
-              <HapticPressable
-                key={book.id}
-                onPress={() => {
-                  setSelectedBookId(book.id);
-                  router.push("/(onboarding)/start-tracking");
-                }}
-                haptic="selection"
-                pressScale={0.99}
-              >
-                <Card
-                  variant="surface"
-                  style={{
-                    borderColor: active ? tokens.colors.accent : tokens.colors.stroke,
-                    backgroundColor: active ? `${tokens.colors.accent}12` : tokens.colors.surface,
+        {hydrationError ? (
+          <View className="flex-1 justify-center">
+            <EmptyState
+              title="Couldn’t load books"
+              message="Retry to continue onboarding."
+              actionLabel="Retry"
+              onAction={retryHydration}
+              className="px-0"
+            />
+          </View>
+        ) : !hydrated ? (
+          <View className="mt-8 gap-3">
+            <Skeleton height={72} borderRadius={20} />
+            <Skeleton height={72} borderRadius={20} />
+          </View>
+        ) : books.length === 0 ? (
+          <View className="flex-1 justify-center">
+            <EmptyState
+              title="No books yet"
+              message="Create your first book to start tracking."
+              actionLabel={isCreating ? "Creating..." : "Create Personal book"}
+              onAction={createFirstBook}
+              className="px-0"
+            />
+          </View>
+        ) : (
+          <View className="mt-8 gap-3">
+            {books.map((book) => {
+              const active = book.id === selectedBookId;
+              return (
+                <HapticPressable
+                  key={book.id}
+                  onPress={() => {
+                    setSelectedBookId(book.id);
+                    router.push("/(onboarding)/start-tracking");
                   }}
+                  haptic="selection"
+                  pressScale={0.99}
                 >
-                  <View className="flex-row items-center justify-between">
-                    <View className="flex-1 pr-3">
-                      <AppText variant="lg">{book.name}</AppText>
-                      <AppText variant="sm" tone="muted" className="mt-1">
-                        {book.currencyCode} · {book.timezone}
-                      </AppText>
+                  <Card
+                    variant="surface"
+                    style={{
+                      borderColor: active ? tokens.colors.accent : tokens.colors.stroke,
+                      backgroundColor: active ? `${tokens.colors.accent}12` : tokens.colors.surface,
+                    }}
+                  >
+                    <View className="flex-row items-center justify-between">
+                      <View className="flex-1 pr-3">
+                        <AppText variant="lg">{book.name}</AppText>
+                        <AppText variant="sm" tone="muted" className="mt-1">
+                          {book.currencyCode} · {book.timezone}
+                        </AppText>
+                      </View>
+
+                      <Icon
+                        name={active ? "checkmark-circle" : "chevron-forward"}
+                        size={18}
+                        color={active ? tokens.colors.accent : tokens.colors.muted}
+                      />
                     </View>
+                  </Card>
+                </HapticPressable>
+              );
+            })}
+          </View>
+        )}
 
-                    <Icon
-                      name={active ? "checkmark-circle" : "chevron-forward"}
-                      size={18}
-                      color={active ? tokens.colors.accent : tokens.colors.muted}
-                    />
-                  </View>
-                </Card>
-              </HapticPressable>
-            );
-          })}
+        <View className="mt-auto">
+          <Button
+            label={books.length === 0 ? (isCreating ? "Creating..." : "Create first book") : "Next"}
+            onPress={books.length === 0 ? createFirstBook : () => router.push("/(onboarding)/start-tracking")}
+            disabled={isCreating}
+            size="md"
+          />
         </View>
-      )}
-
-      <View className="mt-auto">
-        <Button
-          label={books.length === 0 ? (isCreating ? "Creating..." : "Create first book") : "Next"}
-          onPress={books.length === 0 ? createFirstBook : () => router.push("/(onboarding)/start-tracking")}
-          disabled={isCreating}
-          size="md"
-        />
-      </View>
+      </Container>
     </View>
   );
 }

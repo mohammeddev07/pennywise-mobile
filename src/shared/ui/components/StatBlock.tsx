@@ -32,8 +32,13 @@ export function StatBlock({
   const kind = tone === "income" ? ("INCOME" as const) : tone === "expense" ? ("EXPENSE" as const) : undefined;
 
   return (
-    <View style={{ flex: 1, alignItems: align === "center" ? "center" : "flex-start" }}>
-      <View style={{ flexDirection: "row", alignItems: "baseline", gap: tokens.space[2] }}>
+    <View style={{ flex: 1, minWidth: 0, alignItems: align === "center" ? "center" : "flex-start" }}>
+      {/*
+        Wraps: two blocks share one row, and a six-figure amount plus its label
+        overran into its neighbour at 390px ("Income · Jun-$1,834.50"). The label
+        drops under the figure instead of colliding.
+      */}
+      <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "baseline", columnGap: tokens.space[2] }}>
         {kind ? (
           <MoneyAmount value={value} kind={kind} size="lg" />
         ) : (

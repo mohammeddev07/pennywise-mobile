@@ -19,7 +19,7 @@ import { EmptyState } from "@/shared/ui/components/EmptyState";
 import { FlowHeader } from "@/shared/ui/components/FlowHeader";
 import { OdometerAmount } from "@/shared/ui/components/OdometerAmount";
 import { TypeToggle } from "@/shared/ui/components/TypeToggle";
-import { useScreenPaddingX } from "@/shared/ui/components/Screen";
+import { useScreenPaddingX, Container } from "@/shared/ui/components/Screen";
 import { applyAmountKey, formatForTicker } from "@/shared/ui/components/AmountInput";
 
 /**
@@ -124,85 +124,87 @@ export default function AddTransactionAmount() {
         colors={(isExpense ? tokens.ambient.expense : tokens.ambient.income) as unknown as [string, string]}
         style={{ position: "absolute", top: 0, left: 0, right: 0, height: 360 }}
       />
+    <Container width="form" style={{ flex: 1 }}>
 
-      <View style={{ paddingHorizontal: paddingX }}>
-        <FlowHeader
-          title="New transaction"
-          subtitle="Amount · 1 of 2"
-          onBack={close}
-          backIcon="close"
-          step={1}
-          totalSteps={2}
-          progressColor={amountColor(kind)}
-        />
-      </View>
-
-      {!hasBooks ? (
-        <View style={{ flex: 1, justifyContent: "center", paddingHorizontal: paddingX }}>
-          <EmptyState
-            title="Cash book unavailable"
-            message="Return home and retry once your account data has loaded."
-            actionLabel="Return home"
-            tone="danger"
-            onAction={() => router.replace("/(tabs)/home")}
+        <View style={{ paddingHorizontal: paddingX }}>
+          <FlowHeader
+            title="New transaction"
+            subtitle="Amount · 1 of 2"
+            onBack={close}
+            backIcon="close"
+            step={1}
+            totalSteps={2}
+            progressColor={amountColor(kind)}
           />
         </View>
-      ) : (
-        <>
-          <View style={{ paddingHorizontal: paddingX, marginTop: tokens.space[6] }}>
-            <TypeToggle value={kind} onChange={setKind} />
-          </View>
 
-          <View
-            style={{
-              flex: 1,
-              alignItems: "center",
-              justifyContent: "center",
-              paddingHorizontal: paddingX,
-            }}
-          >
-            <OdometerAmount
-              value={formattedAmount}
-              majorFontSize={heroFontSize}
-              minorFontSize={Math.round(heroFontSize * 0.5)}
-              // The hero takes the money color of the selected direction, so
-              // expense and income are distinguishable before the save.
-              color={valueNum > 0 ? amountColor(kind) : tokens.colors.subtle}
-            />
-
-            <AppText variant="sm" tone="muted" style={{ marginTop: tokens.space[4] }}>
-              {currency} · {kind === "EXPENSE" ? "Expense" : "Income"}
-            </AppText>
-          </View>
-
-          <View
-            style={{
-              paddingHorizontal: paddingX,
-              paddingBottom: insets.bottom + tokens.space[4],
-              gap: tokens.space[5],
-            }}
-          >
-            <NumericKeypad
-              onPress={(key) => setAmount(applyAmountKey(amount, key as Key, fractionDigits))}
-              onDelete={() => setAmount(applyAmountKey(amount, "back", fractionDigits))}
-              decimalAllowed={fractionDigits > 0}
-              disabled={!selectedBook}
-            />
-            {/*
-              The CTA is the mode's color, not the brand's: in expense mode it
-              is coral, so the commitment matches what is about to be recorded.
-            */}
-            <Button
-              label="Next"
-              onPress={goNext}
-              disabled={!canContinue}
-              onDisabledPress={rejectContinue}
-              size="lg"
-              tone={isExpense ? "expense" : "accent"}
+        {!hasBooks ? (
+          <View style={{ flex: 1, justifyContent: "center", paddingHorizontal: paddingX }}>
+            <EmptyState
+              title="Cash book unavailable"
+              message="Return home and retry once your account data has loaded."
+              actionLabel="Return home"
+              tone="danger"
+              onAction={() => router.replace("/(tabs)/home")}
             />
           </View>
-        </>
-      )}
+        ) : (
+          <>
+            <View style={{ paddingHorizontal: paddingX, marginTop: tokens.space[6] }}>
+              <TypeToggle value={kind} onChange={setKind} />
+            </View>
+
+            <View
+              style={{
+                flex: 1,
+                alignItems: "center",
+                justifyContent: "center",
+                paddingHorizontal: paddingX,
+              }}
+            >
+              <OdometerAmount
+                value={formattedAmount}
+                majorFontSize={heroFontSize}
+                minorFontSize={Math.round(heroFontSize * 0.5)}
+                // The hero takes the money color of the selected direction, so
+                // expense and income are distinguishable before the save.
+                color={valueNum > 0 ? amountColor(kind) : tokens.colors.subtle}
+              />
+
+              <AppText variant="sm" tone="muted" style={{ marginTop: tokens.space[4] }}>
+                {currency} · {kind === "EXPENSE" ? "Expense" : "Income"}
+              </AppText>
+            </View>
+
+            <View
+              style={{
+                paddingHorizontal: paddingX,
+                paddingBottom: insets.bottom + tokens.space[4],
+                gap: tokens.space[5],
+              }}
+            >
+              <NumericKeypad
+                onPress={(key) => setAmount(applyAmountKey(amount, key as Key, fractionDigits))}
+                onDelete={() => setAmount(applyAmountKey(amount, "back", fractionDigits))}
+                decimalAllowed={fractionDigits > 0}
+                disabled={!selectedBook}
+              />
+              {/*
+                The CTA is the mode's color, not the brand's: in expense mode it
+                is coral, so the commitment matches what is about to be recorded.
+              */}
+              <Button
+                label="Next"
+                onPress={goNext}
+                disabled={!canContinue}
+                onDisabledPress={rejectContinue}
+                size="lg"
+                tone={isExpense ? "expense" : "accent"}
+              />
+            </View>
+          </>
+        )}
+    </Container>
     </View>
   );
 }

@@ -1,7 +1,10 @@
-import { PropsWithChildren, useMemo } from "react";
-import { Pressable, type PressableProps, type StyleProp, type ViewStyle } from "react-native";
+import { PropsWithChildren, useMemo, useState } from "react";
+import { Platform, Pressable, type PressableProps, type StyleProp, type ViewStyle } from "react-native";
 import * as Haptics from "expo-haptics";
-import Animated, { useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import { cssInterop } from "nativewind";
+import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from "react-native-reanimated";
+
+import { tokens } from "@/shared/ui/theme/tokens";
 
 type Props = PressableProps &
   PropsWithChildren<{
@@ -26,9 +29,32 @@ type Props = PressableProps &
       | "none";
     pressScale?: number; // default 0.98
     pressOpacity?: number; // default 0.9
+    /**
+     * Opacity while `disabled`. Defaults to 0.4, which suits a bare icon or row.
+     * A control that paints its own disabled surface (Button) passes 1 so its
+     * label stays readable instead of being faded a second time.
+     */
+    disabledOpacity?: number;
   }>;
 
+/**
+ * Keyboard focus ring. Only drawn when the browser says the focus is
+ * keyboard-driven (`:focus-visible`), so a mouse click does not leave a ring
+ * behind. Native platforms have no pointer focus, so nothing is drawn there.
+ */
+const FOCUS_RING = {
+  outlineStyle: "solid",
+  outlineWidth: 2,
+  // Inset, so a horizontal chip row (which clips its cross axis) never cuts it off.
+  outlineOffset: -2,
+  outlineColor: tokens.colors.accent,
+} as const;
+
 const APressable = Animated.createAnimatedComponent(Pressable);
+// `createAnimatedComponent` returns a class NativeWind has never seen, so a
+// `className` on it was silently dropped - a dozen back buttons rendered as a
+// bare 20px chevron with no size, border or fill. Register it once, here.
+cssInterop(APressable, { className: "style" });
 
 export function HapticPressable({
   children,
@@ -37,8 +63,11 @@ export function HapticPressable({
   haptic = "none",
   pressScale = 0.98,
   pressOpacity = 0.9,
+  disabledOpacity = 0.4,
   disabled,
   onPressIn,
+  onFocus,
+  onBlur,
   onPressOut,
   onPress,
   ...rest
@@ -47,10 +76,13 @@ export function HapticPressable({
   const o = useSharedValue(1);
 
   const isDisabled = !!disabled;
+  const [ring, setRing] = useState(false);
+  // Reduced motion keeps the opacity cue but drops the scale movement.
+  const scaleTo = useReducedMotion() ? 1 : pressScale;
 
   const animated = useAnimatedStyle(() => ({
     transform: [{ scale: isDisabled ? 1 : s.value }],
-    opacity: isDisabled ? 0.4 : o.value,
+    opacity: isDisabled ? disabledOpacity : o.value,
   }));
 
   const doHaptic = useMemo(() => {
@@ -73,9 +105,19 @@ export function HapticPressable({
     <APressable
       {...rest}
       disabled={disabled}
+      onFocus={(e) => {
+        if (Platform.OS === "web") {
+          setRing(Boolean((e.target as unknown as HTMLElement)?.matches?.(":focus-visible")));
+        }
+        onFocus?.(e);
+      }}
+      onBlur={(e) => {
+        setRing(false);
+        onBlur?.(e);
+      }}
       onPressIn={(e) => {
         if (isDisabled) return;
-        s.value = withTiming(pressScale, { duration: 80 });
+        s.value = withTiming(scaleTo, { duration: 80 });
         o.value = withTiming(pressOpacity, { duration: 80 });
         onPressIn?.(e);
       }}
@@ -91,7 +133,7 @@ export function HapticPressable({
         onPress?.(e);
       }}
       className={className}
-      style={[style as any, animated]}
+      style={[style as any, ring ? FOCUS_RING : null, animated]}
     >
       {children}
     </APressable>

@@ -1,17 +1,19 @@
 import { useEffect, useState } from "react";
-import { Alert, ScrollView, View } from "react-native";
+import { ScrollView, View } from "react-native";
 import { Redirect, useRouter } from "expo-router";
 
+import { alertCompat } from "@/shared/ui/utils/confirm";
 import { tokens } from "@/shared/ui/theme/tokens";
 import { useBooksStore } from "@/features/books/store";
 import { Sheet } from "@/shared/ui/components/Sheet";
+import { IconButton } from "@/shared/ui/components/IconButton";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { AppText } from "@/shared/ui/components/AppText";
 import { Card } from "@/shared/ui/components/Card";
 import { Skeleton } from "@/shared/ui/components/Skeleton";
 import { EmptyState } from "@/shared/ui/components/EmptyState";
 import { Button } from "@/shared/ui/components/Button";
-import { Input } from "@/shared/ui/components/Input";
+import { FormField } from "@/shared/ui/components/FormField";
 import { Icon } from "@/shared/ui/components/Icon";
 
 export default function BookSwitcherRoute() {
@@ -111,11 +113,11 @@ function LegacyBookSwitcherModal() {
   const deleteEditingBook = () => {
     if (!editingId) return;
     if (books.length <= 1) {
-      Alert.alert("Keep one book", "You need at least one book to track transactions.");
+      alertCompat("Keep one book", "You need at least one book to track transactions.");
       return;
     }
 
-    Alert.alert("Delete book?", "Transactions in this book stay saved, but this book will no longer be selectable.", [
+    alertCompat("Delete book?", "Transactions in this book stay saved, but this book will no longer be selectable.", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Delete",
@@ -135,23 +137,12 @@ function LegacyBookSwitcherModal() {
         className="flex-1"
         title="Switch books"
         leftAction={
-          <HapticPressable
-            onPress={() => router.back()}
-            className="h-12 w-12 items-center justify-center rounded-full border border-stroke bg-surface"
-            android_ripple={{ color: tokens.colors.ripple, borderless: true }}
-          >
-            <Icon name="close" size={18} color={tokens.colors.text} />
-          </HapticPressable>
+          <IconButton icon="close" accessibilityLabel="Close" onPress={() => router.back()} />
         }
         rightAction={
-          <HapticPressable
-            onPress={startCreate}
-            haptic="none"
-            className="h-12 w-12 items-center justify-center rounded-full border border-stroke bg-surface"
-            android_ripple={{ color: tokens.colors.ripple, borderless: true }}
-          >
-            <Icon name="add" size={20} color={tokens.colors.accent} />
-          </HapticPressable>
+          <IconButton accessibilityLabel="New book" onPress={startCreate}>
+            <Icon name="add" size={tokens.icon.nav} color={tokens.colors.accent} />
+          </IconButton>
         }
         footer={<Button label="Done" onPress={() => router.back()} size="md" />}
       >
@@ -187,7 +178,7 @@ function LegacyBookSwitcherModal() {
               <Card variant="surface" className="mb-4">
                 <AppText variant="lg">{isCreating ? "New book" : "Edit book"}</AppText>
                 <View className="mt-4 gap-4">
-                  <Input label="Name" value={name} onChangeText={setName} placeholder="Household" autoCapitalize="words" />
+                  <FormField label="Name" value={name} onChangeText={setName} placeholder="Household" autoCapitalize="words" />
                   <Button
                     label={isSaving ? "Saving..." : isCreating ? "Create book" : "Save book"}
                     onPress={saveBook}
@@ -226,20 +217,14 @@ function LegacyBookSwitcherModal() {
                       <AppText variant="base" weight="semibold" numberOfLines={1}>
                         {book.name}
                       </AppText>
-                      <AppText variant="xs" tone="muted" className="mt-1" numberOfLines={1}>
+                      <AppText variant="caption" tone="muted" className="mt-1" numberOfLines={1}>
                         {book.currencyCode} · {book.timezone}
                       </AppText>
                     </HapticPressable>
 
-                    <HapticPressable
-                      onPress={() => startEdit(book.id)}
-                      haptic="none"
-                      pressScale={0.98}
-                      className="h-12 w-12 items-center justify-center rounded-full border border-stroke bg-card"
-                      android_ripple={{ color: tokens.colors.ripple, borderless: true }}
-                    >
-                      <Icon name="create-outline" size={16} color={tokens.colors.accent} />
-                    </HapticPressable>
+                    <IconButton accessibilityLabel="Edit book" onPress={() => startEdit(book.id)}>
+                      <Icon name="create-outline" size={tokens.icon.nav} color={tokens.colors.accent} />
+                    </IconButton>
 
                     <View
                       className="ml-3 h-8 w-8 items-center justify-center rounded-full"

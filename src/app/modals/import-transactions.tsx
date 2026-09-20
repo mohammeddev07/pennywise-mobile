@@ -1,15 +1,17 @@
 import { useState } from "react";
-import { Alert, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { View } from "react-native";
+import { Icon } from "@/shared/ui/components/Icon";
 import { useRouter } from "expo-router";
 import * as DocumentPicker from "expo-document-picker";
 import type { DocumentPickerAsset } from "expo-document-picker";
 
+import { alertCompat } from "@/shared/ui/utils/confirm";
 import { tokens } from "@/shared/ui/theme/tokens";
 import { AppText } from "@/shared/ui/components/AppText";
 import { Button } from "@/shared/ui/components/Button";
 import { Card } from "@/shared/ui/components/Card";
 import { Sheet } from "@/shared/ui/components/Sheet";
+import { IconButton } from "@/shared/ui/components/IconButton";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { useBooksStore } from "@/features/books/store";
 import { useUndoToastStore } from "@/shared/ui/state/useUndoToastStore";
@@ -37,7 +39,7 @@ export default function ImportTransactionsModal() {
 
   const confirmImport = () => {
     if (!file || isImporting) return;
-    Alert.alert(
+    alertCompat(
       "Import transactions?",
       `This adds every valid row in "${file.name}" to the current cash book. This can't be undone.`,
       [
@@ -74,13 +76,7 @@ export default function ImportTransactionsModal() {
         className="flex-1"
         title="Import transactions"
         leftAction={
-          <HapticPressable
-            onPress={() => router.back()}
-            className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
-            android_ripple={{ color: "#0B122012", borderless: true }}
-          >
-            <Ionicons name="chevron-back" size={20} color={tokens.colors.text} />
-          </HapticPressable>
+          <IconButton icon="chevron-back" accessibilityLabel="Back" onPress={() => router.back()} />
         }
         footer={
           <Button
@@ -110,17 +106,17 @@ export default function ImportTransactionsModal() {
                 className="h-12 w-12 items-center justify-center rounded-full"
                 style={{ backgroundColor: tokens.colors.greenSoft }}
               >
-                <Ionicons name="document-outline" size={22} color={tokens.colors.accent} />
+                <Icon name="document-outline" size={22} color={tokens.colors.accent} />
               </View>
               <View className="ml-4 flex-1">
                 <AppText variant="base" numberOfLines={1}>
                   {file?.name ?? "Choose a file"}
                 </AppText>
-                <AppText variant="xs" tone="muted" className="mt-0.5">
+                <AppText variant="caption" tone="muted" className="mt-0.5">
                   {file ? "Tap to choose a different file" : "XLSX files only"}
                 </AppText>
               </View>
-              <Ionicons name="chevron-forward" size={18} color={tokens.colors.muted} />
+              <Icon name="chevron-forward" size={18} color={tokens.colors.muted} />
             </View>
           </Card>
         </HapticPressable>

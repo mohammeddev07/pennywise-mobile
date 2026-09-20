@@ -72,10 +72,14 @@ export const tokens = {
     // 1px inner top border, never as a shadow.
     edgeHighlight: "#FFFFFF14",
 
-    // Text ladder: primary / secondary / tertiary.
+    // Text ladder: primary / secondary / tertiary. `subtle` was #66707A, which
+    // measured 3.6:1 on `surface` and 3.4:1 on `surfaceAlt` - under the 4.5:1
+    // floor for the 11-13px text it carries (placeholders, hints, axis labels).
+    // #7D8791 is the same cool grey lifted to 5.0:1 / 4.7:1 and still steps
+    // clearly below `muted` (7.1:1). See docs/ui-polish-spec.md section 2.
     text: "#F5F7F8",
     muted: "#98A2AD",
-    subtle: "#66707A",
+    subtle: "#7D8791",
 
     // Brand. Reserved for primary actions, active nav, selection and success -
     // not for decoration.
@@ -114,7 +118,7 @@ export const tokens = {
     surfacePressed: "#20252A",
     text: "#F5F7F8",
     textMuted: "#98A2AD",
-    textSubtle: "#66707A",
+    textSubtle: "#7D8791",
     border: "#FFFFFF12",
     divider: "#FFFFFF0F",
     primary: "#00C805",
@@ -191,8 +195,12 @@ export const tokens = {
    * once a named family is set; `AppText`'s `weight` prop swaps the family.
    */
   typography: {
-    // Overline / caps label
+    // Overline / caps label. Written in caps at the call site; never sentence case.
     xs: { fontSize: 11, lineHeight: 15, fontFamily: fonts.semibold, letterSpacing: 2 },
+    // Caption: sentence-case helper text, tooltips, axis labels, table cells. Same
+    // family as body, no tracking - the +2 tracking on `xs` is for caps only and
+    // made sentence-case notes read as spaced-out and clipped month labels.
+    caption: { fontSize: 12, lineHeight: 17, fontFamily: fonts.medium, letterSpacing: 0.1 },
     // Body / meta
     sm: { fontSize: 13, lineHeight: 19, fontFamily: fonts.regular },
     // Row title / button label
@@ -250,10 +258,26 @@ export const tokens = {
     listRowHeight: 72,
     minTap: 44,
     iconTap: 48,
-    controlHeight: 56, // primary buttons, inputs, select rows
-    controlHeightSm: 48,
+    // Height tiers. Every interactive control lands on exactly one of these.
+    controlHeight: 56, // inputs, select rows, segmented control, large buttons
+    controlHeightSm: 48, // compact buttons, icon buttons, header actions
+    // Filter chips and pill tags. Equal to `minTap`: chips sit in clipped
+    // horizontal scroll rows, where hitSlop cannot extend past the row, so the
+    // visible chip has to be the 44px target itself.
+    chipHeight: 44,
     keyHeight: 60, // keypad key
     maxContentWidth: 520,
+    /**
+     * Outer width caps (gutters included) per screen class - see `Container`.
+     * `form` is the 520 column: anything you type into stays one readable
+     * column on tablet and web. `content` suits list/settings pages, `wide`
+     * is for analytical screens (Activity, Insights) that gain from room.
+     * On a phone every cap exceeds the screen, so nothing changes there.
+     */
+    container: { form: 520, content: 720, wide: 1040 },
+    /** Window-width breakpoints (dp / CSS px). `compact` is a phone. */
+    breakpoints: { medium: 600, expanded: 1024 },
+    screenPaddingXMedium: 32,
     tabBarHeight: 78,
     fabSize: 58,
   },

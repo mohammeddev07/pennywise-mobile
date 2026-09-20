@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { Alert, View } from "react-native";
+import { View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 
+import { alertCompat } from "@/shared/ui/utils/confirm";
 import { tokens } from "@/shared/ui/theme/tokens";
 import { Button } from "@/shared/ui/components/Button";
 import { useCategoriesStore } from "@/features/categories/store";
@@ -10,11 +11,12 @@ import { invalidateTransactionData } from "@/features/transactions/queries";
 import { useBooksStore } from "@/features/books/store";
 import { SegmentedControl } from "@/shared/ui/components/SegmentedControl";
 import { Sheet } from "@/shared/ui/components/Sheet";
+import { IconButton } from "@/shared/ui/components/IconButton";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { AppText } from "@/shared/ui/components/AppText";
 import { Card } from "@/shared/ui/components/Card";
 import { EmptyState } from "@/shared/ui/components/EmptyState";
-import { Input } from "@/shared/ui/components/Input";
+import { FormField } from "@/shared/ui/components/FormField";
 import { Skeleton } from "@/shared/ui/components/Skeleton";
 import { useUndoToastStore } from "@/shared/ui/state/useUndoToastStore";
 import { Icon } from "@/shared/ui/components/Icon";
@@ -156,7 +158,7 @@ export default function CategoryEditorModal() {
   const onDelete = () => {
     if (!editing || isSaving) return;
 
-    Alert.alert("Delete category?", "Categories used by active transactions cannot be deleted.", [
+    alertCompat("Delete category?", "Categories used by active transactions cannot be deleted.", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Delete",
@@ -184,25 +186,11 @@ export default function CategoryEditorModal() {
         className="flex-1"
         title={title}
         leftAction={
-          <HapticPressable
-            onPress={() => router.back()}
-            className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
-            android_ripple={{ color: tokens.colors.ripple, borderless: true }}
-          >
-            <Icon name="close" size={20} color={tokens.colors.text} />
-          </HapticPressable>
+          <IconButton icon="close" accessibilityLabel="Close" onPress={() => router.back()} />
         }
         rightAction={
           editing ? (
-            <HapticPressable
-              onPress={onDelete}
-              // A destructive confirm is a write - it warns.
-              haptic="notificationWarning"
-              className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
-              android_ripple={{ color: tokens.colors.ripple, borderless: true }}
-            >
-              <Icon name="trash-outline" size={tokens.icon.nav} color={tokens.colors.danger} />
-            </HapticPressable>
+            <IconButton icon="trash-outline" accessibilityLabel="Delete category" onPress={onDelete} haptic="notificationWarning" tone="danger" />
           ) : null
         }
         footer={
@@ -257,16 +245,16 @@ export default function CategoryEditorModal() {
                 onChange={editing ? () => {} : setType}
               />
               {editing ? (
-                <AppText variant="xs" tone="muted" className="mt-2">
+                <AppText variant="caption" tone="muted" className="mt-2">
                   Category type is fixed after creation.
                 </AppText>
               ) : null}
             </View>
 
             <View className="mt-5">
-              <Input label="Name" value={name} onChangeText={setName} placeholder="e.g. Groceries" />
+              <FormField label="Name" value={name} onChangeText={setName} placeholder="e.g. Groceries" />
               {nameTooLong ? (
-                <AppText variant="xs" tone="danger" className="mt-2">
+                <AppText variant="caption" tone="danger" className="mt-2">
                   Category name must be 60 characters or fewer.
                 </AppText>
               ) : null}

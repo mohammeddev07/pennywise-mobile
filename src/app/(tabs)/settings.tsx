@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Alert, ScrollView, View } from "react-native";
+import { ScrollView, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { LinearGradient } from "expo-linear-gradient";
 
+import { alertCompat } from "@/shared/ui/utils/confirm";
 import { tokens } from "@/shared/ui/theme/tokens";
 import { withAlpha } from "@/shared/ui/theme/color";
 import { AppText } from "@/shared/ui/components/AppText";
@@ -156,7 +157,7 @@ export default function ProfileScreen() {
   };
 
   const onLogout = () => {
-    Alert.alert("Log out?", "You’ll need to sign in again to access your books.", [
+    alertCompat("Log out?", "You’ll need to sign in again to access your books.", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Log out",
@@ -190,7 +191,13 @@ export default function ProfileScreen() {
         style={{ flex: 1 }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{ paddingHorizontal: paddingX, paddingBottom: tabClearance }}
+        contentContainerStyle={{
+          paddingHorizontal: paddingX,
+          paddingBottom: tabClearance,
+          width: "100%",
+          maxWidth: tokens.layout.container.content,
+          alignSelf: "center",
+        }}
       >
         <ScreenHeader title="Profile" />
 

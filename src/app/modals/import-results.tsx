@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/shared/ui/components/Icon";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { FlashList } from "@shopify/flash-list";
@@ -19,7 +19,7 @@ function StatTile({ label, value, tone }: { label: string; value: number; tone?:
       <AppText variant="xl" weight="bold" style={tone === "danger" ? { color: tokens.colors.danger } : undefined}>
         {value}
       </AppText>
-      <AppText variant="xs" tone="muted" className="mt-0.5">
+      <AppText variant="caption" tone="muted" className="mt-0.5">
         {label}
       </AppText>
     </View>
@@ -33,7 +33,7 @@ function ErrorRow({ item }: { item: ImportRowError }) {
         className="h-8 w-8 items-center justify-center rounded-full mr-3"
         style={{ backgroundColor: tokens.colors.redSoft }}
       >
-        <AppText variant="xs" weight="semibold" style={{ color: tokens.colors.danger }}>
+        <AppText variant="caption" weight="semibold" style={{ color: tokens.colors.danger }}>
           {item.rowNumber}
         </AppText>
       </View>
@@ -41,7 +41,7 @@ function ErrorRow({ item }: { item: ImportRowError }) {
         <AppText variant="sm" weight="semibold">
           {item.code}
         </AppText>
-        <AppText variant="xs" tone="muted" className="mt-0.5">
+        <AppText variant="caption" tone="muted" className="mt-0.5">
           {item.message}
         </AppText>
       </View>
@@ -82,7 +82,7 @@ export default function ImportResultsScreen() {
           className="h-20 w-20 items-center justify-center rounded-full"
           style={{ backgroundColor: hasFailures ? tokens.colors.amberSoft : tokens.colors.greenSoft }}
         >
-          <Ionicons
+          <Icon
             name={hasFailures ? "alert-circle-outline" : "checkmark"}
             size={40}
             color={hasFailures ? tokens.colors.warning : tokens.semantic.primary}

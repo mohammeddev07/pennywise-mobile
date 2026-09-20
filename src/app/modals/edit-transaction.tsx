@@ -7,11 +7,13 @@ import * as Haptics from "expo-haptics";
 
 import { tokens } from "@/shared/ui/theme/tokens";
 import { Sheet } from "@/shared/ui/components/Sheet";
+import { IconButton } from "@/shared/ui/components/IconButton";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { AppText } from "@/shared/ui/components/AppText";
 import { AmountInput, applyAmountKey } from "@/shared/ui/components/AmountInput";
 import { NumericKeypad, type Key } from "@/shared/ui/NumericKeypad";
-import { Input } from "@/shared/ui/components/Input";
+import { useScrollToError } from "@/shared/ui/utils/useScrollToError";
+import { FormField } from "@/shared/ui/components/FormField";
 import { SelectRow } from "@/shared/ui/components/SelectRow";
 import { FilterChip } from "@/shared/ui/components/FilterChip";
 import { Button } from "@/shared/ui/components/Button";
@@ -83,6 +85,7 @@ export default function EditTransactionModal() {
   const [saveError, setSaveError] = useState("");
   const [reloading, setReloading] = useState(false);
   const seededFor = useRef<string | null>(null);
+  const { ref: scrollRef, mark, scrollToError } = useScrollToError();
 
   const seedForm = useCallback(
     (row: Transaction) => {
@@ -149,7 +152,12 @@ export default function EditTransactionModal() {
 
   const onSave = async () => {
     setAttemptedSave(true);
-    if (!tx || baseVersion === null || amountMinor === null || amountMinor <= 0 || !categoryId || isSaving) return;
+    if (!tx || baseVersion === null || amountMinor === null || amountMinor <= 0 || !categoryId || isSaving) {
+      // Amount sits at the top; the category row is inside the form block below it.
+      if (!amountValid) scrollToError();
+      else if (!categoryId) scrollToError("form", "category");
+      return;
+    }
 
     const patch = buildEditPatch(tx, { kind, amountMinor, title, categoryId, note, occurredAt });
     if (Object.keys(patch).length === 0) {
@@ -168,9 +176,12 @@ export default function EditTransactionModal() {
       }
     } catch (error) {
       // The form keeps everything the user typed on any failure.
-      if (isStaleVersionError(error)) setConflict(true);
-      else {
+      if (isStaleVersionError(error)) {
+        setConflict(true);
+        scrollToError();
+      } else {
         setSaveError(getApiErrorMessage(error, "Could not update transaction."));
+        scrollToError();
         showError(error, "Could not update transaction.");
       }
     } finally {
@@ -185,13 +196,7 @@ export default function EditTransactionModal() {
         className="flex-1"
         title="Edit transaction"
         leftAction={
-          <HapticPressable
-            onPress={() => router.back()}
-            className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
-            android_ripple={{ color: tokens.colors.ripple, borderless: true }}
-          >
-            <Icon name="chevron-back" size={20} color={tokens.colors.text} />
-          </HapticPressable>
+          <IconButton icon="chevron-back" accessibilityLabel="Back" onPress={() => router.back()} />
         }
         footer={
           tx ? (
@@ -199,7 +204,9 @@ export default function EditTransactionModal() {
               <Button
                 label={isSaving ? "Saving..." : "Save changes"}
                 onPress={onSave}
-                disabled={!canSave || isSaving}
+                loading={isSaving}
+                // Not while reloading: saving before the fresh version arrives just hits the same 412 again.
+                disabled={!canSave || isSaving || reloading}
                 size="md"
               />
               <View className="mt-2">
@@ -236,14 +243,15 @@ export default function EditTransactionModal() {
             <Skeleton height={260} borderRadius={20} />
           </View>
         ) : (
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }} keyboardShouldPersistTaps="handled">
+          <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }} keyboardShouldPersistTaps="handled">
             {conflict ? (
               <Card variant="surface" style={{ marginTop: tokens.space[2] }}>
                 <AppText variant="base" weight="semibold">
-                  This transaction changed elsewhere
+                  This transaction was changed while you were editing
                 </AppText>
                 <AppText variant="sm" tone="muted" style={{ marginTop: tokens.space[1] }}>
-                  Someone (or another device) saved a newer version. Your edits are still here.
+                  Another device or session saved a newer version, so your save was not applied. Your edits are still
+                  here. “Reload latest” replaces them with the newer version; “Keep my changes” keeps them so you can save over the newer version.
                 </AppText>
                 <View style={{ flexDirection: "row", gap: tokens.space[3], marginTop: tokens.space[3] }}>
                   <Button label="Reload latest" variant="secondary" size="md" style={{ flex: 1 }} disabled={reloading} onPress={() => void reload("discard")} />
@@ -285,8 +293,8 @@ export default function EditTransactionModal() {
               </View>
             </View>
 
-            <View className="mt-6 gap-4">
-              <Input
+            <View className="mt-6 gap-4" onLayout={mark("form")}>
+              <FormField
                 label="Title"
                 value={title}
                 onChangeText={setTitle}
@@ -296,7 +304,7 @@ export default function EditTransactionModal() {
                 returnKeyType="done"
               />
 
-              <View>
+              <View onLayout={mark("category")}>
                 <AppText variant="sm" tone="muted" className="mb-2">
                   Category
                 </AppText>
@@ -325,7 +333,7 @@ export default function EditTransactionModal() {
                 ) : null}
               </View>
 
-              <Input
+              <FormField
                 label="Note"
                 value={note}
                 onChangeText={setNote}
@@ -344,10 +352,10 @@ export default function EditTransactionModal() {
               {/* Read-only record metadata: the date above is the transaction date; these
                   are when the record itself was written and last changed. */}
               <View className="gap-1">
-                <AppText variant="xs" tone="muted">
+                <AppText variant="caption" tone="muted">
                   Payment: {paymentMethodLabel(tx.paymentMethod)}
                 </AppText>
-                <AppText variant="xs" tone="muted">
+                <AppText variant="caption" tone="muted">
                   Record created {format(parseWhen(tx.createdAt), "MMM d, yyyy 'at' h:mm a")} · last updated{" "}
                   {format(parseWhen(tx.updatedAt), "MMM d, yyyy 'at' h:mm a")} (read-only)
                 </AppText>

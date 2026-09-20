@@ -1,10 +1,12 @@
-import React, { type PropsWithChildren, type ReactNode } from "react";
-import { View, type ViewProps } from "react-native";
+import React, { useEffect, type PropsWithChildren, type ReactNode } from "react";
+import { Platform, View, type ViewProps } from "react-native";
+import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import clsx from "clsx";
 
 import { AppText } from "@/shared/ui/components/AppText";
 import { tokens } from "@/shared/ui/theme/tokens";
+import { Container, useScreenPaddingX } from "@/shared/ui/components/Screen";
 
 type Props = ViewProps &
   PropsWithChildren<{
@@ -30,6 +32,20 @@ export function Sheet({
   ...rest
 }: Props) {
   const insets = useSafeAreaInsets();
+  const paddingX = useScreenPaddingX();
+
+  // Web: Escape closes the route, like Android back. A bottom sheet or picker open on top handles its
+  // own Escape (RN Modal marks the event), so a second press never pops two layers at once.
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      if (document.querySelector('[aria-modal="true"]')) return;
+      if (router.canGoBack()) router.back();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
 
   return (
     <View
@@ -43,21 +59,25 @@ export function Sheet({
         {
           paddingTop: insets.top + 12,
           paddingBottom: insets.bottom + 16,
-          paddingLeft: tokens.layout.screenPaddingX,
-          paddingRight: tokens.layout.screenPaddingX,
         },
         style,
       ]}
     >
+      {/* Route-level sheets hold forms and detail views: one readable 520 column on tablet/web. */}
+      <Container width="form" style={{ flex: 1, paddingHorizontal: paddingX }}>
       {(title || leftAction || rightAction) && (
         <View className="flex-row items-center mb-4">
-          <View className="w-12 h-12 items-center justify-center">{leftAction}</View>
+          <View className="min-w-12 h-12 items-center justify-center">{leftAction}</View>
 
           <View className="flex-1 px-2">
-            {title ? <AppText variant="lg">{title}</AppText> : null}
+            {title ? (
+              <AppText variant="lg" accessibilityRole="header">
+                {title}
+              </AppText>
+            ) : null}
           </View>
 
-          <View className="w-12 h-12 items-center justify-center">{rightAction}</View>
+          <View className="min-w-12 h-12 items-center justify-end flex-row gap-2">{rightAction}</View>
         </View>
       )}
 
@@ -68,8 +88,8 @@ export function Sheet({
           ? (
             <View
               style={{
-                marginLeft: -tokens.layout.screenPaddingX,
-                marginRight: -tokens.layout.screenPaddingX,
+                marginLeft: -paddingX,
+                marginRight: -paddingX,
                 marginBottom: -(insets.bottom + 16),
                 marginTop: 16,
               }}
@@ -81,6 +101,7 @@ export function Sheet({
             <View className="mt-4 pt-4 border-t border-stroke">{footer}</View>
             )
         : null}
+      </Container>
     </View>
   );
 }

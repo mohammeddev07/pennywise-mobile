@@ -82,10 +82,14 @@ export function FilterChip({
       onPress={onPress}
       haptic={role === "category" ? "selection" : "none"}
       pressScale={0.97}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ selected: active }}
+      accessibilityHint={clearable && active ? "Removes this filter" : undefined}
       android_ripple={{ color: tokens.colors.ripple, borderless: true }}
       style={[
         {
-          minHeight: tokens.layout.minTap,
+          height: tokens.layout.chipHeight,
           paddingHorizontal: tokens.space[4],
           borderRadius: tokens.radii.pill,
           // A selected chip is read by its ring as much as its fill, so the
