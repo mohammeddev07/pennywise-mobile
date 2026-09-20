@@ -8,7 +8,9 @@ import { useQueries, useQuery } from "@tanstack/react-query";
 import { tokens } from "@/shared/ui/theme/tokens";
 import { useCategoriesStore } from "@/features/categories/store";
 import { useBooksStore } from "@/features/books/store";
-import { useTransactionsStore } from "@/features/transactions/store";
+import { mapTransactionResponse } from "@/features/transactions/model";
+import { useWindowAnalysis } from "@/features/transactions/queries";
+import { endOfMonthYmd, startOfMonthYmd } from "@/shared/utils/ledgerDate";
 import { useBookCurrency } from "@/features/books/useBookCurrency";
 import { AppText } from "@/shared/ui/components/AppText";
 import { BreakdownRow } from "@/shared/ui/components/BreakdownRow";
@@ -48,7 +50,6 @@ export default function AnalyticsScreen() {
   const tabClearance = useTabBarClearance();
 
   const categories = useCategoriesStore((s) => s.categories);
-  const transactions = useTransactionsStore((s) => s.transactions);
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
 
   const catsPersist = (useCategoriesStore as any).persist;
@@ -165,17 +166,15 @@ export default function AnalyticsScreen() {
     return { rows, total };
   }, [categories, summaryQuery.data]);
 
-  // Largest single expense comes from loaded records, so it is only shown when
-  // one is actually present for the month being viewed.
-  const largestExpense = useMemo(() => {
-    const inMonth = transactions.filter((tx) => {
-      if (tx.bookId !== selectedBookId || tx.type !== "EXPENSE") return false;
-      const when = safeDate(tx.occurredOn || tx.occurredAt);
-      return when ? isSameMonth(when, selectedMonth) : false;
-    });
-    if (inMonth.length === 0) return null;
-    return inMonth.reduce((max, tx) => (tx.amountMinor > max.amountMinor ? tx : max), inMonth[0]);
-  }, [selectedBookId, selectedMonth, transactions]);
+  // Largest single expense of the month, computed by the server over every matching row.
+  const monthWindow = useMemo(() => {
+    const first = `${month}-01`;
+    return { startDate: startOfMonthYmd(first), endDate: endOfMonthYmd(first) };
+  }, [month]);
+  const monthAnalysis = useWindowAnalysis(monthWindow, "MONTH");
+  const largestExpense = monthAnalysis.data?.largestExpense
+    ? mapTransactionResponse(monthAnalysis.data.largestExpense)
+    : null;
 
   const dailyAverage = useMemo(() => {
     if (!totals) return null;

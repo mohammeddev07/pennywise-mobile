@@ -6,7 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { tokens } from "@/shared/ui/theme/tokens";
 import { Button } from "@/shared/ui/components/Button";
 import { useCategoriesStore } from "@/features/categories/store";
-import { useTransactionsStore } from "@/features/transactions/store";
+import { invalidateTransactionData } from "@/features/transactions/queries";
 import { useBooksStore } from "@/features/books/store";
 import { SegmentedControl } from "@/shared/ui/components/SegmentedControl";
 import { Sheet } from "@/shared/ui/components/Sheet";
@@ -56,7 +56,6 @@ export default function CategoryEditorModal() {
   const updateCategory = useCategoriesStore((s) => s.updateCategory);
   const removeCategory = useCategoriesStore((s) => s.removeCategory);
   const markLastCreatedCategoryId = useCategoriesStore((s) => s.markLastCreatedCategoryId);
-  const renameTransactionCategory = useTransactionsStore((s) => s.renameTransactionCategory);
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
   const showError = useUndoToastStore((s) => s.showError);
 
@@ -132,16 +131,15 @@ export default function CategoryEditorModal() {
 
     try {
       if (editing) {
-        const previousName = editing.name;
         await updateCategory(editing.bookId, editing.id, { name: finalName, icon, color });
-        renameTransactionCategory(previousName, finalName);
-        await queryClient.invalidateQueries({ queryKey: ["summary", editing.bookId] });
+        // Category names are joined in by the server; refresh every dependent query, not a local copy.
+        await invalidateTransactionData(queryClient, editing.bookId);
         router.back();
         return;
       }
 
       const id = await addCategory(selectedBookId, { type, name: finalName, icon, color });
-      await queryClient.invalidateQueries({ queryKey: ["summary", selectedBookId] });
+      await invalidateTransactionData(queryClient, selectedBookId);
 
       if (origin === "add-transaction") {
         markLastCreatedCategoryId(id);
@@ -167,7 +165,7 @@ export default function CategoryEditorModal() {
           setIsSaving(true);
           try {
             await removeCategory(editing.bookId, editing.id);
-            await queryClient.invalidateQueries({ queryKey: ["summary", editing.bookId] });
+            await invalidateTransactionData(queryClient, editing.bookId);
             router.back();
           } catch (error) {
             showError(error, "Could not delete category.");

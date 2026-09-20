@@ -55,7 +55,9 @@ async function clearAccountState() {
     { useBooksStore },
     { useCategoriesStore },
     { useBudgetsStore },
-    { useTransactionsStore },
+    { useFilterStore },
+    { clearQueryCache },
+    { purgeLegacyTransactionCache },
     { useSettingsStore },
     { useAddTransactionDraftStore },
     { useOnboardingStore },
@@ -64,7 +66,9 @@ async function clearAccountState() {
     import("@/features/books/store"),
     import("@/features/categories/store"),
     import("@/features/budgets/store"),
-    import("@/features/transactions/store"),
+    import("@/features/transactions/filterStore"),
+    import("@/shared/api/queryClient"),
+    import("@/features/transactions/legacy"),
     import("@/features/settings/store"),
     import("@/features/transactions/addDraftStore"),
     import("@/features/onboarding/useOnboardingStore"),
@@ -78,7 +82,7 @@ async function clearAccountState() {
     Promise.resolve(useBooksStore.persist.rehydrate()),
     Promise.resolve(useCategoriesStore.persist.rehydrate()),
     Promise.resolve(useBudgetsStore.persist.rehydrate()),
-    Promise.resolve(useTransactionsStore.persist.rehydrate()),
+    Promise.resolve(useFilterStore.persist.rehydrate()),
     Promise.resolve(useSettingsStore.persist.rehydrate()),
   ]);
 
@@ -99,11 +103,11 @@ async function clearAccountState() {
     isLoading: false,
     error: null,
   });
-  useTransactionsStore.setState({
-    transactions: [],
-    isLoading: false,
-    error: null,
-  });
+  // Server data lives in the query cache, not a store: cancel what is in flight and drop every
+  // cached row, detail and aggregate of the previous account. Filters are per-account UI state.
+  await clearQueryCache();
+  useFilterStore.getState().clearAllScopes();
+  await purgeLegacyTransactionCache();
   useSettingsStore.setState({ primaryCurrency: "USD" });
 
   // These stores are not persisted, but may still contain data from the

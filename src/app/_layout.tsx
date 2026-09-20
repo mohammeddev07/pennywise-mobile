@@ -1,11 +1,11 @@
 import "react-native-gesture-handler";
 import "../../global.css";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Stack } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
 import { Text, TextInput, View } from "react-native";
@@ -31,7 +31,8 @@ import { ExportToast } from "@/shared/ui/components/ExportToast";
 import { useAuthStore } from "@/features/auth/store";
 import { useBooksStore } from "@/features/books/store";
 import { useCategoriesStore } from "@/features/categories/store";
-import { useTransactionsStore } from "@/features/transactions/store";
+import { queryClient } from "@/shared/api/queryClient";
+import { purgeLegacyTransactionCache } from "@/features/transactions/legacy";
 import { useBudgetsStore } from "@/features/budgets/store";
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -62,7 +63,6 @@ function DataBootstrap() {
   const ensureBook = useBooksStore((s) => s.ensureBook);
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
   const loadCategories = useCategoriesStore((s) => s.loadCategories);
-  const loadTransactions = useTransactionsStore((s) => s.loadTransactions);
   const loadBudgets = useBudgetsStore((s) => s.loadBudgets);
 
   useEffect(() => {
@@ -81,9 +81,8 @@ function DataBootstrap() {
   useEffect(() => {
     if (sessionStatus !== "authenticated" || !user || !selectedBookId) return;
     loadCategories(selectedBookId).catch(() => {});
-    loadTransactions(selectedBookId, { limit: 100 }).catch(() => {});
     loadBudgets(selectedBookId, currentMonthKey()).catch(() => {});
-  }, [loadBudgets, loadCategories, loadTransactions, selectedBookId, sessionStatus, user]);
+  }, [loadBudgets, loadCategories, selectedBookId, sessionStatus, user]);
 
   return null;
 }
@@ -112,19 +111,14 @@ export default function RootLayout() {
     Sora_800ExtraBold,
   });
 
-  const queryClient = useMemo(
-    () =>
-      new QueryClient({
-        defaultOptions: {
-          queries: { retry: 0, staleTime: 10_000 },
-        },
-      }),
-    []
-  );
-
   useEffect(() => {
-    if (sessionStatus === "unauthenticated") queryClient.clear();
-  }, [queryClient, sessionStatus]);
+    if (sessionStatus === "unauthenticated") void queryClient.cancelQueries().then(() => queryClient.clear());
+  }, [sessionStatus]);
+
+  // The first-100 transactions array persisted by older builds is gone; drop its storage key.
+  useEffect(() => {
+    void purgeLegacyTransactionCache();
+  }, []);
 
   useEffect(() => {
     const unsubscribe = authPersist.onFinishHydration(() => setAuthStorageHydrated(true));

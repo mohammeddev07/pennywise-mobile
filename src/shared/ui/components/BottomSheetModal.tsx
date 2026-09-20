@@ -1,5 +1,5 @@
 import { type PropsWithChildren, type ReactNode } from "react";
-import { Modal, Pressable, View } from "react-native";
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, { FadeIn, FadeOut, SlideInDown, SlideOutDown } from "react-native-reanimated";
 
@@ -14,6 +14,8 @@ type Props = PropsWithChildren<{
   title?: string;
   rightAction?: ReactNode;
   footer?: ReactNode;
+  /** Tall sheet: body scrolls under a fixed header and footer. For long forms (filters, sort). */
+  scroll?: boolean;
 }>;
 
 /**
@@ -23,7 +25,7 @@ type Props = PropsWithChildren<{
  * Used for the date/time pickers on the add-transaction flow and the custom
  * date-range picker on Activity. Screens must not hand-roll a second one.
  */
-export function BottomSheetModal({ visible, onClose, title, rightAction, footer, children }: Props) {
+export function BottomSheetModal({ visible, onClose, title, rightAction, footer, scroll, children }: Props) {
   const insets = useSafeAreaInsets();
 
   return (
@@ -34,8 +36,12 @@ export function BottomSheetModal({ visible, onClose, title, rightAction, footer,
         collapsable={false}
         style={{ flex: 1, backgroundColor: withAlpha(tokens.colors.black, 0.55) }}
       >
-        <Pressable style={{ flex: 1 }} onPress={onClose} accessibilityLabel="Close" />
+        <Pressable style={scroll ? { height: insets.top + tokens.space[6] } : { flex: 1 }} onPress={onClose} accessibilityLabel="Close" />
 
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          style={scroll ? { flex: 1 } : undefined}
+        >
         <Animated.View
           entering={SlideInDown.duration(tokens.motion.base).springify().damping(24).stiffness(260)}
           exiting={SlideOutDown.duration(tokens.motion.fast)}
@@ -49,6 +55,7 @@ export function BottomSheetModal({ visible, onClose, title, rightAction, footer,
             paddingTop: tokens.space[4],
             paddingBottom: insets.bottom + tokens.space[4],
             paddingHorizontal: tokens.layout.screenPaddingX,
+            ...(scroll ? { flex: 1 } : null),
           }}
         >
           <View
@@ -78,7 +85,18 @@ export function BottomSheetModal({ visible, onClose, title, rightAction, footer,
             </View>
           ) : null}
 
-          {children}
+          {scroll ? (
+            <ScrollView
+              style={{ flex: 1 }}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: tokens.space[4] }}
+            >
+              {children}
+            </ScrollView>
+          ) : (
+            children
+          )}
 
           {footer ? (
             <View
@@ -88,6 +106,7 @@ export function BottomSheetModal({ visible, onClose, title, rightAction, footer,
             </View>
           ) : null}
         </Animated.View>
+        </KeyboardAvoidingView>
       </Animated.View>
     </Modal>
   );

@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Keyboard, Platform, ScrollView, View } from "react-native";
 import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useQueryClient } from "@tanstack/react-query";
 import { format, parseISO } from "date-fns";
 import * as Haptics from "expo-haptics";
 
@@ -19,7 +18,11 @@ import { Button } from "@/shared/ui/components/Button";
 import { Card } from "@/shared/ui/components/Card";
 import { EmptyState } from "@/shared/ui/components/EmptyState";
 import { Skeleton } from "@/shared/ui/components/Skeleton";
-import { paymentMethodLabel, useTransactionsStore, type TransactionKind } from "@/features/transactions/store";
+import { isNotFoundError, isStaleVersionError, paymentMethodLabel, type Transaction, type TransactionKind } from "@/features/transactions/model";
+import { useTransactionDetail } from "@/features/transactions/queries";
+import { updateTransaction } from "@/features/transactions/actions";
+import { buildEditPatch } from "@/features/transactions/editPatch";
+import { getApiErrorMessage } from "@/shared/api/errors";
 import { useCategoriesStore } from "@/features/categories/store";
 import { TypeToggle } from "@/shared/ui/components/TypeToggle";
 import { useBookCurrency } from "@/features/books/useBookCurrency";
@@ -52,35 +55,14 @@ function parseWhen(iso: string) {
 
 export default function EditTransactionModal() {
   const router = useRouter();
-  const queryClient = useQueryClient();
-  const { id } = useLocalSearchParams<{ id?: string }>();
+  const { id, bookId } = useLocalSearchParams<{ id?: string; bookId?: string }>();
 
-  const transactions = useTransactionsStore((s) => s.transactions);
-  const updateTransaction = useTransactionsStore((s) => s.updateTransaction);
   const categories = useCategoriesStore((s) => s.categories);
   const showError = useUndoToastStore((s) => s.showError);
 
-  const txPersist = (useTransactionsStore as any).persist;
-  const [hydrated, setHydrated] = useState<boolean>(() => txPersist?.hasHydrated?.() ?? true);
-  const [hydrationError, setHydrationError] = useState(false);
-
-  useEffect(() => {
-    if (!txPersist?.onFinishHydration) return;
-    const unsub = txPersist.onFinishHydration(() => {
-      setHydrated(true);
-      setHydrationError(false);
-    });
-    if (txPersist?.hasHydrated && !txPersist.hasHydrated()) txPersist?.rehydrate?.();
-    const timeoutId = setTimeout(() => {
-      if (txPersist?.hasHydrated && !txPersist.hasHydrated()) setHydrationError(true);
-    }, 3000);
-    return () => {
-      clearTimeout(timeoutId);
-      unsub?.();
-    };
-  }, [txPersist]);
-
-  const tx = useMemo(() => transactions.find((item) => item.id === id) ?? null, [id, transactions]);
+  // The row comes from the API by id, not from a list; the form is seeded from it once.
+  const detail = useTransactionDetail(String(id ?? ""), bookId ? String(bookId) : undefined);
+  const tx = detail.data ?? null;
   const currency = useBookCurrency(tx?.bookId);
   const fractionDigits = currencyMinorUnitDigits(currency);
 
@@ -94,17 +76,52 @@ export default function EditTransactionModal() {
   const [showMode, setShowMode] = useState<"date" | "time" | null>(null);
   const [attemptedSave, setAttemptedSave] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  // The version the user started from. It is the `If-Match` of the save, and is only advanced
+  // deliberately (Reload / Keep my changes) - never silently under their edits.
+  const [baseVersion, setBaseVersion] = useState<number | null>(null);
+  const [conflict, setConflict] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const [reloading, setReloading] = useState(false);
+  const seededFor = useRef<string | null>(null);
 
+  const seedForm = useCallback(
+    (row: Transaction) => {
+      setAmount(minorToAmount(row.amountMinor, currency));
+      setKind(row.type);
+      setTitle(row.title ?? "");
+      setCategoryId(row.categoryId);
+      setCategoryName(row.categoryName || "Uncategorized");
+      setNote(row.note ?? "");
+      setOccurredAt(parseWhen(row.occurredAt));
+      setBaseVersion(row.version);
+    },
+    [currency]
+  );
+
+  // Seed exactly once per transaction. A background refetch must never overwrite typing.
   useEffect(() => {
-    if (!tx) return;
-    setAmount(minorToAmount(tx.amountMinor, currency));
-    setKind(tx.type);
-    setTitle(tx.title === tx.categoryName ? "" : tx.title);
-    setCategoryId(tx.categoryId);
-    setCategoryName(tx.categoryName || "Uncategorized");
-    setNote(tx.note ?? "");
-    setOccurredAt(parseWhen(tx.occurredAt));
-  }, [currency, tx]);
+    if (!tx || seededFor.current === tx.id) return;
+    seededFor.current = tx.id;
+    seedForm(tx);
+  }, [tx, seedForm]);
+
+  const reload = async (mode: "discard" | "keep") => {
+    setReloading(true);
+    try {
+      const fresh = await detail.refetch();
+      if (!fresh.data) {
+        if (fresh.error && isNotFoundError(fresh.error)) setConflict(false);
+        else showError(fresh.error, "Could not reload this transaction.");
+        return;
+      }
+      if (mode === "discard") seedForm(fresh.data);
+      else setBaseVersion(fresh.data.version);
+      setConflict(false);
+      setSaveError("");
+    } finally {
+      setReloading(false);
+    }
+  };
 
   // null = not a valid amount (bad text, too many decimals for this currency, or over the cap).
   const amountMinor = useMemo(() => parseAmountToMinor(amount, currency), [amount, currency]);
@@ -132,42 +149,33 @@ export default function EditTransactionModal() {
 
   const onSave = async () => {
     setAttemptedSave(true);
-    if (!tx || amountMinor === null || amountMinor <= 0 || !categoryId || isSaving) return;
+    if (!tx || baseVersion === null || amountMinor === null || amountMinor <= 0 || !categoryId || isSaving) return;
+
+    const patch = buildEditPatch(tx, { kind, amountMinor, title, categoryId, note, occurredAt });
+    if (Object.keys(patch).length === 0) {
+      router.back();
+      return;
+    }
 
     setIsSaving(true);
+    setSaveError("");
     try {
-      // Blank title/note are sent as explicit null: PATCH omits nothing here, and null
-      // clears. paymentMethod is not edited on this screen, so it is omitted (unchanged).
-      const ok = await updateTransaction(tx.id, {
-        type: kind,
-        amountMinor,
-        title: title.trim() || null,
-        categoryId,
-        note: note.trim() || null,
-        occurredAt: occurredAt.toISOString(),
-      });
-
-      if (ok) {
-        await Promise.all([
-          queryClient.invalidateQueries({ queryKey: ["balance", tx.bookId] }),
-          queryClient.invalidateQueries({ queryKey: ["summary", tx.bookId] }),
-          queryClient.invalidateQueries({ queryKey: ["summaryRange", tx.bookId] }),
-        ]);
+      const saved = await updateTransaction({ id: tx.id, bookId: tx.bookId, version: baseVersion }, patch, tx.occurredOn);
+      if (saved) {
         Keyboard.dismiss();
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
         router.back();
       }
     } catch (error) {
-      showError(error, "Could not update transaction.");
+      // The form keeps everything the user typed on any failure.
+      if (isStaleVersionError(error)) setConflict(true);
+      else {
+        setSaveError(getApiErrorMessage(error, "Could not update transaction."));
+        showError(error, "Could not update transaction.");
+      }
     } finally {
       setIsSaving(false);
     }
-  };
-
-  const retryHydration = () => {
-    setHydrationError(false);
-    setHydrated(txPersist?.hasHydrated?.() ?? true);
-    txPersist?.rehydrate?.();
   };
 
   return (
@@ -207,27 +215,47 @@ export default function EditTransactionModal() {
           )
         }
       >
-        {hydrationError ? (
+        {detail.isError && !tx ? (
           <View className="flex-1 justify-center">
-            <EmptyState
-              title="Couldn’t load transaction"
-              message="Retry to continue editing."
-              actionLabel="Retry"
-              onAction={retryHydration}
-              className="px-0"
-            />
+            {isNotFoundError(detail.error) ? (
+              <EmptyState title="Transaction not found" message="It may have been deleted." className="px-0" />
+            ) : (
+              <EmptyState
+                title="Couldn’t load transaction"
+                message="Retry to continue editing."
+                actionLabel="Retry"
+                tone="danger"
+                onAction={() => void detail.refetch()}
+                className="px-0"
+              />
+            )}
           </View>
-        ) : !hydrated ? (
+        ) : !tx ? (
           <View className="mt-2 gap-3">
             <Skeleton height={160} borderRadius={20} />
             <Skeleton height={260} borderRadius={20} />
           </View>
-        ) : !tx ? (
-          <View className="flex-1 justify-center">
-            <EmptyState title="Transaction not found" message="It may have been deleted." className="px-0" />
-          </View>
         ) : (
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }} keyboardShouldPersistTaps="handled">
+            {conflict ? (
+              <Card variant="surface" style={{ marginTop: tokens.space[2] }}>
+                <AppText variant="base" weight="semibold">
+                  This transaction changed elsewhere
+                </AppText>
+                <AppText variant="sm" tone="muted" style={{ marginTop: tokens.space[1] }}>
+                  Someone (or another device) saved a newer version. Your edits are still here.
+                </AppText>
+                <View style={{ flexDirection: "row", gap: tokens.space[3], marginTop: tokens.space[3] }}>
+                  <Button label="Reload latest" variant="secondary" size="md" style={{ flex: 1 }} disabled={reloading} onPress={() => void reload("discard")} />
+                  <Button label="Keep my changes" size="md" style={{ flex: 1 }} disabled={reloading} onPress={() => void reload("keep")} />
+                </View>
+              </Card>
+            ) : null}
+            {saveError ? (
+              <AppText variant="sm" tone="danger" style={{ marginTop: tokens.space[3] }}>
+                {saveError}
+              </AppText>
+            ) : null}
             <View className="items-center mt-2">
               <TypeToggle
                 value={kind}
@@ -308,9 +336,9 @@ export default function EditTransactionModal() {
               />
 
               <Card variant="surface" padding={0} style={{ overflow: "hidden" }}>
-                <SelectRow label="Date" value={format(occurredAt, "MMM d, yyyy")} onPress={() => setShowMode("date")} />
+                <SelectRow label="Transaction date" value={format(occurredAt, "MMM d, yyyy")} onPress={() => setShowMode("date")} />
                 <View className="h-px bg-stroke" />
-                <SelectRow label="Time" value={format(occurredAt, "h:mm a")} onPress={() => setShowMode("time")} />
+                <SelectRow label="Transaction time" value={format(occurredAt, "h:mm a")} onPress={() => setShowMode("time")} />
               </Card>
 
               {/* Read-only record metadata: the date above is the transaction date; these
@@ -320,8 +348,8 @@ export default function EditTransactionModal() {
                   Payment: {paymentMethodLabel(tx.paymentMethod)}
                 </AppText>
                 <AppText variant="xs" tone="muted">
-                  Created {format(parseWhen(tx.createdAt), "MMM d, yyyy 'at' h:mm a")} · Updated{" "}
-                  {format(parseWhen(tx.updatedAt), "MMM d, yyyy 'at' h:mm a")}
+                  Record created {format(parseWhen(tx.createdAt), "MMM d, yyyy 'at' h:mm a")} · last updated{" "}
+                  {format(parseWhen(tx.updatedAt), "MMM d, yyyy 'at' h:mm a")} (read-only)
                 </AppText>
               </View>
 
