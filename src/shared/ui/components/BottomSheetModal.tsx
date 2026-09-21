@@ -1,12 +1,11 @@
-import { type PropsWithChildren, type ReactNode } from "react";
+import { type PropsWithChildren, type ReactNode, useRef } from "react";
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
 import Animated, {
+  Easing,
   FadeIn,
-  FadeOut,
   SlideInDown,
-  SlideOutDown,
   runOnJS,
   useAnimatedStyle,
   useReducedMotion,
@@ -28,7 +27,19 @@ type Props = PropsWithChildren<{
   footer?: ReactNode;
   /** Tall sheet: body scrolls under a fixed header and footer. For long forms (filters, sort). */
   scroll?: boolean;
+  /**
+   * Slide in on show. Defaults to true. Pass false when the sheet is coming
+   * back from being briefly hidden (e.g. behind an Android date dialog), so it
+   * reappears where it was instead of travelling up the screen a second time.
+   * A `scroll` sheet also returns at the scroll position it was left at.
+   */
+  animateIn?: boolean;
 }>;
+
+// The sheet decelerates into place and stops - no spring, so there is no
+// overshoot to wait out before the controls can be used.
+const SHEET_ENTER = SlideInDown.duration(tokens.motion.base).easing(Easing.out(Easing.cubic));
+const FADE_ENTER = FadeIn.duration(tokens.motion.fast);
 
 const SWIPE_CLOSE_DISTANCE = 96;
 const SWIPE_CLOSE_VELOCITY = 900;
@@ -40,7 +51,16 @@ const SWIPE_CLOSE_VELOCITY = 900;
  * Used for the date/time pickers on the add-transaction flow and the custom
  * date-range picker on Activity. Screens must not hand-roll a second one.
  */
-export function BottomSheetModal({ visible, onClose, title, rightAction, footer, scroll, children }: Props) {
+export function BottomSheetModal({
+  visible,
+  onClose,
+  title,
+  rightAction,
+  footer,
+  scroll,
+  animateIn = true,
+  children,
+}: Props) {
   const insets = useSafeAreaInsets();
 
   // Swipe down on the handle + title strip to dismiss. It is a pan on the
@@ -63,14 +83,25 @@ export function BottomSheetModal({ visible, onClose, title, rightAction, footer,
   const paddingX = useScreenPaddingX();
   const reduceMotion = useReducedMotion();
   const fill = scroll ? { flex: 1 } : null;
+  // A hidden Modal unmounts its contents, scroll view included. Remember where
+  // the body was so a sheet returning from being hidden is not reset to the top;
+  // a fresh open (animateIn) always starts at the top.
+  const scrollY = useRef(0);
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
       {/* Android renders a Modal outside the app's root gesture view, so it needs its own. */}
       <GestureHandlerRootView style={{ flex: 1 }}>
+        {/*
+          Entering only - never `exiting` - on anything inside this Modal. With
+          animationType="none" the Modal's window is torn down the moment
+          `visible` goes false, so an exit animation has nowhere to play; worse,
+          on Android a Reanimated `exiting` animation inside a Modal can leave
+          the view stuck and the whole sheet unresponsive to touches (Cancel,
+          close and Apply all "doing nothing"). Closing is instant by design.
+        */}
         <Animated.View
-          entering={FadeIn.duration(tokens.motion.fast)}
-          exiting={FadeOut.duration(tokens.motion.fast)}
+          entering={animateIn ? FADE_ENTER : undefined}
           collapsable={false}
           style={{ flex: 1, backgroundColor: withAlpha(tokens.colors.black, 0.55) }}
         >
@@ -87,8 +118,7 @@ export function BottomSheetModal({ visible, onClose, title, rightAction, footer,
           >
             <Animated.View
               // Reduced motion: the sheet fades in place instead of travelling up the screen.
-              entering={reduceMotion ? FadeIn.duration(tokens.motion.fast) : SlideInDown.duration(tokens.motion.base).springify().damping(24).stiffness(260)}
-              exiting={reduceMotion ? FadeOut.duration(tokens.motion.fast) : SlideOutDown.duration(tokens.motion.fast)}
+              entering={animateIn ? (reduceMotion ? FADE_ENTER : SHEET_ENTER) : undefined}
               collapsable={false}
               accessibilityViewIsModal
               aria-modal
@@ -147,6 +177,11 @@ export function BottomSheetModal({ visible, onClose, title, rightAction, footer,
                 {scroll ? (
                   <ScrollView
                     style={{ flex: 1 }}
+                    contentOffset={{ x: 0, y: animateIn ? 0 : scrollY.current }}
+                    onScroll={(e) => {
+                      scrollY.current = e.nativeEvent.contentOffset.y;
+                    }}
+                    scrollEventThrottle={32}
                     keyboardShouldPersistTaps="handled"
                     showsVerticalScrollIndicator={false}
                     contentContainerStyle={{ paddingBottom: tokens.space[4] }}

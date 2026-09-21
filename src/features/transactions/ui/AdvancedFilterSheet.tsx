@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Platform, View } from "react-native";
 import DateTimePicker, { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 
@@ -62,6 +62,12 @@ type Ctx = {
   /** Only one inline picker (field, operator or date) is open at a time. */
   openKey: string | null;
   setOpenKey: (key: string | null) => void;
+  /**
+   * Android: open the native date dialog. Owned by the sheet, not the field,
+   * because the sheet has to step aside first - a native dialog presented over
+   * the sheet's open Modal fails to appear (see CustomRangeSheet).
+   */
+  pickDate: (value: Date, onPick: (next: Date) => void) => void;
   update: (next: FilterRoot) => void;
   root: FilterRoot;
 };
@@ -90,14 +96,7 @@ function DateValue({ node, index, ctx }: { node: FilterConditionNode; index: num
 
   const press = () => {
     if (Platform.OS === "android") {
-      // One imperative dialog per tap; it cannot re-open itself.
-      DateTimePickerAndroid.open({
-        value: date,
-        mode: "date",
-        onChange: (event, selected) => {
-          if (event.type === "set" && selected) set(localDateToYmd(selected));
-        },
-      });
+      ctx.pickDate(date, (next) => set(localDateToYmd(next)));
       return;
     }
     ctx.setOpenKey(open ? null : key);
@@ -520,14 +519,56 @@ export function AdvancedFilterSheet({
   const cancelDraft = useFilterStore((s) => s.cancelDraft);
   const [showErrors, setShowErrors] = useState(false);
   const [openKey, setOpenKey] = useState<string | null>(null);
+  // Android: the date dialog waiting to be (or being) shown. While set, the
+  // sheet is hidden and further taps are ignored - the one-dialog guard.
+  const [pending, setPending] = useState<{ value: Date; onPick: (next: Date) => void } | null>(null);
+  // Once the sheet has stepped aside for a dialog, it returns without sliding.
+  const [returning, setReturning] = useState(false);
+  const dialogUp = useRef(false);
 
   useEffect(() => {
     if (visible) {
       beginDraft(scope);
       setShowErrors(false);
       setOpenKey(null);
+      return;
+    }
+    setPending(null);
+    setReturning(false);
+    // Closing with a native dialog still up takes the dialog with it.
+    if (Platform.OS === "android" && dialogUp.current) {
+      dialogUp.current = false;
+      Promise.resolve(DateTimePickerAndroid.dismiss("date")).catch(() => {});
     }
   }, [visible, scope, beginDraft]);
+
+  // Present the dialog only after the render that hid the sheet has committed.
+  useEffect(() => {
+    if (Platform.OS !== "android" || !visible || !pending) return;
+    const { value, onPick } = pending;
+    const done = () => {
+      dialogUp.current = false;
+      setPending(null);
+    };
+    dialogUp.current = true;
+    DateTimePickerAndroid.open({
+      value,
+      mode: "date",
+      onValueChange: (_event, selected) => {
+        if (selected) onPick(selected);
+        done();
+      },
+      // Cancel, tap outside, back: the draft is left alone.
+      onDismiss: done,
+      // Presentation failures are only reported here; without it the guard sticks.
+      onError: done,
+    });
+  }, [pending, visible]);
+
+  const pickDate: Ctx["pickDate"] = (value, onPick) => {
+    setReturning(true);
+    setPending((current) => current ?? { value, onPick });
+  };
 
   const root = draft?.root;
   const validation = useMemo(() => (root ? validateTree(root) : null), [root]);
@@ -557,13 +598,15 @@ export function AdvancedFilterSheet({
     showErrors,
     openKey,
     setOpenKey,
+    pickDate,
     root,
     update: (next) => setDraft(scope, { root: next }),
   };
 
   return (
     <BottomSheetModal
-      visible={visible}
+      visible={visible && !pending}
+      animateIn={!returning}
       onClose={cancel}
       scroll
       title="Advanced filters"

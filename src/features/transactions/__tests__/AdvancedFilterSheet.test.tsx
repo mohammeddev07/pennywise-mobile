@@ -1,5 +1,7 @@
 import React from "react";
-import { fireEvent, render, screen, within } from "@testing-library/react-native";
+import { Platform } from "react-native";
+import { act, fireEvent, render, screen, within } from "@testing-library/react-native";
+import { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 
 import { AdvancedFilterSheet } from "../ui/AdvancedFilterSheet";
 import { describeExpression, type DescribeContext, type FilterGroupNode } from "../filterModel";
@@ -28,6 +30,46 @@ beforeEach(() => {
 });
 
 describe("Advanced filter sheet", () => {
+  describe("Android date dialog", () => {
+    const open = DateTimePickerAndroid.open as jest.Mock;
+    beforeEach(() => {
+      jest.replaceProperty(Platform, "OS", "android");
+      open.mockClear();
+    });
+    afterEach(() => jest.restoreAllMocks());
+
+    it("steps the sheet aside for the dialog, then returns it with the pick in the draft", () => {
+      const onClose = jest.fn();
+      render(sheet(true, onClose));
+      const before = applied();
+
+      fireEvent.press(screen.getAllByLabelText(/^Date /)[0]);
+      expect(open).toHaveBeenCalledTimes(1);
+      // Never presented over the sheet's Modal: the sheet is out of the way.
+      expect(screen.queryByText("Apply")).toBeNull();
+
+      act(() => open.mock.calls[0][0].onValueChange({}, new Date(2026, 1, 3, 0, 30)));
+      expect(screen.getByText("Apply")).toBeTruthy();
+      expect(onClose).not.toHaveBeenCalled(); // stepping aside is not closing
+      expect(JSON.stringify(draft().children[0])).toContain("2026-02-03");
+      expect(applied()).toBe(before); // still only a draft until Apply
+    });
+
+    it("dismiss changes nothing, and a failed dialog does not leave dates dead", () => {
+      render(sheet());
+      const start = JSON.stringify(draft().children[0]);
+      fireEvent.press(screen.getAllByLabelText(/^Date /)[0]);
+      act(() => open.mock.calls[0][0].onDismiss());
+      expect(JSON.stringify(draft().children[0])).toBe(start);
+
+      fireEvent.press(screen.getAllByLabelText(/^Date /)[1]);
+      act(() => open.mock.calls[1][0].onError(new Error("no window")));
+      fireEvent.press(screen.getAllByLabelText(/^Date /)[0]);
+      expect(open).toHaveBeenCalledTimes(3);
+      expect(open.mock.calls[0][0].onChange).toBeUndefined(); // not the deprecated API
+    });
+  });
+
   it("edits AND/OR structure on a draft; Apply commits it atomically", () => {
     const onClose = jest.fn();
     render(sheet(true, onClose));

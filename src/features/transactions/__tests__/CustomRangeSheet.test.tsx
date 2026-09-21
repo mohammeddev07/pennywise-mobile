@@ -44,19 +44,42 @@ describe("custom range picker lifecycle", () => {
 
     fireEvent.press(screen.getByLabelText(/^Start date/));
     expect(open).toHaveBeenCalledTimes(1);
-    // A second tap while the dialog is up must not stack another one.
-    fireEvent.press(screen.getByLabelText(/^Start date/));
-    fireEvent.press(screen.getByLabelText(/^End date/));
-    expect(open).toHaveBeenCalledTimes(1);
+    // The dialog is never presented over the sheet's Modal: the sheet steps
+    // aside, which also means there is no tile left to stack a second dialog.
+    expect(screen.queryByLabelText(/^Start date/)).toBeNull();
+    expect(screen.queryByLabelText(/^End date/)).toBeNull();
 
     rerender(<CustomRangeSheet {...p} />);
     expect(open).toHaveBeenCalledTimes(1);
 
-    // Cancel / back / tap-outside = "dismissed": the draft is untouched.
-    act(() => open.mock.calls[0][0].onChange({ type: "dismissed" }, undefined));
+    // Cancel / back / tap-outside: the sheet comes back and the draft is untouched.
+    act(() => open.mock.calls[0][0].onDismiss());
+    expect(screen.getByLabelText(/^Start date/)).toBeTruthy();
+    expect(p.onClose).not.toHaveBeenCalled(); // stepping aside is not closing
     fireEvent.press(screen.getByText("Apply"));
     expect(p.onApply).toHaveBeenCalledWith({ startDate: "2026-03-01", endDate: "2026-03-10" });
     expect(open).toHaveBeenCalledTimes(1); // dismissing did not reopen it
+  });
+
+  it("Android: a dialog that fails to present does not leave the tiles dead", () => {
+    setPlatform("android");
+    const p = props();
+    render(<CustomRangeSheet {...p} />);
+    fireEvent.press(screen.getByLabelText(/^Start date/));
+    act(() => open.mock.calls[0][0].onError(new Error("no window")));
+    // The sheet is back and a second tap opens a fresh dialog.
+    fireEvent.press(screen.getByLabelText(/^End date/));
+    expect(open).toHaveBeenCalledTimes(2);
+  });
+
+  it("Android: uses the current picker API, not the deprecated onChange", () => {
+    setPlatform("android");
+    render(<CustomRangeSheet {...props()} />);
+    fireEvent.press(screen.getByLabelText(/^Start date/));
+    const args = open.mock.calls[0][0];
+    expect(args.onChange).toBeUndefined();
+    expect(typeof args.onValueChange).toBe("function");
+    expect(typeof args.onDismiss).toBe("function");
   });
 
   it("Android: a chosen date becomes a calendar day, not a UTC-shifted one", () => {
@@ -65,7 +88,7 @@ describe("custom range picker lifecycle", () => {
     render(<CustomRangeSheet {...p} />);
     fireEvent.press(screen.getByLabelText(/^End date/));
     // 00:30 local on 20 Mar is 19 Mar in UTC (the suite runs in Asia/Tokyo).
-    act(() => open.mock.calls[0][0].onChange({ type: "set" }, new Date(2026, 2, 20, 0, 30)));
+    act(() => open.mock.calls[0][0].onValueChange({}, new Date(2026, 2, 20, 0, 30)));
     fireEvent.press(screen.getByText("Apply"));
     expect(p.onApply).toHaveBeenCalledWith({ startDate: "2026-03-01", endDate: "2026-03-20" });
     expect(p.onClose).toHaveBeenCalledTimes(1);
@@ -76,7 +99,7 @@ describe("custom range picker lifecycle", () => {
     const p = props();
     render(<CustomRangeSheet {...p} />);
     fireEvent.press(screen.getByLabelText(/^Start date/));
-    act(() => open.mock.calls[0][0].onChange({ type: "set" }, new Date(2026, 3, 5, 12)));
+    act(() => open.mock.calls[0][0].onValueChange({}, new Date(2026, 3, 5, 12)));
     fireEvent.press(screen.getByText("Apply"));
     expect(p.onApply).toHaveBeenCalledWith({ startDate: "2026-03-10", endDate: "2026-04-05" });
   });
