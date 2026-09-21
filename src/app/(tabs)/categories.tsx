@@ -66,7 +66,7 @@ function Tile({ item, currency }: { item: CategoryTile; currency: CurrencyCode }
         haptic="none"
         pressScale={0.99}
         pressOpacity={0.92}
-        className="pb-1"
+        style={{ paddingBottom: tokens.space[1] }}
         android_ripple={{ color: tokens.colors.ripple }}
       >
         <View className="flex-row items-center justify-between">
@@ -162,7 +162,16 @@ function Tile({ item, currency }: { item: CategoryTile; currency: CurrencyCode }
           onPress={() => router.push({ pathname: "/modals/budget-editor", params: { categoryId: item.categoryId } })}
           haptic="none"
           pressScale={0.98}
-          className="mt-2 -ml-3 min-h-11 px-3 rounded-full flex-row items-center self-start"
+          style={{
+            marginTop: tokens.space[2],
+            marginLeft: -tokens.space[3],
+            minHeight: tokens.layout.minTap,
+            paddingHorizontal: tokens.space[3],
+            borderRadius: tokens.radii.pill,
+            flexDirection: "row",
+            alignItems: "center",
+            alignSelf: "flex-start",
+          }}
           android_ripple={{ color: tokens.colors.ripple }}
         >
           <AppText variant="sm" className="text-accent" weight="semibold">
@@ -413,7 +422,15 @@ export default function CategoriesScreen() {
                   void summaryQuery.refetch();
                 }}
                 haptic="none"
-                className="mt-4 min-h-11 items-center justify-center rounded-full border border-stroke"
+                style={{
+                  marginTop: tokens.space[4],
+                  minHeight: tokens.layout.minTap,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderRadius: tokens.radii.pill,
+                  borderWidth: 1,
+                  borderColor: tokens.colors.stroke,
+                }}
               >
                 <AppText variant="sm" tone="muted">
                   Retry monthly totals

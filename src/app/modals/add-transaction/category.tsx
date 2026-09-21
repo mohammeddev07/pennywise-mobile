@@ -252,7 +252,18 @@ export default function AddTransactionCategory() {
               onPress={() => setQuery("")}
               haptic="none"
               pressScale={0.98}
-              className="mt-2 self-end min-h-11 px-4 items-center justify-center rounded-full border border-stroke bg-surface"
+              style={{
+                marginTop: tokens.space[2],
+                alignSelf: "flex-end",
+                minHeight: tokens.layout.minTap,
+                paddingHorizontal: tokens.space[4],
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: tokens.radii.pill,
+                borderWidth: 1,
+                borderColor: tokens.colors.stroke,
+                backgroundColor: tokens.colors.surface,
+              }}
               android_ripple={{ color: tokens.colors.ripple, borderless: true }}
             >
               <AppText variant="sm" tone="muted">
@@ -339,7 +350,11 @@ export default function AddTransactionCategory() {
               </View>
 
               <View className="mt-4">
-                <HapticPressable onPress={retryHydrate} haptic="none" className="py-2">
+                <HapticPressable
+                  onPress={retryHydrate}
+                  haptic="none"
+                  style={{ paddingVertical: tokens.space[2] }}
+                >
                   <AppText variant="sm" className="text-accent" weight="semibold">
                     Retry loading
                   </AppText>

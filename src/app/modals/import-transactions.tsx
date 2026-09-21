@@ -97,7 +97,7 @@ export default function ImportTransactionsModal() {
           onPress={pickFile}
           haptic="selection"
           pressScale={0.99}
-          className="mt-6"
+          style={{ marginTop: tokens.space[6] }}
           disabled={isImporting}
         >
           <Card variant="surface">

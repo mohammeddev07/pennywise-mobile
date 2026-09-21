@@ -1,6 +1,5 @@
 import React from "react";
 import { View } from "react-native";
-import clsx from "clsx";
 
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { AppText } from "@/shared/ui/components/AppText";
@@ -13,7 +12,6 @@ type Props = {
   placeholder?: string;
   onPress: () => void;
   disabled?: boolean;
-  className?: string;
 };
 
 export function SelectRow({
@@ -22,7 +20,6 @@ export function SelectRow({
   placeholder = "Select…",
   onPress,
   disabled,
-  className,
 }: Props) {
   return (
     <HapticPressable
@@ -30,15 +27,20 @@ export function SelectRow({
       disabled={disabled}
       haptic="none"
       pressScale={0.99}
-      className={clsx(
-        // Contract:
-        // - height: 56 => h-14
-        // - paddingX: 16 => px-4
-        // - radius: 16 => rounded-lg
-        "w-full h-14 px-4 rounded-lg border border-stroke bg-surface flex-row items-center",
-        disabled ? "opacity-40" : "",
-        className
-      )}
+      // Contract: full width, 56 high, 16 of side padding, the 22 field radius.
+      // `disabled` is not faded here - HapticPressable already applies its own
+      // disabled opacity, and fading twice made the label unreadable.
+      style={{
+        width: "100%",
+        height: tokens.layout.controlHeight,
+        paddingHorizontal: tokens.space[4],
+        borderRadius: tokens.radii.md,
+        borderWidth: 1,
+        borderColor: tokens.colors.stroke,
+        backgroundColor: tokens.colors.surface,
+        flexDirection: "row",
+        alignItems: "center",
+      }}
     >
       <View className="flex-1">
         <AppText variant="sm" tone="muted">

@@ -1,14 +1,16 @@
 import { PropsWithChildren, useMemo, useState } from "react";
 import { Platform, Pressable, type PressableProps, type StyleProp, type ViewStyle } from "react-native";
 import * as Haptics from "expo-haptics";
-import { cssInterop } from "nativewind";
 import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from "react-native-reanimated";
 
 import { tokens } from "@/shared/ui/theme/tokens";
 
 type Props = PressableProps &
   PropsWithChildren<{
-    className?: string;
+    /**
+     * Styling is `style`-only, deliberately - there is no `className` prop.
+     * See the note on `APressable` below before adding one back.
+     */
     style?: StyleProp<ViewStyle>;
     /**
      * Defaults to `none`.
@@ -50,15 +52,32 @@ const FOCUS_RING = {
   outlineColor: tokens.colors.accent,
 } as const;
 
+/**
+ * Do NOT call `cssInterop(APressable, { className: "style" })` on this.
+ *
+ * It looks like the fix for "className is dropped on an animated component",
+ * but it silently breaks every *inline* style this component is given. In
+ * react-native-css-interop, `getNormalizeConfig` derives `inlineProp = "style"`
+ * from that mapping, which makes the runtime re-process the inline `style`
+ * prop through `collectInlineRules` -> `specificityCompare` -> `applyRules`.
+ * Our style array ends in a `useAnimatedStyle` result, and pushing that
+ * Reanimated object through the rule pipeline discards the whole array - so
+ * `flex`, `flexDirection`, `position`, `width` and `height` all vanish.
+ *
+ * The visible symptom is layout collapsing to the top-left: segmented-control
+ * halves shrink to their text and stack their icon above the label, absolutely
+ * positioned chart labels stack vertically, and keypad keys and buttons lose
+ * their height and disappear entirely.
+ *
+ * A plain `Animated.View` is never registered by NativeWind, so it keeps its
+ * style array intact - which is why the sliding indicator in SegmentedControl
+ * kept working while the pressables beside it did not. Leaving this component
+ * unregistered gives it that same safe behaviour. Style it with `style`.
+ */
 const APressable = Animated.createAnimatedComponent(Pressable);
-// `createAnimatedComponent` returns a class NativeWind has never seen, so a
-// `className` on it was silently dropped - a dozen back buttons rendered as a
-// bare 20px chevron with no size, border or fill. Register it once, here.
-cssInterop(APressable, { className: "style" });
 
 export function HapticPressable({
   children,
-  className,
   style,
   haptic = "none",
   pressScale = 0.98,
@@ -132,7 +151,6 @@ export function HapticPressable({
         doHaptic();
         onPress?.(e);
       }}
-      className={className}
       style={[style as any, ring ? FOCUS_RING : null, animated]}
     >
       {children}

@@ -85,8 +85,14 @@ export function ExportToast() {
         <HapticPressable
           onPress={hide}
           haptic="selection"
-          className="ml-2 items-center justify-center rounded-full"
-          style={{ width: tokens.layout.minTap, height: tokens.layout.minTap }}
+          style={{
+            marginLeft: tokens.space[2],
+            alignItems: "center",
+            justifyContent: "center",
+            borderRadius: tokens.radii.pill,
+            width: tokens.layout.minTap,
+            height: tokens.layout.minTap,
+          }}
           accessibilityRole="button"
           accessibilityLabel="Dismiss"
           android_ripple={{ color: "#0B122012", borderless: true }}
