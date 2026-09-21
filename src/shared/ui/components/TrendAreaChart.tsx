@@ -141,6 +141,7 @@ export function TrendAreaChart({
                   accessibilityLabel={`${point.label}: ${formatValue ? formatValue(point.value) : point.value}`}
                   style={{
                     position: "absolute",
+                    top: 0,
                     left: x - 22,
                     width: 44,
                     height: labelRow,

@@ -190,6 +190,7 @@ export function TrendChart({
                   importantForAccessibility="no"
                   style={{
                     position: "absolute",
+                    top: 0,
                     left: index * (slot + gap) + slot / 2 - LABEL_WIDTH / 2,
                     width: LABEL_WIDTH,
                     textAlign: "center",

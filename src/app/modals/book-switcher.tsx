@@ -211,7 +211,7 @@ function LegacyBookSwitcherModal() {
                       }}
                       haptic="selection"
                       pressScale={0.99}
-                      className="flex-1 pr-3"
+                      style={{ flex: 1, paddingRight: tokens.space[3] }}
                       android_ripple={{ color: tokens.colors.ripple }}
                     >
                       <AppText variant="base" weight="semibold" numberOfLines={1}>

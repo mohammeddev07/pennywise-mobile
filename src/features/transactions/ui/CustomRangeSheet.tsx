@@ -1,9 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Platform, View } from "react-native";
-import DateTimePicker, {
-  DateTimePickerAndroid,
-  type DateTimePickerEvent,
-} from "@react-native-community/datetimepicker";
+import DateTimePicker, { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 import Animated, { FadeIn } from "react-native-reanimated";
 
 import { tokens } from "@/shared/ui/theme/tokens";
@@ -46,7 +43,13 @@ export function rangeError(start: Ymd, end: Ymd): string | null {
  *    field being edited; Android opens one imperative dialog per tap (guarded
  *    while it is up) and never mounts the declarative component, whose effect
  *    re-presented the dialog on every re-render; web renders a native date input.
- *  - A dismissed Android dialog changes nothing.
+ *  - Android never opens its dialog from inside this sheet's Modal: a native
+ *    date dialog presented over an open RN Modal fails to appear, and the
+ *    library swallows the failure. So the sheet steps aside while the dialog
+ *    is up (the same thing DateTimeField does by never using a sheet on
+ *    Android), and comes back in place - no second slide - with the draft kept.
+ *  - A dismissed Android dialog changes nothing. Every way the dialog ends
+ *    (set, dismiss, error) releases the guard, so a tile can never go dead.
  *  - Dates are book-local calendar days (`YYYY-MM-DD`) end to end: the pickers'
  *    device-local Dates are converted with local getters, never `toISOString()`.
  */
@@ -66,7 +69,12 @@ export function CustomRangeSheet({
   const [start, setStart] = useState<Ymd>(initial.startDate);
   const [end, setEnd] = useState<Ymd>(initial.endDate);
   const [editing, setEditing] = useState<Field>("start");
-  const androidOpen = useRef(false);
+  // Android only: the field whose native dialog is up. While set, the sheet is
+  // hidden and further taps are ignored - it is the one-dialog guard.
+  const [picking, setPicking] = useState<Field | null>(null);
+  // Once the sheet has stepped aside for a dialog, it returns without sliding.
+  const [returning, setReturning] = useState(false);
+  const dialogUp = useRef(false);
 
   // Seed once per open; depends on the range's values, not the object identity.
   useEffect(() => {
@@ -79,26 +87,50 @@ export function CustomRangeSheet({
 
   // Closing the sheet with a native dialog still up must take the dialog with it.
   useEffect(() => {
-    if (visible || Platform.OS !== "android") return;
-    DateTimePickerAndroid.dismiss("date");
-    androidOpen.current = false;
+    if (visible) return;
+    setPicking(null);
+    setReturning(false);
+    if (Platform.OS === "android" && dialogUp.current) {
+      dialogUp.current = false;
+      // Resolves false (or rejects) when nothing is showing; either is fine.
+      Promise.resolve(DateTimePickerAndroid.dismiss("date")).catch(() => {});
+    }
   }, [visible]);
 
   const setField = (field: Field, ymd: Ymd) => (field === "start" ? setStart(ymd) : setEnd(ymd));
 
-  const openField = (field: Field) => {
-    setEditing(field);
-    if (Platform.OS !== "android" || androidOpen.current) return;
-    androidOpen.current = true;
+  // Present the dialog only after the render that hid the sheet has committed,
+  // so the Modal is already gone when the native dialog asks for the screen.
+  useEffect(() => {
+    if (Platform.OS !== "android" || !visible || !picking) return;
+    const field = picking;
+    const done = () => {
+      dialogUp.current = false;
+      setPicking(null);
+    };
+    dialogUp.current = true;
     DateTimePickerAndroid.open({
       value: ymdToLocalDate(field === "start" ? start : end),
       mode: "date",
-      onChange: (event: DateTimePickerEvent, selected?: Date) => {
-        androidOpen.current = false;
-        // "dismissed" (Cancel, tap outside, back) leaves the draft alone.
-        if (event.type === "set" && selected) setField(field, localDateToYmd(selected));
+      onValueChange: (_event, selected) => {
+        if (selected) setField(field, localDateToYmd(selected));
+        done();
       },
+      // Cancel, tap outside, back: the draft is left alone.
+      onDismiss: done,
+      // The library catches presentation failures and only reports them here;
+      // without this the guard would stay up and both tiles would go dead.
+      onError: done,
     });
+    // `start`/`end` are read once, for the dialog's initial value.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [picking, visible]);
+
+  const openField = (field: Field) => {
+    setEditing(field);
+    if (Platform.OS !== "android") return;
+    setReturning(true);
+    setPicking((current) => current ?? field);
   };
 
   const error = rangeError(start, end);
@@ -133,7 +165,8 @@ export function CustomRangeSheet({
 
   return (
     <BottomSheetModal
-      visible={visible}
+      visible={visible && !picking}
+      animateIn={!returning}
       onClose={onClose}
       title="Custom range"
       rightAction={<SheetCloseButton onPress={onClose} />}

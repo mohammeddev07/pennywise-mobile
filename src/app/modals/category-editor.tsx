@@ -274,8 +274,15 @@ export default function CategoryEditorModal() {
                       onPress={() => setIcon(n)}
                       haptic="selection"
                       pressScale={0.98}
-                      className="h-12 w-12 items-center justify-center rounded-lg border mr-3 mb-3"
                       style={{
+                        width: 48,
+                        height: 48,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        borderRadius: tokens.radii.md,
+                        borderWidth: 1,
+                        marginRight: tokens.space[3],
+                        marginBottom: tokens.space[3],
                         borderColor: active ? tokens.colors.accent : tokens.colors.stroke,
                         backgroundColor: active ? `${tokens.colors.accent}14` : tokens.colors.surface,
                       }}
@@ -302,8 +309,18 @@ export default function CategoryEditorModal() {
                       onPress={() => setColor(c)}
                       haptic="selection"
                       pressScale={0.98}
-                      className="h-12 w-12 items-center justify-center rounded-full border mr-3 mb-3"
-                      style={{ borderColor: active ? tokens.colors.text : tokens.colors.stroke, backgroundColor: tokens.colors.surface }}
+                      style={{
+                        width: 48,
+                        height: 48,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        borderRadius: tokens.radii.pill,
+                        borderWidth: 1,
+                        marginRight: tokens.space[3],
+                        marginBottom: tokens.space[3],
+                        borderColor: active ? tokens.colors.text : tokens.colors.stroke,
+                        backgroundColor: tokens.colors.surface,
+                      }}
                       android_ripple={{ color: tokens.colors.ripple, borderless: true }}
                     >
                       <View className="h-7 w-7 rounded-full" style={{ backgroundColor: c }} />

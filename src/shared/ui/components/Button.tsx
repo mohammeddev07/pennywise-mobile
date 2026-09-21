@@ -56,7 +56,6 @@ export function Button({
   variant = "primary",
   size = "lg",
   tone = "accent",
-  className = "",
   disabled,
   loading,
   leftIcon,
@@ -68,7 +67,6 @@ export function Button({
   variant?: Variant;
   size?: Size;
   tone?: Tone;
-  className?: string;
   disabled?: boolean;
   loading?: boolean;
   leftIcon?: ReactNode;
@@ -131,7 +129,6 @@ export function Button({
       // Disabled paints its own muted surface + label; fading it again dropped
       // the label to ~2:1 and made the control vanish (see DESIGN_SYSTEM 7).
       disabledOpacity={1}
-      className={className}
       accessibilityRole="button"
       accessibilityState={{ disabled: isDisabled, busy: !!loading }}
       onPressIn={() => setPressed(true)}

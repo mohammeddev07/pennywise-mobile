@@ -132,7 +132,12 @@ export default function ImportResultsScreen() {
         <View className="flex-1" />
       )}
 
-      <Button label="Done" size="lg" onPress={() => router.replace("/(tabs)/settings")} className="mt-4" />
+      <Button
+        label="Done"
+        size="lg"
+        onPress={() => router.replace("/(tabs)/settings")}
+        style={{ marginTop: tokens.space[4] }}
+      />
     </View>
   );
 }
