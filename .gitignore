@@ -1,7 +1,6 @@
 
 # Dependencies
 node_modules/
-package-lock.json
 yarn.lock
 
 # Expo
@@ -34,10 +33,9 @@ yarn-error.*
 .DS_Store
 *.pem
 
-# Environment variables
-.env
-.env.local
-.env.*.local
+# Environment variables (keep the committed template)
+.env*
+!.env.example
 
 # IDEs
 .vscode/
@@ -45,6 +43,9 @@ yarn-error.*
 *.swp
 *.swo
 *~
+
+# Test output
+coverage/
 
 # Claude Code / agent-local config
 .claude/
@@ -65,3 +66,9 @@ docs/ui-polish/after/
 docs/ui-polish/p22/before/
 docs/ui-polish/p22/after/
 docs/release/shots/*FAIL*
+
+# Design mock exports (no light design yet); local only
+Light_design/
+
+# Local planning/audit docs kept out of the repo
+docs/archive/

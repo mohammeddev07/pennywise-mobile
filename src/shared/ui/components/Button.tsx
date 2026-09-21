@@ -127,7 +127,7 @@ export function Button({
       pressScale={answersWhileDisabled ? 1 : 0.97}
       pressOpacity={1}
       // Disabled paints its own muted surface + label; fading it again dropped
-      // the label to ~2:1 and made the control vanish (see DESIGN_SYSTEM 7).
+      // the label to ~2:1 and made the control vanish (see docs/design-system.md section 7).
       disabledOpacity={1}
       accessibilityRole="button"
       accessibilityState={{ disabled: isDisabled, busy: !!loading }}

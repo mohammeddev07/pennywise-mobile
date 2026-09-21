@@ -113,7 +113,7 @@ readable without perceiving hue.
 totals, add flow, success. A _balance_ is not an income or an expense — it stays
 neutral when positive, because green on every positive balance is noise.
 
-> **Known tension.** The reference mocks in `/Light_design` keep expenses
+> **Known tension.** The earlier reference mocks (`Light_design/`, since removed from the repo) keep expenses
 > near-black and reserve red for alerts (overspend, negative balance), which is
 > the mainstream finance convention. Red-for-all-expenses was an explicit product
 > decision. It is implemented through `amountColor()` alone, so reverting to the
