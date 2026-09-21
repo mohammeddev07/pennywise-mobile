@@ -9,6 +9,7 @@ import {
   changeOperator,
   conditionForField,
   defaultRoot,
+  depthOf,
   describeExpression,
   emptyRoot,
   makeCondition,
@@ -32,7 +33,7 @@ import {
   type DescribeContext,
   type FilterGroupNode,
 } from "../filterModel";
-import { FIELD_CAPABILITIES } from "@/shared/types/transactionQuery";
+import { FIELD_CAPABILITIES, QUERY_LIMITS, type FilterNode } from "@/shared/types/transactionQuery";
 
 const ctx = { currency: "USD", timezone: "America/New_York" };
 const describeCtx: DescribeContext = { ...ctx, today: "2026-03-15", categoryName: (id) => (id === "cat-1" ? "Groceries" : id) };
@@ -251,5 +252,55 @@ describe("exact typed input", () => {
     expect(parseTypedInput("createdAt", "LTE", 0, "2026-01-15", ctx)).toEqual({ value: "2026-01-16T04:59:59.999999Z" });
     expect(parseTypedInput("createdAt", "GT", 0, "2026-01-15 10:30", ctx)).toEqual({ value: "2026-01-15T15:30:00Z" });
     expect(parseTypedInput("createdAt", "GT", 0, "2026-01-15 25:00", ctx)).toHaveProperty("error");
+  });
+});
+
+describe("request limits count what is actually sent", () => {
+  const wireDepth = (n: FilterNode): number => (n.kind === "group" ? 1 + Math.max(0, ...n.children.map(wireDepth)) : 0);
+  const wireConditions = (n: FilterNode): number =>
+    n.kind === "group" ? n.children.reduce((sum, c) => sum + wireConditions(c), 0) : 1;
+  const cond = () => makeCondition("description", "CONTAINS", "x");
+
+  // The server counts the request, not the tree on screen: an OR root is wrapped in an AND (one more
+  // level) and a tree with no date range gets the analysis window appended (one more condition).
+  const fitsTheServer = (root: FilterGroupNode) => {
+    const q = buildQuery(root, [], "2026-03-15");
+    for (const f of [q.filter, q.analyzeFilter]) {
+      // analyze adds its own window condition (and wraps an OR root) server-side
+      const sent = f === q.analyzeFilter ? (f.kind === "group" && f.op === "OR" ? { kind: "group", op: "AND", children: [f] } : f) : f;
+      expect(wireDepth(sent as FilterNode)).toBeLessThanOrEqual(QUERY_LIMITS.maxDepth);
+    }
+    expect(wireConditions(q.filter)).toBeLessThanOrEqual(QUERY_LIMITS.maxConditions);
+  };
+
+  it("rejects an OR-rooted tree that would be wrapped past the depth limit", () => {
+    const deep = makeGroup("OR", [makeGroup("AND", [makeGroup("OR", [cond()])])]);
+    expect(depthOf(deep)).toBe(QUERY_LIMITS.maxDepth);
+    expect(validateTree(deep).valid).toBe(false);
+    expect(validateTree(makeGroup("OR", [makeGroup("AND", [cond()])])).valid).toBe(true);
+  });
+
+  it("rejects a tree whose appended window condition would pass the condition limit", () => {
+    const full = makeGroup("AND", Array.from({ length: QUERY_LIMITS.maxConditions }, cond));
+    expect(validateTree(full).valid).toBe(false);
+    // With a date slot the window is that condition, so nothing is appended.
+    const dated = setQuickDate(makeGroup("AND", Array.from({ length: QUERY_LIMITS.maxConditions - 1 }, cond)), {
+      startDate: "2026-03-01",
+      endDate: "2026-03-31",
+    });
+    expect(validateTree(dated).valid).toBe(true);
+    fitsTheServer(dated);
+  });
+
+  it("every tree the builder accepts produces a request within the server's limits", () => {
+    const accepted = [
+      makeGroup("AND", Array.from({ length: QUERY_LIMITS.maxConditions - 1 }, cond)),
+      makeGroup("OR", [makeGroup("AND", [cond()])]),
+      makeGroup("AND", [makeGroup("OR", [makeGroup("AND", [cond()])])]),
+    ];
+    for (const root of accepted) {
+      expect(validateTree(root).valid).toBe(true);
+      fitsTheServer(root);
+    }
   });
 });
