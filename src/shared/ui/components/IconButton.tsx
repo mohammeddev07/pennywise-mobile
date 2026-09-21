@@ -1,4 +1,4 @@
-import React, { type ReactNode, useState } from "react";
+import React, { type ComponentProps, type ReactNode, useState } from "react";
 
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { tokens } from "@/shared/ui/theme/tokens";
@@ -24,7 +24,7 @@ export function IconButton({
   children?: ReactNode;
   size?: number;
   accessibilityLabel?: string;
-  haptic?: "none" | "selection" | "impactLight" | "impactMedium";
+  haptic?: ComponentProps<typeof HapticPressable>["haptic"];
 }) {
   const [pressed, setPressed] = useState(false);
 
@@ -61,6 +61,7 @@ export function IconButton({
       pressOpacity={1}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? icon}
+      accessibilityState={{ disabled: !!disabled }}
       onPressIn={() => setPressed(true)}
       onPressOut={() => setPressed(false)}
       android_ripple={{

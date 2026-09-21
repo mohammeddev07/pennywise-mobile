@@ -26,7 +26,7 @@ jest.mock("expo-haptics", () => ({
 
 // Reanimated / worklets need their native runtime; component tests use the library's own mocks.
 jest.mock("react-native-worklets", () => require("react-native-worklets/lib/module/mock"));
-jest.mock("react-native-reanimated", () => require("react-native-reanimated/mock"));
+jest.mock("react-native-reanimated", () => ({ ...require("react-native-reanimated/mock"), useReducedMotion: () => false }));
 
 // lucide ships ESM-only `.mjs`; icons are irrelevant to behaviour, so every icon renders nothing.
 jest.mock("lucide-react-native", () => new Proxy({ __esModule: true }, { get: (target, key) => (key in target ? (target as never)[key] : () => null) }));
@@ -39,3 +39,6 @@ jest.mock("react-native-safe-area-context", () => {
 // FlashList measures its container natively (and its own jestSetup targets a different version), so a
 // plain FlatList stands in: same props for what the screen uses (data, renderItem, header/footer, paging).
 jest.mock("@shopify/flash-list", () => ({ FlashList: require("react-native").FlatList }));
+
+// Gesture Handler ships its own jest shim (native module + GestureDetector); the bottom sheet's swipe-to-dismiss needs it.
+require("react-native-gesture-handler/jestSetup");

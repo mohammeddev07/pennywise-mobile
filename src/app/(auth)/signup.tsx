@@ -1,15 +1,17 @@
 import { useState } from "react";
-import { View } from "react-native";
+import { KeyboardAvoidingView, Platform, View } from "react-native";
 import { router } from "expo-router";
 
 import { Button, LinkButton } from "@/shared/ui/components/Button";
-import { Input } from "@/shared/ui/components/Input";
+import { FormField } from "@/shared/ui/components/FormField";
 import { AppText } from "@/shared/ui/components/AppText";
+import { IconButton } from "@/shared/ui/components/IconButton";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { tokens } from "@/shared/ui/theme/tokens";
 import { useAuthStore } from "@/features/auth/store";
 import { getAuthErrorMessage } from "@/shared/api/errors";
 import { Icon } from "@/shared/ui/components/Icon";
+import { Container } from "@/shared/ui/components/Screen";
 
 function isEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
@@ -48,67 +50,64 @@ export default function SignupScreen() {
   };
 
   return (
-    <View className="flex-1 bg-app px-5 pt-14 pb-10">
-      <View className="flex-row items-center">
-        <HapticPressable
-          onPress={handleBack}
-          haptic="none"
-          className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
-          android_ripple={{ color: tokens.colors.ripple, borderless: true }}
-        >
-          <Icon name="chevron-back" size={20} color={tokens.colors.text} />
-        </HapticPressable>
+    <KeyboardAvoidingView className="flex-1 bg-app" behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <Container width="form" className="flex-1 px-5 pt-14 pb-10">
+        <View className="flex-row items-center">
+          <IconButton icon="chevron-back" accessibilityLabel="Back" onPress={handleBack} />
 
-        <AppText variant="xl" className="ml-3">
-          Create account
-        </AppText>
-      </View>
-
-      <AppText variant="base" tone="muted" className="mt-3">
-        Minimal setup now. We&apos;ll personalize in onboarding.
-      </AppText>
-
-      <View className="mt-8 gap-5">
-        <Input
-          label="Email"
-          value={email}
-          onChangeText={setEmail}
-          placeholder="alex@email.com"
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoCorrect={false}
-          maxLength={320}
-          error={emailError}
-        />
-
-        <Input
-          label="Password"
-          value={password}
-          onChangeText={setPassword}
-          placeholder="Create a password"
-          secureTextEntry
-          autoCapitalize="none"
-          maxLength={128}
-          error={passwordError}
-        />
-
-        {apiError ? (
-          <AppText variant="sm" tone="danger">
-            {apiError}
+          <AppText variant="xl" className="ml-3">
+            Create account
           </AppText>
-        ) : null}
-      </View>
-
-      <View className="mt-auto gap-4">
-        <Button label={isSubmitting ? "Creating..." : "Continue"} onPress={onContinue} disabled={isSubmitting} />
-
-        <View className="flex-row justify-center gap-2 items-center">
-          <AppText variant="sm" tone="muted">
-            Already have one?
-          </AppText>
-          <LinkButton label="Log in" onPress={() => router.replace("/(auth)/login")} />
         </View>
-      </View>
-    </View>
+
+        <AppText variant="base" tone="muted" className="mt-3">
+          Minimal setup now. We&apos;ll personalize in onboarding.
+        </AppText>
+
+        <View className="mt-8 gap-5">
+          <FormField
+            label="Email"
+            value={email}
+            onChangeText={setEmail}
+            placeholder="alex@email.com"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            maxLength={320}
+            error={emailError}
+          />
+
+          <FormField
+            label="Password"
+            value={password}
+            onChangeText={setPassword}
+            placeholder="Create a password"
+            secureTextEntry
+            returnKeyType="go"
+            onSubmitEditing={onContinue}
+            autoCapitalize="none"
+            maxLength={128}
+            error={passwordError}
+          />
+
+          {apiError ? (
+            <AppText variant="sm" tone="danger">
+              {apiError}
+            </AppText>
+          ) : null}
+        </View>
+
+        <View className="mt-auto gap-4">
+          <Button label={isSubmitting ? "Creating..." : "Continue"} onPress={onContinue} disabled={isSubmitting} />
+
+          <View className="flex-row justify-center gap-2 items-center">
+            <AppText variant="sm" tone="muted">
+              Already have one?
+            </AppText>
+            <LinkButton label="Log in" onPress={() => router.replace("/(auth)/login")} />
+          </View>
+        </View>
+      </Container>
+    </KeyboardAvoidingView>
   );
 }

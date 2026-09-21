@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/shared/ui/components/Icon";
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 
 import { tokens } from "@/shared/ui/theme/tokens";
@@ -73,7 +73,7 @@ export function ExportToast() {
             borderColor: tokens.colors.stroke,
           }}
         >
-          <Ionicons name="checkmark-circle-outline" size={18} color={tokens.colors.success} />
+          <Icon name="checkmark-circle-outline" size={18} color={tokens.colors.success} />
         </View>
 
         <View style={{ flex: 1, marginLeft: 12 }}>
@@ -85,10 +85,13 @@ export function ExportToast() {
         <HapticPressable
           onPress={hide}
           haptic="selection"
-          className="ml-2 h-10 w-10 items-center justify-center rounded-full"
+          className="ml-2 items-center justify-center rounded-full"
+          style={{ width: tokens.layout.minTap, height: tokens.layout.minTap }}
+          accessibilityRole="button"
+          accessibilityLabel="Dismiss"
           android_ripple={{ color: "#0B122012", borderless: true }}
         >
-          <Ionicons name="close" size={18} color={tokens.colors.muted} />
+          <Icon name="close" size={18} color={tokens.colors.muted} />
         </HapticPressable>
       </View>
     </Animated.View>

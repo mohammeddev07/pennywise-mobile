@@ -29,7 +29,7 @@ export function ScreenHeader({ title, subtitle, left, right, titleVariant = "2xl
     >
       {left}
       <View style={{ flex: 1 }}>
-        <AppText variant={titleVariant} numberOfLines={1}>
+        <AppText variant={titleVariant} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
           {title}
         </AppText>
         {subtitle ? (

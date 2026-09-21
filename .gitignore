@@ -58,3 +58,10 @@ Thumbs.db
 *.log
 # graphify knowledge graph output
 graphify-out/
+
+# Raw screenshot sets: regenerate with scripts/ui-shots (only the side-by-side compare/ and states/ images are committed)
+docs/ui-polish/before/
+docs/ui-polish/after/
+docs/ui-polish/p22/before/
+docs/ui-polish/p22/after/
+docs/release/shots/*FAIL*

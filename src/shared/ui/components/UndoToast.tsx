@@ -80,7 +80,7 @@ export function UndoToast() {
           <AppText variant="sm" weight="semibold">
             {title}
           </AppText>
-          <AppText variant="xs" tone="muted" className="mt-0.5">
+          <AppText variant="caption" tone="muted" className="mt-0.5">
             {message}
           </AppText>
         </View>
@@ -88,7 +88,10 @@ export function UndoToast() {
         <HapticPressable
           onPress={hide}
           haptic="selection"
-          className="ml-2 h-10 w-10 items-center justify-center rounded-full"
+          className="ml-2 items-center justify-center rounded-full"
+          style={{ width: tokens.layout.minTap, height: tokens.layout.minTap }}
+          accessibilityRole="button"
+          accessibilityLabel="Dismiss"
           android_ripple={{ color: tokens.colors.ripple, borderless: true }}
         >
           <Icon name="close" size={18} color={tokens.colors.muted} />

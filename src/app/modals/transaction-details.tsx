@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { View } from "react-native";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { ScrollView, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { format, parseISO } from "date-fns";
@@ -77,6 +77,25 @@ function MenuRow({
   );
 }
 
+function DetailRow({ label, last, children }: { label: string; last?: boolean; children: ReactNode }) {
+  return (
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        paddingVertical: tokens.space[3],
+        borderBottomWidth: last ? 0 : 1,
+        borderBottomColor: tokens.colors.divider,
+      }}
+    >
+      <AppText variant="xs" tone="muted" style={{ width: 88 }}>
+        {label.toUpperCase()}
+      </AppText>
+      <View style={{ flex: 1, flexDirection: "row", alignItems: "center" }}>{children}</View>
+    </View>
+  );
+}
+
 export default function TransactionDetailsModal() {
   const router = useRouter();
 
@@ -91,6 +110,7 @@ export default function TransactionDetailsModal() {
   const detail = useTransactionDetail(id, params.bookId ? String(params.bookId) : undefined);
   const tx = detail.data ?? null;
 
+  const currency = useBookCurrency(tx?.bookId);
   const [isMutating, setIsMutating] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<"edit" | "duplicate" | "delete" | null>(null);
@@ -117,7 +137,8 @@ export default function TransactionDetailsModal() {
   const onDelete = () => {
     if (!tx || isMutating) return;
 
-    confirmDestructive("Delete transaction?", "This action cannot be undone.", async () => {
+    const what = `${tx.title?.trim() || categoryMeta.name} · ${formatCurrency(tx.amountMinor, currency)}`;
+    confirmDestructive("Delete this transaction?", `${what} will be removed from your totals and charts. This can't be undone.`, async () => {
       setIsMutating(true);
       try {
         await deleteTransaction(tx);
@@ -173,8 +194,6 @@ export default function TransactionDetailsModal() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [menuOpen, pendingAction]);
 
-  const currency = useBookCurrency(tx?.bookId);
-
   return (
     <View className="flex-1 bg-app">
       <Sheet
@@ -182,24 +201,17 @@ export default function TransactionDetailsModal() {
         className="flex-1"
         title="Transaction"
         leftAction={
-          <HapticPressable
-            onPress={() => router.back()}
-            className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
-            android_ripple={{ color: tokens.colors.ripple, borderless: true }}
-          >
-            <Icon name="chevron-back" size={20} color={tokens.colors.text} />
-          </HapticPressable>
+          <IconButton icon="chevron-back" accessibilityLabel="Back" onPress={() => router.back()} />
         }
         rightAction={
           tx ? (
-            <IconButton
-              icon="ellipsis-horizontal"
-              accessibilityLabel="More actions"
-              onPress={() => setMenuOpen(true)}
-            />
+            <>
+              {/* One clear primary action; Duplicate and Delete live behind the menu. */}
+              <Button label="Edit" variant="secondary" size="md" style={{ width: 84 }} onPress={onEdit} />
+              <IconButton icon="ellipsis-horizontal" accessibilityLabel="More actions" onPress={() => setMenuOpen(true)} />
+            </>
           ) : null
         }
-        footer={<Button label="Done" onPress={() => router.back()} size="md" />}
       >
         {detail.isError && !tx ? (
           <View className="flex-1 justify-center">
@@ -222,85 +234,50 @@ export default function TransactionDetailsModal() {
             <Skeleton height={120} borderRadius={20} />
           </View>
         ) : (
-          // A receipt, not a dashboard: one unhurried vertical read, no card
-          // chrome competing with the numbers.
-          <View style={{ flex: 1 }}>
-            <View style={{ alignItems: "center", marginTop: tokens.space[6] }}>
-              <CategoryIcon icon={categoryMeta.icon} color={categoryMeta.color} size={64} />
-
-              <AppText variant="xl" style={{ marginTop: tokens.space[5] }} numberOfLines={2} className="text-center">
-                {tx.title ?? categoryMeta.name}
-              </AppText>
-
-              <AppText variant="sm" tone="muted" style={{ marginTop: tokens.space[1] }} numberOfLines={1}>
-                {categoryMeta.name}
-              </AppText>
-
-              <MoneyAmount
-                value={formatCurrency(tx.amountMinor, currency)}
-                kind={tx.type}
-                size="amount"
-                style={{ marginTop: tokens.space[5] }}
-              />
-
-              <AppText variant="sm" tone="muted" style={{ marginTop: tokens.space[2] }}>
-                {dateLabel} · {timeLabel}
+          // A receipt, not a dashboard: the amount first, then what it was, then quiet metadata.
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: tokens.space[6] }}>
+            <View style={{ alignItems: "center", marginTop: tokens.space[4] }}>
+              <MoneyAmount value={formatCurrency(tx.amountMinor, currency)} kind={tx.type} size="amount" />
+              <AppText variant="xl" style={{ marginTop: tokens.space[3], textAlign: "center" }} numberOfLines={3}>
+                {tx.title?.trim() || categoryMeta.name}
               </AppText>
             </View>
 
-            <View
-              style={{
-                marginTop: tokens.space[7],
-                paddingTop: tokens.space[5],
-                borderTopWidth: 1,
-                borderTopColor: tokens.colors.divider,
-              }}
-            >
-              <AppText variant="xs" tone="muted">
-                NOTE
-              </AppText>
-              <AppText
-                variant="base"
-                style={{ marginTop: tokens.space[2], color: tx.note?.trim() ? tokens.colors.text : tokens.colors.muted }}
-              >
-                {tx.note?.trim() ? tx.note.trim() : "No note added."}
-              </AppText>
-
-              <AppText variant="xs" tone="muted" style={{ marginTop: tokens.space[5] }}>
-                PAYMENT
-              </AppText>
-              <AppText
-                variant="base"
-                style={{ marginTop: tokens.space[2], color: tx.paymentMethod ? tokens.colors.text : tokens.colors.muted }}
-              >
-                {paymentMethodLabel(tx.paymentMethod)}
-              </AppText>
-
-              <AppText variant="xs" tone="muted" style={{ marginTop: tokens.space[5] }}>
-                RECORD
-              </AppText>
-              <AppText variant="sm" tone="muted" style={{ marginTop: tokens.space[2] }}>
-                Created {stampLabel(created)}
-              </AppText>
-              <AppText variant="sm" tone="muted" style={{ marginTop: tokens.space[1] }}>
-                Updated {stampLabel(updated)}
-              </AppText>
+            <View style={{ marginTop: tokens.space[6], borderTopWidth: 1, borderTopColor: tokens.colors.divider }}>
+              <DetailRow label="Category">
+                <CategoryIcon icon={categoryMeta.icon} color={categoryMeta.color} size={28} />
+                <AppText variant="base" numberOfLines={2} style={{ flex: 1, marginLeft: tokens.space[3] }}>
+                  {categoryMeta.name}
+                </AppText>
+              </DetailRow>
+              <DetailRow label="Payment">
+                <AppText variant="base" tone={tx.paymentMethod ? "default" : "muted"} style={{ flex: 1 }}>
+                  {paymentMethodLabel(tx.paymentMethod)}
+                </AppText>
+              </DetailRow>
+              <DetailRow label="Date">
+                <AppText variant="base" style={{ flex: 1 }}>
+                  {dateLabel} · {timeLabel}
+                </AppText>
+              </DetailRow>
+              <DetailRow label="Note" last>
+                <AppText variant="base" tone={tx.note?.trim() ? "default" : "muted"} style={{ flex: 1 }}>
+                  {tx.note?.trim() ? tx.note.trim() : "No note added."}
+                </AppText>
+              </DetailRow>
             </View>
-          </View>
+
+            {/* When the record was written, not when the money moved - kept quiet. */}
+            <AppText variant="caption" tone="subtle" style={{ marginTop: tokens.space[5] }}>
+              Added {stampLabel(created)}
+              {updated && created && updated.getTime() !== created.getTime() ? ` · Edited ${stampLabel(updated)}` : ""}
+            </AppText>
+          </ScrollView>
         )}
       </Sheet>
 
-      <BottomSheetModal visible={menuOpen} onClose={() => setMenuOpen(false)} title="Transaction">
+      <BottomSheetModal visible={menuOpen} onClose={() => setMenuOpen(false)} title="More actions">
         <View style={{ gap: tokens.space[1] }}>
-          <MenuRow
-            icon="create-outline"
-            label="Edit"
-            onPress={() => {
-              setPendingAction("edit");
-              setMenuOpen(false);
-            }}
-          />
-          <View style={{ height: 1, backgroundColor: tokens.colors.divider }} />
           <MenuRow
             icon="copy-outline"
             label="Duplicate"

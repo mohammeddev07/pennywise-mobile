@@ -91,7 +91,7 @@ function LegacyPinScreen() {
 
         <View style={styles.pinCluster}>
           <PinDots length={4} filled={pin.length} />
-          <AppText variant="xs" tone="muted" style={styles.demoText}>
+          <AppText variant="caption" tone="muted" style={styles.demoText}>
             Local unlock PIN: 1234
           </AppText>
 

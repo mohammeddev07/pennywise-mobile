@@ -1,4 +1,4 @@
-import { Alert, View } from "react-native";
+import { View } from "react-native";
 import { format, isSameDay, parseISO, subDays } from "date-fns";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
@@ -7,7 +7,7 @@ import { tokens } from "@/shared/ui/theme/tokens";
 import type { Transaction } from "@/features/transactions/model";
 import { useBookCurrency } from "@/features/books/useBookCurrency";
 import { deleteTransaction, duplicateTransaction } from "@/features/transactions/actions";
-import { confirmDestructive } from "@/shared/ui/utils/confirm";
+import { alertCompat, confirmDestructive } from "@/shared/ui/utils/confirm";
 import { useCategoriesStore } from "@/features/categories/store";
 import { useUndoToastStore } from "@/shared/ui/state/useUndoToastStore";
 import { Card } from "@/shared/ui/components/Card";
@@ -103,7 +103,7 @@ export function TransactionRow({
 
   const openActions = () => {
     if (!enableActions) return;
-    Alert.alert("Transaction actions", primary, [
+    alertCompat("Transaction actions", primary, [
       { text: "Duplicate", onPress: onDuplicate },
       { text: "Delete", style: "destructive", onPress: onDelete },
       { text: "Cancel", style: "cancel" },

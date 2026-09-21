@@ -8,13 +8,14 @@ import { useCategoriesStore } from "@/features/categories/store";
 import { useRecentTransactions } from "@/features/transactions/queries";
 import { useAddTransactionDraftStore } from "@/features/transactions/addDraftStore";
 
+import { IconButton } from "@/shared/ui/components/IconButton";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { Sheet } from "@/shared/ui/components/Sheet";
 import { AppText } from "@/shared/ui/components/AppText";
 import { Card } from "@/shared/ui/components/Card";
 import { EmptyState } from "@/shared/ui/components/EmptyState";
 import { Skeleton } from "@/shared/ui/components/Skeleton";
-import { Input } from "@/shared/ui/components/Input";
+import { FormField } from "@/shared/ui/components/FormField";
 import { FilterChip } from "@/shared/ui/components/FilterChip";
 import { Icon } from "@/shared/ui/components/Icon";
 
@@ -222,35 +223,23 @@ export default function AddTransactionCategory() {
         className="flex-1"
         title="Category"
         leftAction={
-          <HapticPressable
-            onPress={() => router.back()}
-            className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
-            android_ripple={{ color: tokens.colors.ripple, borderless: true }}
-          >
-            <Icon name="chevron-back" size={20} color={tokens.colors.text} />
-          </HapticPressable>
+          <IconButton icon="chevron-back" accessibilityLabel="Back" onPress={() => router.back()} />
         }
         rightAction={
-          <HapticPressable
-            onPress={goCreate}
-            haptic="none"
-            pressScale={0.98}
-            className="h-12 w-12 items-center justify-center rounded-full bg-surface border border-stroke"
-            android_ripple={{ color: tokens.colors.ripple, borderless: true }}
-          >
-            <Icon name="add" size={20} color={tokens.colors.accent} />
-          </HapticPressable>
+          <IconButton accessibilityLabel="Create category" onPress={goCreate}>
+            <Icon name="add" size={tokens.icon.nav} color={tokens.colors.accent} />
+          </IconButton>
         }
       >
         <View className="mt-2">
-          <AppText variant="xs" tone="muted" className="text-center">
+          <AppText variant="caption" tone="muted" className="text-center">
             {kind === "EXPENSE" ? "Expense" : "Income"} • Book-aware
           </AppText>
         </View>
 
         {/* Search (contract: h=56, radius=16, paddingX=16) */}
         <View className="mt-5">
-          <Input
+          <FormField
             value={query}
             onChangeText={setQuery}
             placeholder="Search categories..."

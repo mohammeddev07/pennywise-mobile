@@ -26,6 +26,8 @@ import { BreakdownRow } from "@/shared/ui/components/BreakdownRow";
 import { Card } from "@/shared/ui/components/Card";
 import { EmptyState } from "@/shared/ui/components/EmptyState";
 import { FilterChip } from "@/shared/ui/components/FilterChip";
+import { LinkButton } from "@/shared/ui/components/Button";
+import { getApiErrorMessage } from "@/shared/api/errors";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { MoneyAmount } from "@/shared/ui/components/MoneyAmount";
 import { ScreenHeader } from "@/shared/ui/components/ScreenHeader";
@@ -195,32 +197,43 @@ export default function AnalyticsScreen() {
       <ScrollView
         style={{ flex: 1 }}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: paddingX, paddingBottom: tabClearance }}
+        contentContainerStyle={{
+          paddingHorizontal: paddingX,
+          paddingBottom: tabClearance,
+          width: "100%",
+          maxWidth: tokens.layout.container.wide,
+          alignSelf: "center",
+        }}
       >
         <ScreenHeader title="Insights" />
         <DrillBreadcrumb scope={filters.scope} />
 
-        <View style={{ marginTop: tokens.space[4], gap: tokens.space[3] }}>
-          <SegmentedControl
-            items={[
-              { label: "Months", value: "MONTH" },
-              { label: "Years", value: "YEAR" },
-            ]}
-            value={bucket}
-            onChange={changeBucket}
-          />
-          <SegmentedControl
-            items={[
-              { label: "Spending", value: "EXPENSE", color: tokens.colors.danger },
-              { label: "Income", value: "INCOME", color: tokens.colors.income },
-            ]}
-            value={type}
-            onChange={changeType}
-            haptic="impactMedium"
-          />
+        {/* Side by side: two stacked 56px controls cost 124px of a phone screen before any data. */}
+        <View style={{ marginTop: tokens.space[4], flexDirection: "row", gap: tokens.space[3] }}>
+          <View style={{ flex: 1 }}>
+            <SegmentedControl
+              items={[
+                { label: "Months", value: "MONTH" },
+                { label: "Years", value: "YEAR" },
+              ]}
+              value={bucket}
+              onChange={changeBucket}
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <SegmentedControl
+              items={[
+                { label: "Spending", value: "EXPENSE", color: tokens.colors.danger },
+                { label: "Income", value: "INCOME", color: tokens.colors.income },
+              ]}
+              value={type}
+              onChange={changeType}
+              haptic="impactMedium"
+            />
+          </View>
         </View>
 
-        <AppText variant="xs" tone="muted" style={{ marginTop: tokens.space[3] }}>
+        <AppText variant="caption" tone="muted" style={{ marginTop: tokens.space[3] }}>
           {windowText} · {bucket === "MONTH" ? "monthly" : "yearly"} · {currency}
         </AppText>
 
@@ -231,9 +244,24 @@ export default function AnalyticsScreen() {
                 <FilterChip key={chip.id} label={chip.label} active clearable onPress={() => filters.removeChip(chip.id)} />
               ))}
             </ScrollView>
-            <AppText variant="xs" tone="subtle" style={{ marginTop: tokens.space[1] }}>
+            <AppText variant="caption" tone="subtle" style={{ marginTop: tokens.space[1] }}>
               Filters are shared with Activity. Insights uses its own date window above.
             </AppText>
+          </View>
+        ) : null}
+
+        {analysis && analysisQuery.isError ? (
+          <View
+            accessibilityRole="alert"
+            style={{ marginTop: tokens.space[3], padding: tokens.space[3], borderRadius: tokens.radii.md, backgroundColor: tokens.colors.amberSoft }}
+          >
+            <AppText variant="sm" weight="semibold">
+              Showing saved figures
+            </AppText>
+            <AppText variant="caption" tone="muted">
+              {getApiErrorMessage(analysisQuery.error, "Couldn’t refresh.")}
+            </AppText>
+            <LinkButton label="Retry" onPress={() => void analysisQuery.refetch()} />
           </View>
         ) : null}
 
@@ -248,7 +276,7 @@ export default function AnalyticsScreen() {
             />
           </View>
         ) : !hydrated || !analysis ? (
-          analysisQuery.isError && !analysisQuery.data ? (
+          analysisQuery.isError && (!analysisQuery.data || analysisQuery.isPlaceholderData) ? (
             <View style={{ marginTop: tokens.space[8] }}>
               <EmptyState
                 title="Couldn’t load insights"
@@ -262,9 +290,9 @@ export default function AnalyticsScreen() {
             </View>
           ) : (
             <View style={{ marginTop: tokens.space[7], gap: tokens.space[4] }}>
-              <Skeleton height={120} borderRadius={16} />
-              <Skeleton height={190} borderRadius={20} />
-              <Skeleton height={200} borderRadius={20} />
+              <Skeleton height={120} borderRadius={tokens.radii.md} />
+              <Skeleton height={190} borderRadius={tokens.radii.lg} />
+              <Skeleton height={200} borderRadius={tokens.radii.lg} />
             </View>
           )
         ) : !hasActivity ? (
@@ -324,7 +352,7 @@ export default function AnalyticsScreen() {
                   accessibilityLabel={`${type === "EXPENSE" ? "Spending" : "Income"} by ${bucket === "MONTH" ? "month" : "year"} in ${currency}`}
                 />
               </View>
-              <AppText variant="xs" tone="subtle" style={{ marginTop: tokens.space[2] }}>
+              <AppText variant="caption" tone="subtle" style={{ marginTop: tokens.space[2] }}>
                 Bars start at 0 · {currency}
                 {anyPartial ? " · * partial period" : ""}
               </AppText>
@@ -339,16 +367,7 @@ export default function AnalyticsScreen() {
                     {money(selectedPoint.valueMinor)} · {selectedPoint.count} {selectedPoint.count === 1 ? "transaction" : "transactions"}
                   </AppText>
                   {selectedPoint.count > 0 ? (
-                    <HapticPressable
-                      onPress={() => drill(selectedCategory, selectedPoint)}
-                      haptic="none"
-                      accessibilityRole="button"
-                      style={{ minHeight: tokens.layout.minTap, justifyContent: "center" }}
-                    >
-                      <AppText variant="sm" weight="semibold" style={{ color: tokens.colors.accent }}>
-                        View {selectedPoint.count} in Activity
-                      </AppText>
-                    </HapticPressable>
+                    <LinkButton label={`View ${selectedPoint.count} in Activity`} onPress={() => drill(selectedCategory, selectedPoint)} />
                   ) : (
                     <AppText variant="sm" tone="subtle">
                       Nothing in this period.
@@ -356,22 +375,22 @@ export default function AnalyticsScreen() {
                   )}
                 </View>
               ) : (
-                <AppText variant="xs" tone="subtle" style={{ marginTop: tokens.space[2] }}>
+                <AppText variant="caption" tone="subtle" style={{ marginTop: tokens.space[2] }}>
                   Tap a bar for its exact amount and transactions.
                 </AppText>
               )}
 
-              <HapticPressable
-                onPress={() => setShowTable((v) => !v)}
-                haptic="none"
-                accessibilityRole="button"
-                accessibilityState={{ expanded: showTable }}
-                style={{ minHeight: tokens.layout.minTap, justifyContent: "center" }}
-              >
-                <AppText variant="sm" tone="muted" weight="semibold">
-                  {showTable ? "Hide table" : "Show as table"}
-                </AppText>
-              </HapticPressable>
+              {selectedPoint || selectedCategory ? (
+                <LinkButton
+                  label="Clear selection"
+                  tone="muted"
+                  onPress={() => {
+                    setBucketKey(null);
+                    setCategoryId(null);
+                  }}
+                />
+              ) : null}
+              <LinkButton label={`${showTable ? "Hide table" : "Show as table"}`} onPress={() => setShowTable((v) => !v)} tone="muted" accessibilityState={{ expanded: showTable }} />
               {showTable ? (
                 <View accessibilityRole="summary">
                   {analysis.buckets.map((b) => {
@@ -382,23 +401,23 @@ export default function AnalyticsScreen() {
                         style={{ flexDirection: "row", gap: tokens.space[2], paddingVertical: tokens.space[1] }}
                         accessibilityLabel={`${point.longLabel}${b.partial ? " partial" : ""}: income ${money(b.incomeTotalMinor)}, spent ${money(b.expenseTotalMinor)}, net ${money(b.netMinor)}, ${b.count} transactions`}
                       >
-                        <AppText variant="xs" style={{ width: 64 }}>
+                        <AppText variant="caption" style={{ width: 64 }}>
                           {point.longLabel}
                           {b.partial ? "*" : ""}
                         </AppText>
-                        <AppText variant="xs" tone="muted" style={{ flex: 1 }} numberOfLines={1}>
+                        <AppText variant="caption" tone="muted" style={{ flex: 1 }} numberOfLines={1}>
                           {money(b.expenseTotalMinor)} spent
                         </AppText>
-                        <AppText variant="xs" tone="muted" style={{ flex: 1 }} numberOfLines={1}>
+                        <AppText variant="caption" tone="muted" style={{ flex: 1 }} numberOfLines={1}>
                           {money(b.incomeTotalMinor)} in
                         </AppText>
-                        <AppText variant="xs" tone="subtle" style={{ width: 28, textAlign: "right" }}>
+                        <AppText variant="caption" tone="subtle" style={{ width: 28, textAlign: "right" }}>
                           {b.count}
                         </AppText>
                       </View>
                     );
                   })}
-                  <AppText variant="xs" tone="subtle" style={{ marginTop: tokens.space[1] }}>
+                  <AppText variant="caption" tone="subtle" style={{ marginTop: tokens.space[1] }}>
                     Columns: period, spent, income, transactions. Values in {currency}.
                   </AppText>
                 </View>
@@ -416,6 +435,11 @@ export default function AnalyticsScreen() {
                   </AppText>
                 }
               />
+              {rows.length > 0 ? (
+                <AppText variant="caption" tone="subtle">
+                  Tap a category to plot it above, then open its transactions.
+                </AppText>
+              ) : null}
               {rows.length === 0 ? (
                 <AppText variant="sm" tone="muted" style={{ marginTop: tokens.space[3] }}>
                   {type === "EXPENSE" ? "No spending" : "No income"} in this window{filtered ? " with these filters" : ""}.
@@ -439,16 +463,7 @@ export default function AnalyticsScreen() {
                         onPress={() => setCategoryId(selected ? null : row.categoryId)}
                         footer={
                           selected ? (
-                            <HapticPressable
-                              onPress={() => drill(row, null)}
-                              haptic="none"
-                              accessibilityRole="button"
-                              style={{ minHeight: tokens.layout.minTap, justifyContent: "center" }}
-                            >
-                              <AppText variant="sm" weight="semibold" style={{ color: tokens.colors.accent }}>
-                                View {row.count} in Activity
-                              </AppText>
-                            </HapticPressable>
+                            <LinkButton label={`View ${row.count} in Activity`} onPress={() => drill(row, null)} />
                           ) : null
                         }
                       />
@@ -476,7 +491,7 @@ export default function AnalyticsScreen() {
                   <AppText variant="sm" tone="muted" style={{ marginTop: tokens.space[1] }}>
                     Largest expense · {largestExpense.title || "Untitled"}
                   </AppText>
-                  <AppText variant="xs" tone="subtle" style={{ marginTop: tokens.space[1] }}>
+                  <AppText variant="caption" tone="subtle" style={{ marginTop: tokens.space[1] }}>
                     {formatYmd(largestExpense.occurredOn)}
                   </AppText>
                 </Card>

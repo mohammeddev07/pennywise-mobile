@@ -166,12 +166,13 @@ function NavItem({
         <Icon name={isFocused ? icon.active : icon.inactive} size={tokens.icon.nav} color={color} />
       </Animated.View>
       <AppText
-        variant="xs"
+        variant="caption"
         numberOfLines={1}
         style={{
           color,
-          fontSize: 10,
-          letterSpacing: 0,
+          // Caption is 12; 11 keeps five labels on one line at 320dp and is the floor.
+          fontSize: 11,
+          lineHeight: 15,
           fontFamily: isFocused ? fonts.bold : fonts.semibold,
         }}
       >
@@ -226,10 +227,15 @@ export function BottomNavigation({ state, navigation }: NavBarProps) {
         left: tokens.space[3],
         right: tokens.space[3],
         bottom: (insets.bottom || 0) + tokens.space[3],
+        alignItems: "center",
       }}
     >
       <View
         style={{
+          // Capped so the dock stays a pill on tablet and web instead of
+          // stretching edge to edge. Phones are narrower than the cap.
+          width: "100%",
+          maxWidth: tokens.layout.container.form,
           height: tokens.layout.tabBarHeight,
           borderRadius: tokens.radii.pill,
           borderWidth: 1,
@@ -244,7 +250,8 @@ export function BottomNavigation({ state, navigation }: NavBarProps) {
             flex: 1,
             // The blur alone is too transparent to keep 11px labels legible
             // over scrolling content, so the surface color carries most of it.
-            backgroundColor: withAlpha(tokens.colors.surfaceAlt, Platform.OS === "android" ? 0.98 : 0.9),
+            // Only iOS blurs convincingly; web and Android get a near-solid fill.
+            backgroundColor: withAlpha(tokens.colors.surfaceAlt, Platform.OS === "ios" ? 0.9 : 0.98),
             paddingHorizontal: tokens.space[2],
             flexDirection: "row",
             alignItems: "center",

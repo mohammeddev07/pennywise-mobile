@@ -1,0 +1,206 @@
+{
+ "config": {
+  "viewport": "phone",
+  "latencyMs": 0,
+  "chromium": "headless-shell 1243 (Chrome for Testing)",
+  "build": "expo export --platform web, MOCK=false, production bundle",
+  "backend": "Spring Boot jar, ENV=production auth on, PostgreSQL 16 (embedded), Windows JVM 21, loopback"
+ },
+ "steps": [
+  {
+   "name": "login through the UI",
+   "ok": true,
+   "detail": "Home visible 338ms after submit (warm backend, 0ms added latency)"
+  },
+  {
+   "name": "first load pulls one page, not the ledger",
+   "ok": true,
+   "detail": "loaded 50 of 10007"
+  },
+  {
+   "name": "no duplicate paging requests (same filter, same offset)",
+   "ok": true,
+   "detail": "23 searches, 0 repeated"
+  },
+  {
+   "name": "rows are virtualized",
+   "ok": true,
+   "detail": "DOM rows 25/27/27/27/27 at loaded 50/300/550/800/1050"
+  },
+  {
+   "name": "memory grows with loaded pages only (bounded)",
+   "ok": true,
+   "detail": "JS heap 25/30/32/40/50 MB at 50/300/550/800/1050 rows"
+  },
+  {
+   "name": "no N+1: exactly one analyze per applied filter, none per row or page",
+   "ok": true,
+   "detail": "3 analyze calls vs 23 search pages; per-row GETs: 0"
+  },
+  {
+   "name": "final state matches the last filter after 20 rapid changes",
+   "ok": true,
+   "detail": "UI total 8996 vs API 8996"
+  },
+  {
+   "name": "rapid changes do not storm the API",
+   "ok": true,
+   "detail": "20 clicks -> 10 searches, 9 analyzes, 0 cancelled in flight"
+  },
+  {
+   "name": "typing stays smooth (key-to-paint p95 < 100ms, no long task > 200ms)",
+   "ok": true,
+   "detail": "p50 22ms p95 27ms max 27ms; long tasks: 0"
+  },
+  {
+   "name": "search is debounced (at most an intermediate + the final request)",
+   "ok": true,
+   "detail": "1 search request(s) for 8 keystrokes at 40ms"
+  },
+  {
+   "name": "typed search result equals the API's own count",
+   "ok": true,
+   "detail": "UI 66 vs API 66"
+  },
+  {
+   "name": "60-category sheet opens fast and one selection = one refetch",
+   "ok": true,
+   "detail": "open 67ms, 69 chips, 1 search"
+  },
+  {
+   "name": "details opens for a row, amount first",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "stale version is refused, explained, and nothing is overwritten",
+   "ok": true,
+   "detail": "server title still \"QAZ1789948495502 row\""
+  },
+  {
+   "name": "Keep my changes then Save applies the edit on the new version",
+   "ok": true,
+   "detail": "title \"QAZ1789948495502 edited\", version 0 -> 2"
+  },
+  {
+   "name": "duplicate creates a second row",
+   "ok": true,
+   "detail": "rows with the edited title: 2"
+  },
+  {
+   "name": "delete asks a labelled confirmation, then removes exactly one row",
+   "ok": true,
+   "detail": "confirm text: \"Delete this transaction?\\n\\nQAZ1789948495502 edited · $123.45 will be removed from your totals and charts. This can't b; rows left 1"
+  },
+  {
+   "name": "category drill-down opens Activity on exactly the counted rows",
+   "ok": true,
+   "detail": "row counted 188; Activity shows 188 (Insights window total 2467)"
+  },
+  {
+   "name": "offline: an explained error with Retry appears at once (no endless spinner)",
+   "ok": true,
+   "detail": "error after 7ms"
+  },
+  {
+   "name": "back online: Retry recovers without a reload",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "scrolling the entire ledger: rows stay virtualized; memory grows linearly with loaded pages",
+   "ok": true,
+   "detail": "10007/10007 rows via 200 page requests in 23s; heap 52 -> 101 MB; DOM rows 27"
+  },
+  {
+   "name": "sign out returns to login, drops the token, keeps no account rows in storage",
+   "ok": true,
+   "detail": "token=null, storage keys left: pennywise_activity_filters_v1, keys still holding first user's data: none"
+  },
+  {
+   "name": "signed-out state shows no account data",
+   "ok": true,
+   "detail": ""
+  }
+ ],
+ "perf": {
+  "paging": {
+   "totalRowsInLedger": 10000,
+   "firstPageLoaded": 50,
+   "firstPageTotalReported": 10007,
+   "samples": [
+    {
+     "pages": 1,
+     "loaded": 50,
+     "dom": 25,
+     "heap": 24.976481460112133
+    },
+    {
+     "pages": 6,
+     "loaded": 300,
+     "dom": 27,
+     "heap": 29.86781132906787
+    },
+    {
+     "pages": 11,
+     "loaded": 550,
+     "dom": 27,
+     "heap": 32.37137568342621
+    },
+    {
+     "pages": 16,
+     "loaded": 800,
+     "dom": 27,
+     "heap": 39.773819185429396
+    },
+    {
+     "pages": 21,
+     "loaded": 1050,
+     "dom": 27,
+     "heap": 49.84710135736336
+    }
+   ],
+   "searchRequests": 23,
+   "duplicateOffsets": 0,
+   "lastOffset": 1000,
+   "analyzeRequests": 3,
+   "finalLoaded": 1050
+  },
+  "rapid": {
+   "clicks": 20,
+   "ms": 2548,
+   "searches": 10,
+   "analyzes": 9,
+   "abortedByClient": 0,
+   "finalShown": 8996,
+   "independentTotal": 8996
+  },
+  "typing": {
+   "chars": 8,
+   "keyToPaintP50": 21.600000001490116,
+   "keyToPaintP95": 26.5,
+   "keyToPaintMax": 26.5,
+   "longTasks": 0,
+   "longestTaskMs": 0,
+   "searchRequestsAfterTyping": 1,
+   "searchesBeforeDebounce": 0
+  },
+  "categories": {
+   "categories": 60,
+   "sheetOpenMs": 67,
+   "chipsRendered": 69,
+   "searchesForOneSelection": 1
+  },
+  "worstCase": {
+   "loaded": 10007,
+   "total": 10007,
+   "pages": 200,
+   "seconds": 22.959,
+   "heapStartMB": 51.62369573240687,
+   "heapEndMB": 100.80337447798301,
+   "domRows": 27
+  }
+ },
+ "pageErrors": [],
+ "requestsTotal": 331
+}

@@ -13,14 +13,14 @@ import { useBudgetsStore } from "@/features/budgets/store";
 import { useSettingsStore } from "@/features/settings/store";
 import { AppText } from "@/shared/ui/components/AppText";
 import { MoneyAmount } from "@/shared/ui/components/MoneyAmount";
-import { Input } from "@/shared/ui/components/Input";
+import { FormField } from "@/shared/ui/components/FormField";
 import { Card } from "@/shared/ui/components/Card";
 import { EmptyState } from "@/shared/ui/components/EmptyState";
 import { Skeleton } from "@/shared/ui/components/Skeleton";
 import { RingProgress } from "@/shared/ui/components/RingProgress";
 import { IconButton } from "@/shared/ui/components/IconButton";
 import { ScreenHeader } from "@/shared/ui/components/ScreenHeader";
-import { useTabBarClearance } from "@/shared/ui/components/Screen";
+import { Container, useScreenPaddingX, useTabBarClearance } from "@/shared/ui/components/Screen";
 import { formatCurrency } from "@/shared/utils/formatCurrency";
 import type { CurrencyCode, TransactionType } from "@/shared/types/models";
 import * as summaryApi from "@/shared/api/summary";
@@ -176,6 +176,7 @@ function Tile({ item, currency }: { item: CategoryTile; currency: CurrencyCode }
 
 export default function CategoriesScreen() {
   const insets = useSafeAreaInsets();
+  const paddingX = useScreenPaddingX();
   const tabClearance = useTabBarClearance();
 
   const categories = useCategoriesStore((s) => s.categories);
@@ -323,186 +324,188 @@ export default function CategoriesScreen() {
 
   return (
     <View className="flex-1 bg-app" style={{ paddingTop: insets.top + 12 }}>
-      <View className="px-5">
-        <ScreenHeader
-          title="Categories"
-          left={
-            <IconButton
-              icon="chevron-back"
-              accessibilityLabel="Back"
-              onPress={() => (router.canGoBack() ? router.back() : router.replace("/(tabs)/settings"))}
-            />
-          }
-          right={
-            <IconButton
-              icon="add"
-              tone="soft"
-              accessibilityLabel="New category"
-              onPress={() => router.push("/modals/category-editor")}
-            />
-          }
-        />
-
-        <Card className="mt-6">
-          <View className="flex-row items-center justify-between">
-            <View className="flex-1 pr-4">
-              <AppText variant="xs" tone="muted" className="uppercase">
-                Total monthly budget
-              </AppText>
-              <MoneyAmount
-                value={formatCurrency(totalBudgetCents, currency)}
-                tone="neutral"
-                size="2xl"
-                style={{ marginTop: tokens.space[3] }}
+      <Container width="content" style={{ flex: 1 }}>
+        <View style={{ paddingHorizontal: paddingX }}>
+          <ScreenHeader
+            title="Categories"
+            left={
+              <IconButton
+                icon="chevron-back"
+                accessibilityLabel="Back"
+                onPress={() => (router.canGoBack() ? router.back() : router.replace("/(tabs)/settings"))}
               />
-              <View className="mt-3 flex-row items-center">
-                <Icon name="calendar-outline" size={16} color={tokens.colors.accent} />
-                <AppText variant="sm" tone="muted" className="ml-2">
-                  This month
-                </AppText>
-              </View>
-            </View>
-            <View className="items-center">
-              <RingProgress progress={budgetProgress} color={tokens.colors.accent} />
-              <AppText variant="lg" weight="bold" style={{ marginTop: -58 }}>
-                {totalSpentCents === null ? "—" : `${Math.round(Math.min(1, budgetProgress) * 100)}%`}
-              </AppText>
-              <AppText variant="xs" tone="muted" style={{ marginTop: 36 }}>
-                Used
-              </AppText>
-            </View>
-          </View>
-          <View className="mt-5 flex-row" style={{ gap: 12 }}>
-            <View className="flex-1 rounded-lg border border-stroke bg-surfaceAlt p-3">
-              <AppText variant="xs" tone="muted">Spent</AppText>
-              {totalSpentCents === null ? (
-                <AppText variant="base" className="mt-1" weight="bold">
-                  Unavailable
-                </AppText>
-              ) : (
-                <MoneyAmount
-                  value={formatCurrency(totalSpentCents, currency)}
-                  tone="neutral"
-                  size="base"
-                  style={{ marginTop: tokens.space[1] }}
-                />
-              )}
-            </View>
-            <View className="flex-1 rounded-lg border border-stroke bg-surfaceAlt p-3">
-              <AppText variant="xs" tone="muted">Remaining</AppText>
-              {remainingCents === null ? (
-                <AppText variant="base" className="mt-1" weight="bold" style={{ color: tokens.colors.accent }}>
-                  Unavailable
-                </AppText>
-              ) : (
-                <MoneyAmount
-                  value={formatCurrency(remainingCents, currency)}
-                  tone="neutral"
-                  size="base"
-                  color={tokens.colors.accent}
-                  style={{ marginTop: tokens.space[1] }}
-                />
-              )}
-            </View>
-          </View>
-          {summaryQuery.isError ? (
-            <HapticPressable
-              onPress={() => {
-                void summaryQuery.refetch();
-              }}
-              haptic="none"
-              className="mt-4 min-h-11 items-center justify-center rounded-full border border-stroke"
-            >
-              <AppText variant="sm" tone="muted">
-                Retry monthly totals
-              </AppText>
-            </HapticPressable>
-          ) : null}
-        </Card>
-
-        <Input
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Search categories..."
-          autoCorrect={false}
-          autoCapitalize="none"
-          variant="search"
-          leftIcon={<Icon name="search" size={22} color={tokens.colors.muted} />}
-          containerClassName="mt-5"
-        />
-      </View>
-
-      <View className="flex-1 px-5 mt-4">
-        {hydrationError ? (
-          <View className="flex-1 justify-center">
-            <EmptyState
-              title="Couldn’t load categories"
-              message="Retry to refresh category and budget data."
-              actionLabel="Retry"
-              onAction={retryHydration}
-              className="px-0"
-            />
-          </View>
-        ) : !hydrated ? (
-          <View className="pt-2">
-            <View className="flex-row" style={{ gap: GUTTER }}>
-              <View style={{ flex: 1 }}>
-                <Skeleton height={200} borderRadius={20} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Skeleton height={200} borderRadius={20} />
-              </View>
-            </View>
-            <View className="mt-2 flex-row" style={{ gap: GUTTER }}>
-              <View style={{ flex: 1 }}>
-                <Skeleton height={200} borderRadius={20} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Skeleton height={200} borderRadius={20} />
-              </View>
-            </View>
-          </View>
-        ) : tiles.length === 0 ? (
-          <View className="flex-1 justify-center">
-            <EmptyState
-              title={query.trim().length ? "No categories found" : "No categories yet"}
-              message={
-                query.trim().length
-                  ? "Try a different search term."
-                  : "Create your first category to start organizing spending."
-              }
-              actionLabel="Create category"
-              onAction={() => router.push("/modals/category-editor")}
-              className="px-0"
-            />
-          </View>
-        ) : (
-          <FlashList
-            data={tiles}
-            keyExtractor={(item) => item.id}
-            numColumns={2}
-            renderItem={({ item, index }) => {
-              const isLeft = index % 2 === 0;
-
-              return (
-                <View
-                  style={{
-                    flex: 1,
-                    paddingLeft: isLeft ? 0 : HALF,
-                    paddingRight: isLeft ? HALF : 0,
-                    paddingBottom: GUTTER,
-                    paddingTop: 8,
-                  }}
-                >
-                    <Tile item={item} currency={currency as CurrencyCode} />
-                </View>
-              );
-            }}
-            contentContainerStyle={{ paddingBottom: tabClearance, paddingTop: 4 }}
-            showsVerticalScrollIndicator={false}
+            }
+            right={
+              <IconButton
+                icon="add"
+                tone="soft"
+                accessibilityLabel="New category"
+                onPress={() => router.push("/modals/category-editor")}
+              />
+            }
           />
-        )}
-      </View>
+
+          <Card className="mt-6">
+            <View className="flex-row items-center justify-between">
+              <View className="flex-1 pr-4">
+                <AppText variant="xs" tone="muted" className="uppercase">
+                  Total monthly budget
+                </AppText>
+                <MoneyAmount
+                  value={formatCurrency(totalBudgetCents, currency)}
+                  tone="neutral"
+                  size="2xl"
+                  style={{ marginTop: tokens.space[3] }}
+                />
+                <View className="mt-3 flex-row items-center">
+                  <Icon name="calendar-outline" size={16} color={tokens.colors.accent} />
+                  <AppText variant="sm" tone="muted" className="ml-2">
+                    This month
+                  </AppText>
+                </View>
+              </View>
+              <View className="items-center">
+                <RingProgress progress={budgetProgress} color={tokens.colors.accent} />
+                <AppText variant="lg" weight="bold" style={{ marginTop: -58 }}>
+                  {totalSpentCents === null ? "—" : `${Math.round(Math.min(1, budgetProgress) * 100)}%`}
+                </AppText>
+                <AppText variant="caption" tone="muted" style={{ marginTop: 36 }}>
+                  Used
+                </AppText>
+              </View>
+            </View>
+            <View className="mt-5 flex-row" style={{ gap: 12 }}>
+              <View className="flex-1 rounded-lg border border-stroke bg-surfaceAlt p-3">
+                <AppText variant="caption" tone="muted">Spent</AppText>
+                {totalSpentCents === null ? (
+                  <AppText variant="base" className="mt-1" weight="bold">
+                    Unavailable
+                  </AppText>
+                ) : (
+                  <MoneyAmount
+                    value={formatCurrency(totalSpentCents, currency)}
+                    tone="neutral"
+                    size="base"
+                    style={{ marginTop: tokens.space[1] }}
+                  />
+                )}
+              </View>
+              <View className="flex-1 rounded-lg border border-stroke bg-surfaceAlt p-3">
+                <AppText variant="caption" tone="muted">Remaining</AppText>
+                {remainingCents === null ? (
+                  <AppText variant="base" className="mt-1" weight="bold" style={{ color: tokens.colors.accent }}>
+                    Unavailable
+                  </AppText>
+                ) : (
+                  <MoneyAmount
+                    value={formatCurrency(remainingCents, currency)}
+                    tone="neutral"
+                    size="base"
+                    color={tokens.colors.accent}
+                    style={{ marginTop: tokens.space[1] }}
+                  />
+                )}
+              </View>
+            </View>
+            {summaryQuery.isError ? (
+              <HapticPressable
+                onPress={() => {
+                  void summaryQuery.refetch();
+                }}
+                haptic="none"
+                className="mt-4 min-h-11 items-center justify-center rounded-full border border-stroke"
+              >
+                <AppText variant="sm" tone="muted">
+                  Retry monthly totals
+                </AppText>
+              </HapticPressable>
+            ) : null}
+          </Card>
+
+          <FormField
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search categories..."
+            autoCorrect={false}
+            autoCapitalize="none"
+            pill
+            leftIcon={<Icon name="search" size={tokens.icon.row} color={tokens.colors.muted} />}
+            containerStyle={{ marginTop: tokens.space[5] }}
+          />
+        </View>
+
+        <View className="flex-1 mt-4" style={{ paddingHorizontal: paddingX }}>
+          {hydrationError ? (
+            <View className="flex-1 justify-center">
+              <EmptyState
+                title="Couldn’t load categories"
+                message="Retry to refresh category and budget data."
+                actionLabel="Retry"
+                onAction={retryHydration}
+                className="px-0"
+              />
+            </View>
+          ) : !hydrated ? (
+            <View className="pt-2">
+              <View className="flex-row" style={{ gap: GUTTER }}>
+                <View style={{ flex: 1 }}>
+                  <Skeleton height={200} borderRadius={20} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Skeleton height={200} borderRadius={20} />
+                </View>
+              </View>
+              <View className="mt-2 flex-row" style={{ gap: GUTTER }}>
+                <View style={{ flex: 1 }}>
+                  <Skeleton height={200} borderRadius={20} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Skeleton height={200} borderRadius={20} />
+                </View>
+              </View>
+            </View>
+          ) : tiles.length === 0 ? (
+            <View className="flex-1 justify-center">
+              <EmptyState
+                title={query.trim().length ? "No categories found" : "No categories yet"}
+                message={
+                  query.trim().length
+                    ? "Try a different search term."
+                    : "Create your first category to start organizing spending."
+                }
+                actionLabel="Create category"
+                onAction={() => router.push("/modals/category-editor")}
+                className="px-0"
+              />
+            </View>
+          ) : (
+            <FlashList
+              data={tiles}
+              keyExtractor={(item) => item.id}
+              numColumns={2}
+              renderItem={({ item, index }) => {
+                const isLeft = index % 2 === 0;
+
+                return (
+                  <View
+                    style={{
+                      flex: 1,
+                      paddingLeft: isLeft ? 0 : HALF,
+                      paddingRight: isLeft ? HALF : 0,
+                      paddingBottom: GUTTER,
+                      paddingTop: 8,
+                    }}
+                  >
+                      <Tile item={item} currency={currency as CurrencyCode} />
+                  </View>
+                );
+              }}
+              contentContainerStyle={{ paddingBottom: tabClearance, paddingTop: 4 }}
+              showsVerticalScrollIndicator={false}
+            />
+          )}
+        </View>
+      </Container>
     </View>
   );
 }

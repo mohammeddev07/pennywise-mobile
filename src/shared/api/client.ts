@@ -3,8 +3,6 @@ import { router } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { AppState, type AppStateStatus } from "react-native";
 
-import { mockAdapter } from "@/shared/api/mockAdapter";
-
 declare module "axios" {
   export interface AxiosRequestConfig {
     _retriedForColdStart?: boolean;
@@ -25,7 +23,9 @@ const COLD_START_RETRY_TIMEOUT_MS = 45_000;
 export const apiClient = axios.create({
   baseURL: BASE_URL,
   timeout: 15_000,
-  ...(USE_MOCK_API ? { adapter: mockAdapter } : {}),
+  // Required lazily: with EXPO_PUBLIC_MOCK_API unset the constant folds to false and the bundler drops the
+  // whole in-memory backend (seed data, fake token) from a release bundle.
+  ...(USE_MOCK_API ? { adapter: require("@/shared/api/mockAdapter").mockAdapter } : {}),
 });
 
 // App launch and every foreground resume may hit a backend that just spun down -

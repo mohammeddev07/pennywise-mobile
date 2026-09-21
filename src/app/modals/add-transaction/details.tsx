@@ -17,14 +17,15 @@ import { getApiErrorMessage } from "@/shared/api/errors";
 import { formatCurrency, parseAmountToMinor } from "@/shared/utils/formatCurrency";
 
 import { AppText } from "@/shared/ui/components/AppText";
-import { Button } from "@/shared/ui/components/Button";
+import { Button, LinkButton } from "@/shared/ui/components/Button";
 import { Card } from "@/shared/ui/components/Card";
 import { FlowHeader } from "@/shared/ui/components/FlowHeader";
 import { FilterChip } from "@/shared/ui/components/FilterChip";
+import { useScrollToError } from "@/shared/ui/utils/useScrollToError";
 import { FormField } from "@/shared/ui/components/FormField";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { MoneyAmount } from "@/shared/ui/components/MoneyAmount";
-import { useScreenPaddingX } from "@/shared/ui/components/Screen";
+import { useScreenPaddingX, Container } from "@/shared/ui/components/Screen";
 import { Icon } from "@/shared/ui/components/Icon";
 import { DateTimeField } from "@/shared/ui/components/DateTimeField";
 
@@ -83,6 +84,7 @@ export default function AddTransactionDetails() {
   );
 
   const [attempted, setAttempted] = useState(false);
+  const { ref: scrollRef, mark, scrollToError } = useScrollToError();
   const [isSaving, setIsSaving] = useState(false);
   const [submitError, setSubmitError] = useState("");
 
@@ -134,6 +136,7 @@ export default function AddTransactionDetails() {
     if (isSaving) return;
     if (!canSave || amountMinor === null) {
       setAttempted(true);
+      scrollToError("category");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
       return;
     }
@@ -193,203 +196,199 @@ export default function AddTransactionDetails() {
         }
         style={{ position: "absolute", top: 0, left: 0, right: 0, height: 360 }}
       />
+    <Container width="form" style={{ flex: 1 }}>
 
-      <View style={{ paddingHorizontal: paddingX }}>
-        <FlowHeader
-          title="New transaction"
-          subtitle="Details · 2 of 2"
-          onBack={() => router.back()}
-          step={2}
-          totalSteps={2}
-          progressColor={amountColor(kind)}
-        />
-      </View>
+        <View style={{ paddingHorizontal: paddingX }}>
+          <FlowHeader
+            title="New transaction"
+            subtitle="Details · 2 of 2"
+            onBack={() => router.back()}
+            step={2}
+            totalSteps={2}
+            progressColor={amountColor(kind)}
+          />
+        </View>
 
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={insets.top + 24}
-      >
-        <ScrollView
+        <KeyboardAvoidingView
           style={{ flex: 1 }}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="interactive"
-          contentContainerStyle={{
-            paddingHorizontal: paddingX,
-            paddingTop: tokens.space[6],
-            paddingBottom: tokens.space[7],
-          }}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          keyboardVerticalOffset={insets.top + 24}
         >
-          {/* Amount recap. Tapping returns to step 1 rather than editing here,
-              so there is exactly one place a number can be typed. */}
-          <HapticPressable
-            onPress={() => router.back()}
-            haptic="none"
-            pressScale={0.995}
-            pressOpacity={1}
-            accessibilityRole="button"
-            accessibilityLabel="Edit amount"
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              borderRadius: tokens.radii.lg,
-              borderWidth: 1,
-              borderColor: `${amountColor(kind)}29`,
-              backgroundColor: `${amountColor(kind)}14`,
-              padding: tokens.space[4],
+          <ScrollView
+            ref={scrollRef}
+            style={{ flex: 1 }}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
+            contentContainerStyle={{
+              paddingHorizontal: paddingX,
+              paddingTop: tokens.space[6],
+              paddingBottom: tokens.space[7],
             }}
           >
-            <View style={{ flex: 1, paddingRight: tokens.space[3] }}>
-              <AppText variant="xs" style={{ color: amountColor(kind) }}>
-                {kind === "EXPENSE" ? "EXPENSE" : "INCOME"}
-              </AppText>
-              <MoneyAmount
-                value={amountMinor === null ? "Invalid amount" : formatCurrency(amountMinor, currency)}
-                kind={kind}
-                size="2xl"
-                style={{ marginTop: tokens.space[1] }}
-              />
-            </View>
-            <Icon name="pencil" size={tokens.icon.row} color={amountColor(kind)} />
-          </HapticPressable>
-
-          {/* Title */}
-          <FormField
-            label="Title"
-            value={title}
-            onChangeText={setTitle}
-            placeholder="Light bill, Coffee, Rent…"
-            maxLength={TITLE_MAX}
-            autoCapitalize="sentences"
-            returnKeyType="done"
-            containerStyle={{ marginTop: tokens.space[6] }}
-          />
-
-          {/* Category */}
-          <View style={{ marginTop: tokens.space[6] }}>
-            <View
+            {/* Amount recap. Tapping returns to step 1 rather than editing here,
+                so there is exactly one place a number can be typed. */}
+            <HapticPressable
+              onPress={() => router.back()}
+              haptic="none"
+              pressScale={0.995}
+              pressOpacity={1}
+              accessibilityRole="button"
+              accessibilityLabel="Edit amount"
               style={{
                 flexDirection: "row",
                 alignItems: "center",
-                justifyContent: "space-between",
-                marginBottom: tokens.space[2],
+                borderRadius: tokens.radii.lg,
+                borderWidth: 1,
+                borderColor: `${amountColor(kind)}29`,
+                backgroundColor: `${amountColor(kind)}14`,
+                padding: tokens.space[4],
               }}
             >
-              <AppText variant="xs" tone="muted">
-                CATEGORY
-              </AppText>
-              <HapticPressable
-                onPress={() => router.push("/modals/add-transaction/category")}
-                haptic="none"
-                style={{ minHeight: tokens.layout.minTap, justifyContent: "center" }}
-              >
-                <AppText variant="sm" weight="semibold" style={{ color: tokens.colors.accent }}>
-                  View all →
+              <View style={{ flex: 1, paddingRight: tokens.space[3] }}>
+                <AppText variant="xs" style={{ color: amountColor(kind) }}>
+                  {kind === "EXPENSE" ? "EXPENSE" : "INCOME"}
                 </AppText>
-              </HapticPressable>
+                <MoneyAmount
+                  value={amountMinor === null ? "Invalid amount" : formatCurrency(amountMinor, currency)}
+                  kind={kind}
+                  size="2xl"
+                  style={{ marginTop: tokens.space[1] }}
+                />
+              </View>
+              <Icon name="pencil" size={tokens.icon.row} color={amountColor(kind)} />
+            </HapticPressable>
+
+            {/* Title */}
+            <FormField
+              label="Title"
+              value={title}
+              onChangeText={setTitle}
+              placeholder="Light bill, Coffee, Rent…"
+              maxLength={TITLE_MAX}
+              autoCapitalize="sentences"
+              returnKeyType="done"
+              containerStyle={{ marginTop: tokens.space[6] }}
+            />
+
+            {/* Category */}
+            <View style={{ marginTop: tokens.space[6] }} onLayout={mark("category")}>
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginBottom: tokens.space[2],
+                }}
+              >
+                <AppText variant="xs" tone="muted">
+                  CATEGORY
+                </AppText>
+                <LinkButton label="View all →" onPress={() => router.push("/modals/add-transaction/category")} />
+              </View>
+
+              {visibleOptions.length === 0 ? (
+                <Card variant="surface" padding={16}>
+                  <AppText variant="sm" tone="muted">
+                    No {kind === "EXPENSE" ? "expense" : "income"} categories yet.
+                  </AppText>
+                  <Button
+                    label="Create a category"
+                    variant="secondary"
+                    size="md"
+                    style={{ marginTop: tokens.space[3] }}
+                    onPress={() =>
+                      router.push({ pathname: "/modals/category-editor", params: { origin: "add-transaction" } })
+                    }
+                  />
+                </Card>
+              ) : (
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: tokens.space[2] }}>
+                  {visibleOptions.map((c) => (
+                    <FilterChip
+                      key={c.id}
+                      label={c.name}
+                      icon={c.icon}
+                      iconColor={c.color}
+                      active={c.id === categoryId}
+                      // Picking a category commits a choice, so it ticks. Filter
+                      // chips elsewhere in the app stay silent.
+                      role="category"
+                      onPress={() => setCategory(c.id, c.name)}
+                    />
+                  ))}
+                </View>
+              )}
+
+              {attempted && !categoryId ? (
+                <AppText variant="sm" tone="danger" style={{ marginTop: tokens.space[2] }}>
+                  Choose a category before saving.
+                </AppText>
+              ) : null}
             </View>
 
-            {visibleOptions.length === 0 ? (
-              <Card variant="surface" padding={16}>
-                <AppText variant="sm" tone="muted">
-                  No {kind === "EXPENSE" ? "expense" : "income"} categories yet.
-                </AppText>
-                <Button
-                  label="Create a category"
-                  variant="secondary"
-                  size="md"
-                  style={{ marginTop: tokens.space[3] }}
-                  onPress={() =>
-                    router.push({ pathname: "/modals/category-editor", params: { origin: "add-transaction" } })
-                  }
-                />
-              </Card>
-            ) : (
-              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: tokens.space[2] }}>
-                {visibleOptions.map((c) => (
-                  <FilterChip
-                    key={c.id}
-                    label={c.name}
-                    icon={c.icon}
-                    iconColor={c.color}
-                    active={c.id === categoryId}
-                    // Picking a category commits a choice, so it ticks. Filter
-                    // chips elsewhere in the app stay silent.
-                    role="category"
-                    onPress={() => setCategory(c.id, c.name)}
-                  />
-                ))}
-              </View>
-            )}
+            {/* When - two inline fields, each its own bottom sheet. Neither
+                leaves this screen: the old combined row pushed a separate
+                route, which made a two-second edit feel like navigation. */}
+            <View style={{ marginTop: tokens.space[6], flexDirection: "row", gap: tokens.space[3] }}>
+              <DateTimeField
+                mode="date"
+                label="Date"
+                value={occurredAtDate}
+                onChange={onOccurredAtChange}
+                style={{ flex: 1 }}
+              />
+              <DateTimeField
+                mode="time"
+                label="Time"
+                value={occurredAtDate}
+                onChange={onOccurredAtChange}
+                style={{ flex: 1 }}
+              />
+            </View>
 
-            {attempted && !categoryId ? (
-              <AppText variant="sm" tone="danger" style={{ marginTop: tokens.space[2] }}>
-                Choose a category before saving.
+            {/* Note */}
+            <FormField
+              label="Note"
+              hint="Optional"
+              value={note}
+              onChangeText={(next) => setNote(next.slice(0, NOTE_MAX))}
+              placeholder="Add a note…"
+              multiline
+              showCount
+              maxLength={NOTE_MAX}
+              containerStyle={{ marginTop: tokens.space[6] }}
+            />
+
+          </ScrollView>
+
+          <View
+            style={{
+              borderTopWidth: 1,
+              borderTopColor: tokens.colors.divider,
+              backgroundColor: tokens.colors.app,
+              paddingHorizontal: paddingX,
+              paddingTop: tokens.space[4],
+              paddingBottom: insets.bottom + tokens.space[4],
+            }}
+          >
+            {/* In the footer, not the scroll body: a failed save is never off-screen, and the draft above is untouched. */}
+            {submitError ? (
+              <AppText variant="sm" tone="danger" role="alert" style={{ marginBottom: tokens.space[3] }}>
+                {submitError} Your entries are kept - try again.
               </AppText>
             ) : null}
-          </View>
-
-          {/* When - two inline fields, each its own bottom sheet. Neither
-              leaves this screen: the old combined row pushed a separate
-              route, which made a two-second edit feel like navigation. */}
-          <View style={{ marginTop: tokens.space[6], flexDirection: "row", gap: tokens.space[3] }}>
-            <DateTimeField
-              mode="date"
-              label="Date"
-              value={occurredAtDate}
-              onChange={onOccurredAtChange}
-              style={{ flex: 1 }}
-            />
-            <DateTimeField
-              mode="time"
-              label="Time"
-              value={occurredAtDate}
-              onChange={onOccurredAtChange}
-              style={{ flex: 1 }}
+            <Button
+              label={isSaving ? "Saving…" : "Save transaction"}
+              onPress={onSave}
+              loading={isSaving}
+              disabled={isSaving}
+              size="lg"
+              tone={kind === "EXPENSE" ? "expense" : "accent"}
             />
           </View>
-
-          {/* Note */}
-          <FormField
-            label="Note"
-            hint="Optional"
-            value={note}
-            onChangeText={(next) => setNote(next.slice(0, NOTE_MAX))}
-            placeholder="Add a note…"
-            multiline
-            showCount
-            maxLength={NOTE_MAX}
-            containerStyle={{ marginTop: tokens.space[6] }}
-          />
-
-          {submitError ? (
-            <AppText variant="sm" tone="danger" style={{ marginTop: tokens.space[4] }}>
-              {submitError}
-            </AppText>
-          ) : null}
-        </ScrollView>
-
-        <View
-          style={{
-            borderTopWidth: 1,
-            borderTopColor: tokens.colors.divider,
-            backgroundColor: tokens.colors.app,
-            paddingHorizontal: paddingX,
-            paddingTop: tokens.space[4],
-            paddingBottom: insets.bottom + tokens.space[4],
-          }}
-        >
-          <Button
-            label={isSaving ? "Saving…" : "Save transaction"}
-            onPress={onSave}
-            loading={isSaving}
-            disabled={isSaving}
-            size="lg"
-            tone={kind === "EXPENSE" ? "expense" : "accent"}
-          />
-        </View>
-      </KeyboardAvoidingView>
+        </KeyboardAvoidingView>
+    </Container>
     </View>
   );
 }

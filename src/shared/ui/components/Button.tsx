@@ -97,7 +97,7 @@ export function Button({
   const disabledSurface = isPrimary ? tokens.colors.surfaceAlt : tokens.colors.surface;
 
   const content = loading ? (
-    <ActivityIndicator color={isDisabled ? tokens.colors.muted : labelColor} />
+    <ActivityIndicator color={isDisabled ? tokens.colors.muted : labelColor} accessibilityLabel="Loading" />
   ) : (
     <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center" }}>
       {leftIcon ? <View style={{ marginRight: tokens.space[2] }}>{leftIcon}</View> : null}
@@ -105,7 +105,7 @@ export function Button({
         variant="base"
         weight="bold"
         numberOfLines={1}
-        style={{ color: isDisabled ? tokens.colors.muted : labelColor }}
+        style={{ color: isDisabled ? tokens.colors.subtle : labelColor }}
       >
         {label}
       </AppText>
@@ -128,6 +128,9 @@ export function Button({
       haptic="none"
       pressScale={answersWhileDisabled ? 1 : 0.97}
       pressOpacity={1}
+      // Disabled paints its own muted surface + label; fading it again dropped
+      // the label to ~2:1 and made the control vanish (see DESIGN_SYSTEM 7).
+      disabledOpacity={1}
       className={className}
       accessibilityRole="button"
       accessibilityState={{ disabled: isDisabled, busy: !!loading }}
@@ -185,16 +188,38 @@ export function Button({
   );
 }
 
-export function LinkButton({ label, onPress }: { label: string; onPress: () => void }) {
+/**
+ * Text-only action ("Retry", "View 12 in Activity", "Show as table"). One
+ * component so every inline link shares the 44px target, weight and colour.
+ * `tone="muted"` is for quiet secondary links; `accent` is the default.
+ */
+export function LinkButton({
+  label,
+  onPress,
+  tone = "accent",
+  disabled,
+  accessibilityLabel,
+  accessibilityState,
+}: {
+  label: string;
+  onPress: () => void;
+  tone?: "accent" | "muted";
+  disabled?: boolean;
+  accessibilityLabel?: string;
+  accessibilityState?: { expanded?: boolean };
+}) {
   return (
     <HapticPressable
       onPress={onPress}
+      disabled={disabled}
       haptic="none"
       pressScale={0.99}
       accessibilityRole="button"
-      style={{ minHeight: tokens.layout.minTap, justifyContent: "center" }}
+      accessibilityLabel={accessibilityLabel}
+      accessibilityState={{ disabled: !!disabled, ...accessibilityState }}
+      style={{ minHeight: tokens.layout.minTap, justifyContent: "center", alignSelf: "flex-start" }}
     >
-      <AppText variant="sm" weight="bold" style={{ color: tokens.colors.accent }}>
+      <AppText variant="sm" weight="bold" style={{ color: tone === "accent" ? tokens.colors.accent : tokens.colors.muted }}>
         {label}
       </AppText>
     </HapticPressable>

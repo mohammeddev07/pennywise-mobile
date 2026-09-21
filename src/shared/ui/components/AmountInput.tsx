@@ -91,12 +91,27 @@ export function AmountInput({
 
   return (
     <View className="w-full items-center">
-      <OdometerAmount
-        value={formatted}
-        majorFontSize={majorFontSize}
-        minorFontSize={minorFontSize}
-        color={color}
-      />
+      {/* The sign is printed, not just coloured: expense/income must read without seeing red vs green. */}
+      <View
+        style={{ flexDirection: "row", alignItems: "center", justifyContent: "center" }}
+        accessible
+        accessibilityLabel={`${transactionType === "income" ? "Income" : "Expense"} ${formatted}`}
+      >
+        {isEmpty ? null : (
+          <AppText
+            variant="amountSm"
+            style={{ fontSize: majorFontSize, lineHeight: Math.round(majorFontSize * 1.04), color }}
+          >
+            {transactionType === "income" ? "+" : "\u2212"}
+          </AppText>
+        )}
+        <OdometerAmount
+          value={formatted}
+          majorFontSize={majorFontSize}
+          minorFontSize={minorFontSize}
+          color={color}
+        />
+      </View>
 
       {helperText ? (
         helperIsMoney ? (

@@ -23,15 +23,48 @@ type Props = PropsWithChildren<{
    * mode reads even before the numbers do. `none` is the default.
    */
   ambient?: AmbientTone;
+  /** Column cap. `content` (720) by default; see `tokens.layout.container`. */
+  width?: ScreenWidth;
   style?: StyleProp<ViewStyle>;
   contentContainerStyle?: ScrollViewProps["contentContainerStyle"];
   showsVerticalScrollIndicator?: boolean;
 }>;
 
-/** Horizontal gutter. 24 everywhere, tightened to 20 on small handsets. */
+export type ScreenWidth = keyof typeof tokens.layout.container;
+export type LayoutClass = "compact" | "medium" | "expanded";
+
+/** Phone (< 600), tablet portrait (600-1023) or wide tablet / desktop web (>= 1024). */
+export function useLayoutClass(): LayoutClass {
+  const { width } = useWindowDimensions();
+  if (width >= tokens.layout.breakpoints.expanded) return "expanded";
+  if (width >= tokens.layout.breakpoints.medium) return "medium";
+  return "compact";
+}
+
+/** Horizontal gutter: 20 on small handsets, 24 on phones, 32 from tablet width up. */
 export function useScreenPaddingX() {
   const { width } = useWindowDimensions();
+  if (width >= tokens.layout.breakpoints.medium) return tokens.layout.screenPaddingXMedium;
   return width < 360 ? tokens.layout.screenPaddingXCompact : tokens.layout.screenPaddingX;
+}
+
+/**
+ * Caps a screen's column and centres it. The cap is the outer width, gutters
+ * included, so `form` = 520 means the whole column - not just the text - is
+ * 520. On a phone the cap is wider than the window and this is a no-op.
+ * Pass `style={{ flex: 1 }}` for a screen whose body fills the height.
+ */
+export function Container({
+  width = "content",
+  className,
+  style,
+  children,
+}: PropsWithChildren<{ width?: ScreenWidth; className?: string; style?: StyleProp<ViewStyle> }>) {
+  return (
+    <View className={className} style={[{ width: "100%", maxWidth: tokens.layout.container[width], alignSelf: "center" }, style]}>
+      {children}
+    </View>
+  );
 }
 
 /** Space a scroll view must leave under its content for the floating tab bar. */
@@ -64,6 +97,7 @@ export function Screen({
   padded = true,
   bottom = "normal",
   ambient = "none",
+  width = "content",
   style,
   contentContainerStyle,
   showsVerticalScrollIndicator = false,
@@ -93,7 +127,13 @@ export function Screen({
         <ScrollView
           showsVerticalScrollIndicator={showsVerticalScrollIndicator}
           contentContainerStyle={[
-            { paddingHorizontal: horizontal, paddingBottom: bottomPad },
+            {
+              paddingHorizontal: horizontal,
+              paddingBottom: bottomPad,
+              width: "100%",
+              maxWidth: tokens.layout.container[width],
+              alignSelf: "center",
+            },
             contentContainerStyle,
           ]}
         >
@@ -106,9 +146,9 @@ export function Screen({
   return (
     <View style={[base, style]}>
       <Ambient tone={ambient} />
-      <View style={{ flex: 1, paddingHorizontal: horizontal, paddingBottom: bottomPad }}>
+      <Container width={width} style={{ flex: 1, paddingHorizontal: horizontal, paddingBottom: bottomPad }}>
         {children}
-      </View>
+      </Container>
     </View>
   );
 }

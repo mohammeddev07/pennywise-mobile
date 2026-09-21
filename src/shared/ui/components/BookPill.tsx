@@ -19,11 +19,13 @@ export function BookPill({
       onPress={onPress}
       haptic="none"
       pressScale={0.98}
+      accessibilityRole="button"
+      accessibilityLabel={`${label}, switch book`}
       className="rounded-full border border-stroke bg-surface"
       android_ripple={{ color: tokens.colors.ripple, borderless: true }}
       style={[
         {
-          height: 46,
+          height: tokens.layout.chipHeight,
           paddingHorizontal: 16,
           flexDirection: "row",
           alignItems: "center",

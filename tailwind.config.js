@@ -33,7 +33,7 @@ module.exports = {
         // Text ladder
         text: "#F5F7F8",
         muted: "#98A2AD",
-        subtle: "#66707A",
+        subtle: "#7D8791",
 
         // Brand
         accent: "#00C805",

@@ -87,6 +87,14 @@ export function MoneyAmount({
   );
 }
 
+/** 8 glyphs ("41,987.06") fit a phone at full size; each step below keeps ~12 glyphs on one line. */
+export function heroScale(glyphs: number) {
+  if (glyphs <= 8) return 1;
+  if (glyphs <= 10) return 0.82;
+  if (glyphs <= 12) return 0.7;
+  return 0.58;
+}
+
 /**
  * A hero amount with the currency symbol split out.
  *
@@ -119,6 +127,10 @@ export function HeroAmount({
   // ahead of the symbol and kept at full digit size so it cannot be missed.
   const negative = /^[-\u2212]/.test(value);
   const digits = negative ? value.replace(/^[-\u2212]/, "") : value;
+  // react-native-web ignores `adjustsFontSizeToFit`, so on web a long balance
+  // was cut to "41,987....". Step the size down by glyph count on every
+  // platform; native's own fit-to-width still applies on top.
+  size = Math.round(size * heroScale(digits.length));
 
   return (
     <View
