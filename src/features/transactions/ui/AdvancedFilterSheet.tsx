@@ -29,6 +29,7 @@ import {
   describeExpression,
   fieldMeta,
   groupLevel,
+  requestOverhead,
   inputCount,
   moveChild,
   nodeRaw,
@@ -391,8 +392,9 @@ function GroupEditor({
 }) {
   const isRoot = parent === null;
   const level = groupLevel(ctx.root, group.id);
-  const canNest = level < QUERY_LIMITS.maxDepth;
-  const conditionsLeft = countConditions(ctx.root) < QUERY_LIMITS.maxConditions;
+  const overhead = requestOverhead(ctx.root);
+  const canNest = level + overhead.levels < QUERY_LIMITS.maxDepth;
+  const conditionsLeft = countConditions(ctx.root) + overhead.conditions < QUERY_LIMITS.maxConditions;
   const error = ctx.showErrors ? ctx.errors[group.id] : undefined;
 
   return (

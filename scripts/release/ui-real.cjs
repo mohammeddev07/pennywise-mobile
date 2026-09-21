@@ -302,6 +302,9 @@ async function api(method, p, body, token = st.token, headers = {}) {
     void u2;
   });
 
+  // An uncaught exception is a defect even when every step still passed (the wide run once threw FlashList's
+  // "index out of bounds, not enough layouts" after a delete and nobody noticed).
+  log("no uncaught page errors during the whole run", errors.length === 0, errors.slice(0, 2).join(" | "));
   out.pageErrors = errors.slice(0, 5);
   out.requestsTotal = reqs.length;
   fs.writeFileSync(STATE + `.ui-${VIEWPORT}-${LATENCY}.json`, JSON.stringify(out, null, 1));

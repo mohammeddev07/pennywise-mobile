@@ -219,6 +219,13 @@ export default function TransactionsScreen() {
   const scrollsSideways = tabular && contentWidth < TABLE_MIN_WIDTH;
   const categoryColor = useMemo(() => new Map(categories.map((c) => [c.id, c.color])), [categories]);
   const listData = useMemo(() => (showRows ? (tabular ? rows.filter((r) => r.type === "tx") : rows) : []), [showRows, tabular, rows]);
+  // FlashList 2.0.2 can throw "index out of bounds, not enough layouts" from a late row measurement when its data
+  // shrinks (delete, an edit that stops matching, a refetch trimmed to page one). Seen on the wide/table layout
+  // in ~1 of 3 browser runs; remounting the list on any shrink sidesteps it. A shrink already resets pagination to
+  // page one, so no scroll position worth keeping is lost.
+  const shrink = useRef({ length: 0, epoch: 0 });
+  if (tabular && listData.length < shrink.current.length) shrink.current.epoch += 1;
+  shrink.current.length = listData.length;
 
   // A refresh that failed while rows are on screen: keep the rows, say they may be out of date. (A first load
   // or a new filter that fails has no rows to keep and becomes the error state below.)
@@ -401,15 +408,18 @@ export default function TransactionsScreen() {
       ref={listRef as never}
       onScroll={(e) => setActivityScroll(scope, e.nativeEvent.contentOffset.y)}
       scrollEventThrottle={64}
-      key={`${filters.scope}:${tabular ? "table" : "rows"}`}
+      key={`${filters.scope}:${tabular ? `table${shrink.current.epoch}` : "rows"}`}
       data={listData}
       keyExtractor={(r) => r.id}
       getItemType={(r) => r.type}
-      renderItem={({ item, index }) =>
+      renderItem={({ item }) =>
         item.type === "header" ? (
           <DayHeader title={item.title} netMinor={item.netMinor} currency={currency} />
         ) : tabular ? (
-          <TableRow tx={item.tx} currency={currency} categoryColor={categoryColor.get(item.tx.categoryId)} divider={index < listData.length - 1} />
+          // The divider must not depend on the list length: a row whose border toggled when it stopped (or started)
+          // being last changed height on every page append/delete, which made FlashList throw "index out of
+          // bounds, not enough layouts" on wide layouts.
+          <TableRow tx={item.tx} currency={currency} categoryColor={categoryColor.get(item.tx.categoryId)} divider />
         ) : (
           <View>
             <TransactionRow item={item.tx} embedded showDay={!isDatePrimarySort(filters.sort)} />

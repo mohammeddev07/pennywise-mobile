@@ -603,6 +603,16 @@ function validateCondition(c: FilterConditionNode): string | null {
   return null;
 }
 
+/**
+ * What the request adds to the tree on screen. The server enforces its depth/condition limits on the
+ * request: an OR root is wrapped in an AND (one more level), and a tree without a date range gets the
+ * analysis window appended (one more condition). Counting only the tree let a "valid" filter come back
+ * as a 400.
+ */
+export function requestOverhead(root: FilterRoot): { levels: number; conditions: number } {
+  return { levels: root.op === "OR" ? 1 : 0, conditions: slotNodes(root).date ? 0 : 1 };
+}
+
 export function validateTree(root: FilterRoot): ValidationResult {
   const nodeErrors: Record<string, string> = {};
   const treeErrors: string[] = [];
@@ -619,9 +629,15 @@ export function validateTree(root: FilterRoot): ValidationResult {
   };
   walk(root, true);
 
-  if (depthOf(root) > QUERY_LIMITS.maxDepth) treeErrors.push(`Groups can nest at most ${QUERY_LIMITS.maxDepth} levels deep.`);
-  if (countConditions(root) > QUERY_LIMITS.maxConditions)
-    treeErrors.push(`At most ${QUERY_LIMITS.maxConditions} conditions are allowed.`);
+  const overhead = requestOverhead(root);
+  if (depthOf(root) + overhead.levels > QUERY_LIMITS.maxDepth)
+    treeErrors.push(
+      `Groups can nest at most ${QUERY_LIMITS.maxDepth} levels deep${overhead.levels ? " (an OR at the top counts as an extra level)" : ""}.`
+    );
+  if (countConditions(root) + overhead.conditions > QUERY_LIMITS.maxConditions)
+    treeErrors.push(
+      `At most ${QUERY_LIMITS.maxConditions} conditions are allowed${overhead.conditions ? " (a date range is added when you set none)" : ""}.`
+    );
 
   return { valid: Object.keys(nodeErrors).length === 0 && treeErrors.length === 0, nodeErrors, treeErrors };
 }

@@ -252,7 +252,7 @@ Minimum 44×44. Every control lands on one of three height tiers
 | --------- | ------ | ----------------------------------------------------------- |
 | `control` | 56     | `FormField`, `DateTimeField`, `SelectRow`, `SegmentedControl`, `Button size="lg"` |
 | `controlSm` | 48   | `Button size="md"`, `IconButton`, header actions            |
-| `chip`    | 44     | `FilterChip`, `BookPill` (= `minTap`; chips sit in clipped scroll rows, so `hitSlop` cannot help) |
+| `chip`    | 44     | `FilterChip` (= `minTap`; chips sit in clipped scroll rows, so `hitSlop` cannot help) |
 
 Rows are at least 56 tall, 60 when they carry a label plus a value.
 
@@ -358,7 +358,7 @@ exactly how the app drifted.
 | `BreakdownRow`                                     | A category's share as a horizontal comparison bar                 |
 | `SuccessCheck`                                     | The success mark — one settling animation, never a loop           |
 | `CategoryIcon`                                     | Tinted circular icon tile                                         |
-| `ActionRow` / `SelectRow`                          | Settings and detail rows                                          |
+| `SelectRow`                                        | Settings and detail rows                                          |
 | `NumericKeypad`                                    | Full-width keypad, filled keys, no outlines                       |
 | `OdometerAmount`                                   | Animated money display                                            |
 | `HapticPressable`                                  | The only pressable — never bare `Pressable`                       |
