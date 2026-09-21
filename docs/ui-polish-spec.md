@@ -4,7 +4,7 @@ Elevation of the current PennyWise UI, not a redesign. Identity is fixed: charco
 `#00C805` accent, semantic income/expense colours, Schibsted Grotesk words, Sora amounts, Lucide icons,
 existing radii and 4/8 spacing scale. No new palette, font or gradient was added; no navigation changed.
 
-Companion files: `DESIGN_SYSTEM.md` (the contract, updated in this task), `scripts/ui-shots/` (the
+Companion files: `docs/design-system.md` (the contract, updated in this task), `scripts/ui-shots/` (the
 screenshot harness), `docs/ui-polish/{before,after,compare}/` (evidence).
 
 ---
@@ -32,7 +32,7 @@ screenshot harness), `docs/ui-polish/{before,after,compare}/` (evidence).
    20px chevron (`before/phone-details.png`, top-left) - a 20px touch target with no border or fill.
 3. **`subtle` text failed contrast.** `#66707A` measures 3.63:1 on `surface`, 3.40:1 on `surfaceAlt`, 3.06:1
    on `surfacePressed`. It carried placeholders, field hints, axis labels and helper notes at 11-13px.
-4. The docs contradicted the code in places (`DESIGN_SYSTEM.md` said key radius 18 vs code 22; "Ionicons only"
+4. The docs contradicted the code in places (`docs/design-system.md` said key radius 18 vs code 22; "Ionicons only"
    vs Lucide; `Input` "compat wrapper" still shipping). Fixed in the same change.
 
 ### Contrast audit (WCAG 1.4.3 text ≥ 4.5:1)
