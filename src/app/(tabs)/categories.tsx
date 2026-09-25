@@ -376,7 +376,7 @@ export default function CategoriesScreen() {
               <View className="items-center">
                 <RingProgress progress={budgetProgress} color={tokens.colors.accent} />
                 <AppText variant="lg" weight="bold" style={{ marginTop: -58 }}>
-                  {totalSpentCents === null ? "—" : `${Math.round(Math.min(1, budgetProgress) * 100)}%`}
+                  {totalSpentCents === null ? "N/A" : `${Math.round(Math.min(1, budgetProgress) * 100)}%`}
                 </AppText>
                 <AppText variant="caption" tone="muted" style={{ marginTop: 36 }}>
                   Used

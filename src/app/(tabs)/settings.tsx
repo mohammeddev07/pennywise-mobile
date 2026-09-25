@@ -344,7 +344,7 @@ export default function ProfileScreen() {
             )}
 
             <AppText variant="sm" tone="muted" style={{ marginTop: tokens.space[3] }}>
-              Opening balance and currency cannot be changed after a book is created — stored amounts
+              Opening balance and currency cannot be changed after a book is created. Stored amounts
               carry no exchange rate, so switching would reinterpret every past transaction.
             </AppText>
 
