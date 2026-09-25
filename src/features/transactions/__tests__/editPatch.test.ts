@@ -6,7 +6,7 @@ const original = mapTransactionResponse({
   title: "Coffee", categoryId: "c1", paymentMethod: null, note: "beans", version: 3,
   createdAt: "2026-03-05T12:01:10.123456Z", updatedAt: "2026-03-06T09:00:00Z",
 });
-const same = { kind: original.type, amountMinor: 1234, title: "Coffee", categoryId: "c1", note: "beans", occurredAt: new Date(original.occurredAt) };
+const same = { kind: original.type, amountMinor: 1234, title: "Coffee", categoryId: "c1", note: "beans", paymentMethod: null, occurredAt: new Date(original.occurredAt) };
 
 describe("edit patch", () => {
   it("an untouched form is an empty patch (no version bump, ledger date not re-derived)", () => {
@@ -21,6 +21,13 @@ describe("edit patch", () => {
     for (const forbidden of ["id", "createdAt", "updatedAt", "version", "externalId", "paymentMethod"]) {
       expect(all).not.toHaveProperty(forbidden);
     }
+  });
+
+  it("sets a payment method, and clears it with an explicit null", () => {
+    expect(buildEditPatch(original, { ...same, paymentMethod: "CARD" })).toEqual({ paymentMethod: "CARD" });
+    const carded = { ...original, paymentMethod: "CARD" as const };
+    expect(buildEditPatch(carded, { ...same, paymentMethod: "CARD" })).toEqual({});
+    expect(buildEditPatch(carded, { ...same, paymentMethod: null })).toEqual({ paymentMethod: null });
   });
 
   it("keeps Created/Updated as separate read-only values, distinct from the transaction date", () => {
