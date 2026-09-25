@@ -26,6 +26,7 @@ import { formatCurrency, currencySymbol } from "@/shared/utils/formatCurrency";
 import { useUndoToastStore } from "@/shared/ui/state/useUndoToastStore";
 import { useExportToastStore } from "@/shared/ui/state/useExportToastStore";
 import { exportTransactionsToDevice, ExportCancelledError, MockModeUnsupportedError } from "@/shared/utils/exportFile";
+import { openSupportEmail, SUPPORT_EMAIL } from "@/shared/utils/supportEmail";
 import { Icon } from "@/shared/ui/components/Icon";
 
 /** A titled group of settings rows, separated by hairlines. */
@@ -72,6 +73,7 @@ export default function ProfileScreen() {
   const [isSavingBook, setIsSavingBook] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [mailUnavailable, setMailUnavailable] = useState(false);
 
   useEffect(() => {
     const unsubs: Array<() => void> = [];
@@ -154,6 +156,10 @@ export default function ProfileScreen() {
     } finally {
       setIsExporting(false);
     }
+  };
+
+  const onContactSupport = async () => {
+    setMailUnavailable(!(await openSupportEmail()));
   };
 
   const onLogout = () => {
@@ -338,7 +344,7 @@ export default function ProfileScreen() {
             )}
 
             <AppText variant="sm" tone="muted" style={{ marginTop: tokens.space[3] }}>
-              Opening balance and currency cannot be changed after a book is created — stored amounts
+              Opening balance and currency cannot be changed after a book is created. Stored amounts
               carry no exchange rate, so switching would reinterpret every past transaction.
             </AppText>
 
@@ -369,6 +375,25 @@ export default function ProfileScreen() {
             </SettingsGroup>
           </>
         )}
+
+        {/* Outside the hydration branches: support stays reachable when the profile itself won't load. */}
+        <SectionHeader title="Support" style={{ marginTop: tokens.space[7], marginBottom: tokens.space[3] }} />
+        <SettingsGroup>
+          <SettingsRow icon="mail-outline" label="Contact support" value={SUPPORT_EMAIL} onPress={onContactSupport} />
+        </SettingsGroup>
+
+        {/* No mail app took the link: show the address as selectable text (press and hold to copy),
+            outside the pressable row so the long-press reaches it. */}
+        {mailUnavailable ? (
+          <Card variant="surface" padding={16} style={{ marginTop: tokens.space[3] }}>
+            <AppText variant="sm" tone="muted">
+              No mail app is set up on this device. Press and hold the address to copy it.
+            </AppText>
+            <AppText variant="base" weight="semibold" selectable style={{ marginTop: tokens.space[2] }}>
+              {SUPPORT_EMAIL}
+            </AppText>
+          </Card>
+        ) : null}
 
         {/* Sign out sits apart from ordinary settings, and reads destructive. */}
         <View style={{ marginTop: tokens.space[7] }}>

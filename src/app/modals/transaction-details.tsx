@@ -127,12 +127,12 @@ export default function TransactionDetailsModal() {
 
   const occurred = tx?.occurredAt ? safeDate(tx.occurredAt) : null;
   const occurredOn = tx?.occurredOn ? safeDate(tx.occurredOn) : occurred;
-  const dateLabel = occurredOn ? format(occurredOn, "MMM d, yyyy") : "—";
-  const timeLabel = occurred ? format(occurred, "h:mm a") : "—";
+  const dateLabel = occurredOn ? format(occurredOn, "MMM d, yyyy") : "Unknown date";
+  const timeLabel = occurred ? format(occurred, "h:mm a") : "Unknown time";
   // createdAt/updatedAt are when the record was written, not when the money moved.
   const created = tx?.createdAt ? safeDate(tx.createdAt) : null;
   const updated = tx?.updatedAt ? safeDate(tx.updatedAt) : null;
-  const stampLabel = (d: Date | null) => (d ? format(d, "MMM d, yyyy 'at' h:mm a") : "—");
+  const stampLabel = (d: Date | null) => (d ? format(d, "MMM d, yyyy 'at' h:mm a") : "at an unknown time");
 
   const onDelete = () => {
     if (!tx || isMutating) return;

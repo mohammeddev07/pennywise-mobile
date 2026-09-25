@@ -20,10 +20,17 @@ import { Button } from "@/shared/ui/components/Button";
 import { Card } from "@/shared/ui/components/Card";
 import { EmptyState } from "@/shared/ui/components/EmptyState";
 import { Skeleton } from "@/shared/ui/components/Skeleton";
-import { isNotFoundError, isStaleVersionError, paymentMethodLabel, type Transaction, type TransactionKind } from "@/features/transactions/model";
+import {
+  isNotFoundError,
+  isStaleVersionError,
+  type PaymentMethod,
+  type Transaction,
+  type TransactionKind,
+} from "@/features/transactions/model";
 import { useTransactionDetail } from "@/features/transactions/queries";
 import { updateTransaction } from "@/features/transactions/actions";
 import { buildEditPatch } from "@/features/transactions/editPatch";
+import { PaymentMethodPicker } from "@/features/transactions/ui/PaymentMethodPicker";
 import { getApiErrorMessage } from "@/shared/api/errors";
 import { useCategoriesStore } from "@/features/categories/store";
 import { TypeToggle } from "@/shared/ui/components/TypeToggle";
@@ -74,6 +81,7 @@ export default function EditTransactionModal() {
   const [categoryId, setCategoryId] = useState("");
   const [categoryName, setCategoryName] = useState("Uncategorized");
   const [note, setNote] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
   const [occurredAt, setOccurredAt] = useState(new Date());
   const [showMode, setShowMode] = useState<"date" | "time" | null>(null);
   const [attemptedSave, setAttemptedSave] = useState(false);
@@ -95,6 +103,7 @@ export default function EditTransactionModal() {
       setCategoryId(row.categoryId);
       setCategoryName(row.categoryName || "Uncategorized");
       setNote(row.note ?? "");
+      setPaymentMethod(row.paymentMethod);
       setOccurredAt(parseWhen(row.occurredAt));
       setBaseVersion(row.version);
     },
@@ -159,7 +168,7 @@ export default function EditTransactionModal() {
       return;
     }
 
-    const patch = buildEditPatch(tx, { kind, amountMinor, title, categoryId, note, occurredAt });
+    const patch = buildEditPatch(tx, { kind, amountMinor, title, categoryId, note, paymentMethod, occurredAt });
     if (Object.keys(patch).length === 0) {
       router.back();
       return;
@@ -333,6 +342,13 @@ export default function EditTransactionModal() {
                 ) : null}
               </View>
 
+              <View>
+                <AppText variant="sm" tone="muted" className="mb-2">
+                  Payment · Optional
+                </AppText>
+                <PaymentMethodPicker value={paymentMethod} onChange={setPaymentMethod} />
+              </View>
+
               <FormField
                 label="Note"
                 value={note}
@@ -352,9 +368,6 @@ export default function EditTransactionModal() {
               {/* Read-only record metadata: the date above is the transaction date; these
                   are when the record itself was written and last changed. */}
               <View className="gap-1">
-                <AppText variant="caption" tone="muted">
-                  Payment: {paymentMethodLabel(tx.paymentMethod)}
-                </AppText>
                 <AppText variant="caption" tone="muted">
                   Record created {format(parseWhen(tx.createdAt), "MMM d, yyyy 'at' h:mm a")} · last updated{" "}
                   {format(parseWhen(tx.updatedAt), "MMM d, yyyy 'at' h:mm a")} (read-only)
