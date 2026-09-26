@@ -18,9 +18,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # eas-cli (installed below) depends on @oclif/plugin-autocomplete, which requires
+      # Node >=22; the repo's .node-version (20.19.4, shared with the app/super-linter) is
+      # too old for that CLI dependency, so this job pins its own Node version instead of
+      # touching the shared file.
       - uses: actions/setup-node@v4
         with:
-          node-version-file: .node-version
+          node-version: "22"
           cache: npm
 
       - run: npm ci
