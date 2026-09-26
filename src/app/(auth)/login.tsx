@@ -24,6 +24,7 @@ export default function LoginScreen() {
   const [submitted, setSubmitted] = useState(false);
   const [apiError, setApiError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [coldStartWait, setColdStartWait] = useState(false);
   const login = useAuthStore((s) => s.login);
   const completeOnboarding = useAuthStore((s) => s.completeOnboarding);
   const loadBooks = useBooksStore((s) => s.loadBooks);
@@ -42,6 +43,10 @@ export default function LoginScreen() {
     setApiError("");
     if (!isEmail(email) || password.trim().length < 8) return;
     setIsSubmitting(true);
+    // Render's free backend can take up to ~60s to wake from a cold start
+    // (see shared/api/client.ts); past the first timeout window, tell the
+    // user that instead of leaving them staring at a generic spinner.
+    const coldStartTimer = setTimeout(() => setColdStartWait(true), 12_000);
     try {
       await login(email, password);
       const books = await loadBooks();
@@ -54,6 +59,8 @@ export default function LoginScreen() {
     } catch (err) {
       setApiError(getAuthErrorMessage(err));
     } finally {
+      clearTimeout(coldStartTimer);
+      setColdStartWait(false);
       setIsSubmitting(false);
     }
   };
@@ -102,6 +109,12 @@ export default function LoginScreen() {
           {apiError ? (
             <AppText variant="sm" tone="danger">
               {apiError}
+            </AppText>
+          ) : null}
+
+          {coldStartWait ? (
+            <AppText variant="sm" tone="muted">
+              Waking up the server, this can take up to a minute...
             </AppText>
           ) : null}
         </View>

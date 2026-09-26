@@ -22,6 +22,7 @@ import { useBooksStore } from "@/features/books/store";
 import { useBookCurrency } from "@/features/books/useBookCurrency";
 import { useSettingsStore } from "@/features/settings/store";
 import { useAuthStore } from "@/features/auth/store";
+import { useAppUpdates } from "@/features/app-updates/useAppUpdates";
 import { formatCurrency, currencySymbol } from "@/shared/utils/formatCurrency";
 import { useUndoToastStore } from "@/shared/ui/state/useUndoToastStore";
 import { useExportToastStore } from "@/shared/ui/state/useExportToastStore";
@@ -61,6 +62,7 @@ export default function ProfileScreen() {
   const logout = useAuthStore((s) => s.logout);
   const showError = useUndoToastStore((s) => s.showError);
   const showExportSuccess = useExportToastStore((s) => s.showSuccess);
+  const { status: updateStatus, checkAndDownload, applyUpdate } = useAppUpdates();
 
   const booksPersist = (useBooksStore as any).persist;
   const settingsPersist = (useSettingsStore as any).persist;
@@ -371,6 +373,30 @@ export default function ProfileScreen() {
                 label="Export transactions"
                 value={isExporting ? "Exporting..." : `Save ${selectedBook?.name ?? "this book"} as .xlsx`}
                 onPress={isExporting ? undefined : onExport}
+              />
+              <SettingsRow
+                icon="tips-and-updates"
+                label="Check for updates"
+                value={
+                  updateStatus === "checking"
+                    ? "Checking..."
+                    : updateStatus === "downloading"
+                      ? "Downloading..."
+                      : updateStatus === "available"
+                        ? "Update ready — tap to restart"
+                        : updateStatus === "up-to-date"
+                          ? "You're up to date"
+                          : updateStatus === "error"
+                            ? "Couldn't check right now"
+                            : undefined
+                }
+                onPress={
+                  updateStatus === "checking" || updateStatus === "downloading"
+                    ? undefined
+                    : updateStatus === "available"
+                      ? applyUpdate
+                      : checkAndDownload
+                }
               />
             </SettingsGroup>
           </>
