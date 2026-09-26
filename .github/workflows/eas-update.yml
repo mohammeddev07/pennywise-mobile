@@ -35,4 +35,4 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - run: eas update --branch ${{ inputs.channel }} --message "Manual OTA update (${{ github.sha }})" --non-interactive
+      - run: eas update --channel ${{ inputs.channel }} --message "Manual OTA update (${{ github.sha }})" --non-interactive
