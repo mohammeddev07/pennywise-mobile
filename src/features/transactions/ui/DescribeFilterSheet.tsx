@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { View } from "react-native";
+import { ScrollView, View } from "react-native";
 
 import { tokens } from "@/shared/ui/theme/tokens";
 import { AppText } from "@/shared/ui/components/AppText";
 import { Button, LinkButton } from "@/shared/ui/components/Button";
+import { FilterChip } from "@/shared/ui/components/FilterChip";
 import { FormField } from "@/shared/ui/components/FormField";
 import { BottomSheetModal, SheetCloseButton } from "@/shared/ui/components/BottomSheetModal";
 import { useDelayedFlag } from "@/shared/ui/utils/useDelayedFlag";
@@ -13,6 +14,13 @@ import { fromWireFilter, fromWireSort } from "../aiFilterProposal";
 import type { FilterRoot, SortState } from "../filterModel";
 
 const MAX_CHARS = 500;
+
+const EXAMPLE_PROMPTS = [
+  "Groceries over $50 last month",
+  "Income this year",
+  "Coffee purchases this month",
+  "Uncategorized expenses",
+];
 
 /**
  * "Describe your filter": a free-text question in, a complete replacement filter proposal out.
@@ -108,9 +116,22 @@ export function DescribeFilterSheet({
         maxLength={MAX_CHARS}
         editable={!loading}
       />
+
+      {!text && !loading ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: tokens.space[2] }}
+          style={{ marginTop: tokens.space[3], flexGrow: 0 }}
+        >
+          {EXAMPLE_PROMPTS.map((example) => (
+            <FilterChip key={example} label={example} active={false} onPress={() => setText(example)} />
+          ))}
+        </ScrollView>
+      ) : null}
+
       <AppText variant="xs" tone="muted" style={{ marginTop: tokens.space[2] }}>
-        Sent to our AI provider to build this filter, along with this book's category names. Review
-        every condition before applying - this replaces your current filter, it does not merge with it.
+        Review the proposed filter before applying - it replaces your current filter.
       </AppText>
 
       {loading ? (
