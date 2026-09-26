@@ -10,17 +10,20 @@ import { BottomSheetModal, SheetCloseButton } from "@/shared/ui/components/Botto
 import { useDelayedFlag } from "@/shared/ui/utils/useDelayedFlag";
 import { getApiErrorMessage } from "@/shared/api/errors";
 import { proposeFilter } from "@/shared/api/aiFilter";
+import { currencySymbol } from "@/shared/utils/formatCurrency";
 import { fromWireFilter, fromWireSort } from "../aiFilterProposal";
 import type { FilterRoot, SortState } from "../filterModel";
 
 const MAX_CHARS = 500;
 
-const EXAMPLE_PROMPTS = [
-  "Groceries over $50 last month",
-  "Income this year",
-  "Coffee purchases this month",
-  "Uncategorized expenses",
-];
+function examplePrompts(currency: string) {
+  return [
+    `Groceries over ${currencySymbol(currency)}50 last month`,
+    "Income this year",
+    "Coffee purchases this month",
+    "Uncategorized expenses",
+  ];
+}
 
 /**
  * "Describe your filter": a free-text question in, a complete replacement filter proposal out.
@@ -32,11 +35,13 @@ export function DescribeFilterSheet({
   visible,
   onClose,
   bookId,
+  currency,
   onProposal,
 }: {
   visible: boolean;
   onClose: () => void;
   bookId: string | null | undefined;
+  currency: string;
   onProposal: (root: FilterRoot, sort: SortState, limitation: string | null) => void;
 }) {
   const [text, setText] = useState("");
@@ -110,7 +115,7 @@ export function DescribeFilterSheet({
         label="Question"
         value={text}
         onChangeText={setText}
-        placeholder='e.g. "Groceries over $50 last month"'
+        placeholder={`e.g. "Groceries over ${currencySymbol(currency)}50 last month"`}
         multiline
         showCount
         maxLength={MAX_CHARS}
@@ -124,14 +129,14 @@ export function DescribeFilterSheet({
           contentContainerStyle={{ gap: tokens.space[2] }}
           style={{ marginTop: tokens.space[3], flexGrow: 0 }}
         >
-          {EXAMPLE_PROMPTS.map((example) => (
+          {examplePrompts(currency).map((example) => (
             <FilterChip key={example} label={example} active={false} onPress={() => setText(example)} />
           ))}
         </ScrollView>
       ) : null}
 
       <AppText variant="xs" tone="muted" style={{ marginTop: tokens.space[2] }}>
-        Review the proposed filter before applying - it replaces your current filter.
+        Sent to our AI provider with this book's category names - review before applying, it replaces your current filter.
       </AppText>
 
       {loading ? (

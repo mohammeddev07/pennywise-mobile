@@ -629,6 +629,7 @@ export default function TransactionsScreen() {
           visible={describeOpen}
           onClose={() => setDescribeOpen(false)}
           bookId={selectedBookId}
+          currency={currency}
           onProposal={(root, sort, limitation) => {
             setAiProposalRoot(root);
             setAiProposalSort(sort);
