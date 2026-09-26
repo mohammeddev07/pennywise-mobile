@@ -31,6 +31,10 @@ export function useAppUpdates() {
       await Updates.fetchUpdateAsync();
       setStatus("available");
     } catch (err) {
+      // Only ever surfaced as a generic "Couldn't check right now" in the UI otherwise -
+      // logging the real message is the only way to tell a stale/misconfigured channel
+      // apart from a network error apart from an actual expo-updates bug.
+      console.error("[useAppUpdates] check/fetch failed:", err);
       setStatus("error");
       setError(err instanceof Error ? err.message : "Couldn't check for updates.");
     }

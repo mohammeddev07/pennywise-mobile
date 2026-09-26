@@ -62,7 +62,7 @@ export default function ProfileScreen() {
   const logout = useAuthStore((s) => s.logout);
   const showError = useUndoToastStore((s) => s.showError);
   const showExportSuccess = useExportToastStore((s) => s.showSuccess);
-  const { status: updateStatus, checkAndDownload, applyUpdate } = useAppUpdates();
+  const { status: updateStatus, error: updateError, checkAndDownload, applyUpdate } = useAppUpdates();
 
   const booksPersist = (useBooksStore as any).persist;
   const settingsPersist = (useSettingsStore as any).persist;
@@ -387,7 +387,7 @@ export default function ProfileScreen() {
                         : updateStatus === "up-to-date"
                           ? "You're up to date"
                           : updateStatus === "error"
-                            ? "Couldn't check right now"
+                            ? `Couldn't check right now${updateError ? ` (${updateError})` : ""}`
                             : undefined
                 }
                 onPress={
