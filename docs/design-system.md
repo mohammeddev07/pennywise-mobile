@@ -4,7 +4,7 @@ The single contract for how PennyWise looks and behaves. It replaces the older
 `UI_CONTRACT.md`. If a screen disagrees with this document, the screen is wrong.
 
 Source of truth in code: **`src/shared/ui/theme/tokens.ts`**. Nothing below is
-decorative prose — every value here exists as a token, and screens must read the
+decorative prose - every value here exists as a token, and screens must read the
 token rather than repeat the literal.
 
 ---
@@ -20,14 +20,14 @@ screen picked one. These rules end that.
 2. **Never hardcode a font family string.** `fontFamily: "Sora_700Bold"` is
    banned. Use `<AppText weight="semibold">`, or `fonts.semibold` / `numerals.bold`
    for a raw `Text`/`TextInput`. On Android a named family makes `fontWeight` a
-   no-op, so weight _must_ travel through the family — this is a correctness
+   no-op, so weight _must_ travel through the family - this is a correctness
    rule, not a preference.
 3. **Never read a money color directly.** Income/expense color comes from
    `amountColor()` in `src/shared/ui/theme/money.ts`. Never
    `tokens.semantic.expense` at a call site.
 4. **Never import an icon library.** The app has exactly one icon set, behind
    `src/shared/ui/components/Icon.tsx`. Importing `lucide-react-native` (or
-   anything else) directly at a call site is banned — add the name to `Icon`'s
+   anything else) directly at a call site is banned - add the name to `Icon`'s
    map instead.
 5. **Never render an amount in the UI face.** Money goes through `MoneyAmount`
    or `HeroAmount`; a currency figure typed straight into an `<AppText>` will
@@ -80,7 +80,7 @@ hairline, never by a shadow.
 | `warning`       | `#F5A524` | Warnings                              |
 
 **Green is not decoration.** It marks a primary action, the active tab, a
-selected control, or a positive state — nothing else. No glow on ordinary
+selected control, or a positive state - nothing else. No glow on ordinary
 buttons or cards.
 
 Tints (`greenSoft`, `incomeSoft`, `redSoft`, `amberSoft`, `blueSoft`,
@@ -92,10 +92,10 @@ Ripple: `colors.ripple` on dark surfaces, `colors.rippleOnAccent` on green ones.
 Never hardcode a ripple color.
 
 **Alpha and SVG.** Plain RN styles accept 8-digit hex. Reanimated's
-`interpolateColor` and `react-native-svg` do not reliably — those must use
+`interpolateColor` and `react-native-svg` do not reliably - those must use
 `withAlpha()` from `theme/color.ts`, which returns `rgba()`.
 
-### Money color — the one rule with teeth
+### Money color - the one rule with teeth
 
 | Meaning                         | Color           | Helper                   |
 | ------------------------------- | --------------- | ------------------------ |
@@ -110,14 +110,14 @@ Never hardcode a ripple color.
 readable without perceiving hue.
 
 **Expense is red everywhere** a signed amount is shown: transaction list, detail,
-totals, add flow, success. A _balance_ is not an income or an expense — it stays
+totals, add flow, success. A _balance_ is not an income or an expense - it stays
 neutral when positive, because green on every positive balance is noise.
 
 > **Known tension.** The earlier reference mocks (`Light_design/`, since removed from the repo) keep expenses
 > near-black and reserve red for alerts (overspend, negative balance), which is
 > the mainstream finance convention. Red-for-all-expenses was an explicit product
 > decision. It is implemented through `amountColor()` alone, so reverting to the
-> reference behavior is a one-line change in `money.ts` — do not scatter the
+> reference behavior is a one-line change in `money.ts` - do not scatter the
 > decision back out into screens.
 
 ---
@@ -130,13 +130,13 @@ neutral when positive, because green on every positive balance is noise.
 > If it is a word it is **Schibsted Grotesk**.
 
 Never mix the two inside one text node. The single exception is the hero
-amount's `$` prefix, which `HeroAmount` renders as its own node — still Sora,
+amount's `$` prefix, which `HeroAmount` renders as its own node - still Sora,
 at roughly half the digit size, in the tertiary color.
 
 Both families load in `src/app/_layout.tsx`. Weight is always carried by the
 family name (`fonts.*` for words, `numerals.*` for numbers).
 
-### Words — Schibsted Grotesk
+### Words - Schibsted Grotesk
 
 | Variant | Size / line | Weight              | Use                                |
 | ------- | ----------- | ------------------- | ---------------------------------- |
@@ -149,12 +149,12 @@ family name (`fonts.*` for words, `numerals.*` for numbers).
 | `2xl`   | 26 / 32     | bold                | Screen titles                      |
 | `3xl`   | 30 / 38     | bold                | Largest page title                 |
 
-`xs` is written in caps at the call site (`SectionHeader` does this for you) —
+`xs` is written in caps at the call site (`SectionHeader` does this for you) -
 it is the overline, not small body text. Its +2 tracking makes sentence case
 read as spaced-out and clips narrow labels, so any sentence-case note uses
 `caption`. There is no smaller variant: tiny low-contrast grey text is banned.
 
-### Numbers — Sora
+### Numbers - Sora
 
 Reached through `MoneyAmount size=…` rather than a text variant, because every
 money figure must also pick up its sign and semantic color:
@@ -169,7 +169,7 @@ money figure must also pick up its sign and semantic color:
 | `amount`  | 44 / 50     | Net figures, the success receipt           |
 | `display` | 62 / 64     | Hero balance (`HeroAmount`)                |
 
-The keypad hero is display-L (72) and steps down past six digits —
+The keypad hero is display-L (72) and steps down past six digits -
 `amountFontSize()` in `tokens.ts` owns that rule.
 
 Every money size sets `fontVariant: ["tabular-nums"]` so digits do not reflow
@@ -183,7 +183,7 @@ weights: `light` `regular` `medium` `semibold` `bold` `extrabold`.
 
 ## 4. Spacing
 
-Allowed values only: **`0, 4, 8, 12, 16, 20, 24, 32, 40`** — `tokens.space[0…8]`.
+Allowed values only: **`0, 4, 8, 12, 16, 20, 24, 32, 40`** - `tokens.space[0…8]`.
 Anything else is a bug.
 
 | Context                    | Value                  |
@@ -198,14 +198,14 @@ Anything else is a bug.
 | Bottom tab clearance       | `useTabBarClearance()` |
 
 Gutters: 20 under 360dp, 24 on phones, 32 from 600dp (`useScreenPaddingX()`).
-Screens must not hardcode either the gutter or the tab clearance — take them
+Screens must not hardcode either the gutter or the tab clearance - take them
 from `useScreenPaddingX()` and `useTabBarClearance()` (both exported by
 `Screen`), so a small-handset tightening or a nav height change lands
 everywhere at once.
 
 ## 5. Radius
 
-Allowed values only: **`14, 18, 22, 28, 32, 9999`** — `tokens.radii`.
+Allowed values only: **`14, 18, 22, 28, 32, 9999`** - `tokens.radii`.
 **Nothing in the app corners tighter than 14.**
 (Tailwind names differ from token names: Tailwind `lg`=22 is `radii.md`, `xl`=28 is `radii.lg`, `2xl`=32 is `radii.xl`. Prefer tokens in `style`.)
 
@@ -221,18 +221,18 @@ Allowed values only: **`14, 18, 22, 28, 32, 9999`** — `tokens.radii`.
 Visually equivalent components must share a radius. If two things look like the
 same kind of object, they are the same radius.
 
-## 6. Depth — layers and glow, never shadows
+## 6. Depth - layers and glow, never shadows
 
 **There are zero black drop shadows in the app.** `tokens.elevation.*` paints
 nothing and is kept only so existing call sites stay valid.
 
 Depth comes from three things:
 
-1. **The four-layer surface stack** — `app` → `surface` → `surfaceAlt` →
+1. **The four-layer surface stack** - `app` → `surface` → `surfaceAlt` →
    `surfacePressed`. Nothing may invent a background between two steps.
-2. **A 1px top-edge highlight** (`colors.edgeHighlight`) on a raised surface —
+2. **A 1px top-edge highlight** (`colors.edgeHighlight`) on a raised surface -
    a card's top border, a keypad key's lit edge. Never a full outline.
-3. **Glow, reserved for the accent** — `tokens.glow.{accent,accentSoft,success,danger}`,
+3. **Glow, reserved for the accent** - `tokens.glow.{accent,accentSoft,success,danger}`,
    with a zero offset so the light reads as a bloom.
 
 Glow is allowed on exactly four things: the add button, a live primary CTA,
@@ -257,7 +257,7 @@ Minimum 44×44. Every control lands on one of three height tiers
 Rows are at least 56 tall, 60 when they carry a label plus a value.
 
 A disabled button keeps a visible surface and mutes only its label
-(`subtle`, never faded twice) — it must never fade into the background.
+(`subtle`, never faded twice) - it must never fade into the background.
 `HapticPressable` fades a disabled bare control to 0.4; a control that paints its
 own disabled surface passes `disabledOpacity={1}`.
 
@@ -271,11 +271,11 @@ shifts). On web every `HapticPressable` draws a 2px accent inset ring for keyboa
 (`snappy` 380/22 · `gentle` 260/28 · `bouncy` 260/12, plus per-control tunings).
 
 Animation communicates an interaction; it does not decorate. **Cause precedes
-effect** — the pressed control moves first, the screen answers. Nothing exceeds
+effect** - the pressed control moves first, the screen answers. Nothing exceeds
 400ms except the success moment (~650ms, choreographed in beats). No looping,
 pulsing, or bouncing.
 
-Counting figures use `useCountUp`, which animates **only on a data change** —
+Counting figures use `useCountUp`, which animates **only on a data change** -
 600ms when a save moves the number. The first value to land is shown as-is (counting
 up from 0 flashed a false "$0.00"), returning to a tab never re-counts, and under
 **reduced motion** nothing counts, bars do not stagger in, press feedback drops its
@@ -306,8 +306,8 @@ One family: **Lucide**, stroke 2.2, round caps and joins, behind
 `shared/ui/components/Icon.tsx`. Sizes come from `tokens.icon`: 22 in the tab
 bar and headers, 19 in list rows, 16 in chips and inline.
 
-`Icon` speaks the Ionicons name vocabulary the app already stores — a category
-row persists `icon: "fast-food-outline"` and the API returns it that way — so
+`Icon` speaks the Ionicons name vocabulary the app already stores - a category
+row persists `icon: "fast-food-outline"` and the API returns it that way - so
 the map translates rather than forcing a data migration. Unknown names fall
 back to the tag glyph.
 
@@ -330,7 +330,7 @@ amounts, settings rows or date headers.
 
 ## 8. Components
 
-Use these. Do not write a screen-local copy of anything in this list — that is
+Use these. Do not write a screen-local copy of anything in this list - that is
 exactly how the app drifted.
 
 | Component                                          | Purpose                                                           |
@@ -341,14 +341,14 @@ exactly how the app drifted.
 | `Sheet`                                            | Modal shell with header, body, footer slots                       |
 | `Card`                                             | Rounded surface container, `card` / `surface` / `soft` variants   |
 | `Button`                                           | `primary` `secondary` `outline` `ghost` `danger`, sizes `md` `lg` |
-| `AppText`                                          | The only text primitive — `variant`, `tone`, `weight`             |
-| `FormField`                                        | **The** text field — label, hint, error, disabled, multiline, count, pill |
+| `AppText`                                          | The only text primitive - `variant`, `tone`, `weight`             |
+| `FormField`                                        | **The** text field - label, hint, error, disabled, multiline, count, pill |
 | `IconButton`                                       | **The** circular icon action (back, close, add, more). Never hand-roll one |
 | `LinkButton`                                       | Text-only inline action ("Retry", "View all"); 44px target       |
 | `Container` / `Screen width=`                      | Column cap: `form` 520 · `content` 720 · `wide` 1040             |
 | `TypeToggle`                                       | Expense/Income switch, colored by `amountColor`                   |
 | `SegmentedControl`                                 | Equal-width segments with a sliding, color-crossfading indicator  |
-| `FilterChip`                                       | **The** chip — filters, categories, ranges. No screen-local chips |
+| `FilterChip`                                       | **The** chip - filters, categories, ranges. No screen-local chips |
 | `TransactionRow`                                   | The transaction list row                                          |
 | `MoneyAmount`                                      | **Every** money figure: sign, semantic color, tabular figures     |
 | `StatBlock`                                        | Borderless label + figure, for stats sitting side by side         |
@@ -356,12 +356,12 @@ exactly how the app drifted.
 | `BottomNavigation`                                 | The one tab bar. Screens never render their own                   |
 | `TrendAreaChart` / `TrendChart`                    | Home's weekly line; Insights' period bars                         |
 | `BreakdownRow`                                     | A category's share as a horizontal comparison bar                 |
-| `SuccessCheck`                                     | The success mark — one settling animation, never a loop           |
+| `SuccessCheck`                                     | The success mark - one settling animation, never a loop           |
 | `CategoryIcon`                                     | Tinted circular icon tile                                         |
 | `SelectRow`                                        | Settings and detail rows                                          |
 | `NumericKeypad`                                    | Full-width keypad, filled keys, no outlines                       |
 | `OdometerAmount`                                   | Animated money display                                            |
-| `HapticPressable`                                  | The only pressable — never bare `Pressable`                       |
+| `HapticPressable`                                  | The only pressable - never bare `Pressable`                       |
 | `EmptyState` `Skeleton` `UndoToast` `RingProgress` | States and feedback                                               |
 
 Icons are **Lucide only** (through `Icon`, which speaks Ionicons *names*), at one
@@ -390,13 +390,13 @@ These exist because typing in a field used to navigate the user off the screen.
 ### Tab bar
 
 `BottomNavigation` shows five slots: **Home · Activity · Add · Insights ·
-Profile**. `add` is not a route — it opens `/modals/add-transaction`.
+Profile**. `add` is not a route - it opens `/modals/add-transaction`.
 
 `(tabs)/categories` is a registered route that the bar deliberately does not
 show: six items left no room for the center action. It is reached from
 **Profile → Categories & budgets**, and carries its own back control. If a tab
 is ever added or removed, edit `VISIBLE_TABS` in `BottomNavigation.tsx` and give
-any hidden route a way in — never leave a screen unreachable.
+any hidden route a way in - never leave a screen unreachable.
 
 ### Add-transaction flow
 
@@ -435,7 +435,7 @@ description so all sizes stay in sync.
 
 | Asset                          | Size  | Notes                                                      |
 | ------------------------------ | ----- | ---------------------------------------------------------- |
-| `icon.png`                     | 1024² | Full bleed, opaque, square — the OS applies its own mask   |
+| `icon.png`                     | 1024² | Full bleed, opaque, square - the OS applies its own mask   |
 | `adaptive-icon.png`            | 1024² | Android foreground, mark inside the 66% safe zone          |
 | `adaptive-icon-monochrome.png` | 1024² | Android 13+ themed icon silhouette                         |
 | `splash-icon.png`              | 1024² | Carries its own rounded tile (splash ground is `#0B0D0F`) |
@@ -443,7 +443,7 @@ description so all sizes stay in sync.
 
 Expo generates the per-density Android buckets and the full iOS icon set from
 these sources at build time. To change the mark, edit the shape functions in
-`scripts/generate-icons.js` and re-run — never edit a PNG by hand.
+`scripts/generate-icons.js` and re-run - never edit a PNG by hand.
 
 ---
 
@@ -451,7 +451,7 @@ these sources at build time. To change the mark, edit the shape functions in
 
 - [ ] No local `COLORS` / `SPACING` / `RADIUS` map
 - [ ] No `"Sora_*"` / `"SchibstedGrotesk_*"` string outside `tokens.ts` and `_layout.tsx`
-- [ ] Every currency figure rendered by `MoneyAmount` / `HeroAmount` — so it is
+- [ ] Every currency figure rendered by `MoneyAmount` / `HeroAmount` - so it is
       Sora, tabular and signed. No amount typed into a bare `AppText`
 - [ ] Money color via `amountColor` / `balanceColor`
 - [ ] No direct `lucide-react-native` import outside `Icon.tsx`
@@ -461,7 +461,7 @@ these sources at build time. To change the mark, edit the shape functions in
 - [ ] Haptic fires only on a write; reads are silent
 - [ ] Emoji only in the four sanctioned places
 - [ ] Gutter from `useScreenPaddingX()`, tab clearance from `useTabBarClearance()`
-- [ ] No screen-local chip, field, row, stat or tab bar — use the shared one
+- [ ] No screen-local chip, field, row, stat or tab bar - use the shared one
 - [ ] Radius on the allowed scale, and equal for visually equivalent components
 - [ ] Ripple from `colors.ripple` / `colors.rippleOnAccent`
 - [ ] `withAlpha()` for any color fed to SVG or `interpolateColor`

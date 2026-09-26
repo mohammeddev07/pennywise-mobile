@@ -1,18 +1,29 @@
 import { useEffect, useRef, useState } from "react";
-import { View } from "react-native";
+import { ScrollView, View } from "react-native";
 
 import { tokens } from "@/shared/ui/theme/tokens";
 import { AppText } from "@/shared/ui/components/AppText";
 import { Button, LinkButton } from "@/shared/ui/components/Button";
+import { FilterChip } from "@/shared/ui/components/FilterChip";
 import { FormField } from "@/shared/ui/components/FormField";
 import { BottomSheetModal, SheetCloseButton } from "@/shared/ui/components/BottomSheetModal";
 import { useDelayedFlag } from "@/shared/ui/utils/useDelayedFlag";
 import { getApiErrorMessage } from "@/shared/api/errors";
 import { proposeFilter } from "@/shared/api/aiFilter";
+import { currencySymbol } from "@/shared/utils/formatCurrency";
 import { fromWireFilter, fromWireSort } from "../aiFilterProposal";
 import type { FilterRoot, SortState } from "../filterModel";
 
 const MAX_CHARS = 500;
+
+function examplePrompts(currency: string) {
+  return [
+    `Groceries over ${currencySymbol(currency)}50 last month`,
+    "Income this year",
+    "Coffee purchases this month",
+    "Uncategorized expenses",
+  ];
+}
 
 /**
  * "Describe your filter": a free-text question in, a complete replacement filter proposal out.
@@ -24,11 +35,13 @@ export function DescribeFilterSheet({
   visible,
   onClose,
   bookId,
+  currency,
   onProposal,
 }: {
   visible: boolean;
   onClose: () => void;
   bookId: string | null | undefined;
+  currency: string;
   onProposal: (root: FilterRoot, sort: SortState, limitation: string | null) => void;
 }) {
   const [text, setText] = useState("");
@@ -102,15 +115,28 @@ export function DescribeFilterSheet({
         label="Question"
         value={text}
         onChangeText={setText}
-        placeholder='e.g. "Groceries over $50 last month"'
+        placeholder={`e.g. "Groceries over ${currencySymbol(currency)}50 last month"`}
         multiline
         showCount
         maxLength={MAX_CHARS}
         editable={!loading}
       />
+
+      {!text && !loading ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: tokens.space[2] }}
+          style={{ marginTop: tokens.space[3], flexGrow: 0 }}
+        >
+          {examplePrompts(currency).map((example) => (
+            <FilterChip key={example} label={example} active={false} onPress={() => setText(example)} />
+          ))}
+        </ScrollView>
+      ) : null}
+
       <AppText variant="xs" tone="muted" style={{ marginTop: tokens.space[2] }}>
-        Sent to our AI provider to build this filter, along with this book's category names. Review
-        every condition before applying - this replaces your current filter, it does not merge with it.
+        Sent to our AI provider with this book's category names - review before applying, it replaces your current filter.
       </AppText>
 
       {loading ? (

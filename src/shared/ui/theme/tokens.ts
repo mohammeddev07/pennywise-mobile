@@ -3,13 +3,13 @@ import type { TextStyle } from "react-native";
 /**
  * Type families.
  *
- * Two faces, split by content type — this is the rule the whole system hangs
+ * Two faces, split by content type - this is the rule the whole system hangs
  * on: **if the content is a currency amount it is Sora; if it is a word it is
  * Schibsted Grotesk.** Never mix within one text node, except the small "$"
  * prefix (Sora, tertiary color, roughly half the number size).
  *
  * Weight is always encoded in the family name. On Android a named font family
- * makes `fontWeight` a no-op, so weight *must* travel through the family —
+ * makes `fontWeight` a no-op, so weight *must* travel through the family -
  * this is a correctness rule, not a preference.
  */
 export const fonts = {
@@ -21,7 +21,7 @@ export const fonts = {
   extrabold: "SchibstedGrotesk_800ExtraBold",
 } as const;
 
-/** Sora. Numerals only — amounts, balances, keypad digits, chart values. */
+/** Sora. Numerals only - amounts, balances, keypad digits, chart values. */
 export const numerals = {
   // `light` has no Sora counterpart in use; it maps to regular so a shared
   // weight key never resolves to undefined.

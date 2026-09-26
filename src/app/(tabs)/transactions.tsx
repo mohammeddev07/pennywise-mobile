@@ -536,6 +536,7 @@ export default function TransactionsScreen() {
             contentContainerStyle={{ gap: tokens.space[2], paddingRight: paddingX }}
             style={{ marginTop: tokens.space[2], flexGrow: 0 }}
           >
+            <FilterChip label="Describe your filter" icon="sparkles-outline" active={false} onPress={() => setDescribeOpen(true)} />
             <FilterChip label="Expenses" tone="expense" active={quick.type === "EXPENSE"} clearable onPress={() => filters.setType(quick.type === "EXPENSE" ? null : "EXPENSE")} />
             <FilterChip label="Income" tone="income" active={quick.type === "INCOME"} clearable onPress={() => filters.setType(quick.type === "INCOME" ? null : "INCOME")} />
             <FilterChip
@@ -546,7 +547,6 @@ export default function TransactionsScreen() {
             <FilterChip label="Amount" active={quick.amountMinMinor !== null || quick.amountMaxMinor !== null} onPress={() => setAmountOpen(true)} />
             <FilterChip label="Payment" active={quick.paymentMethods.length > 0 || quick.paymentUnspecified} onPress={() => setPaymentOpen(true)} />
             <FilterChip label="Advanced" icon="settings-outline" active={hasAdvancedNodes(filters.root)} onPress={() => setAdvancedOpen(true)} />
-            <FilterChip label="Describe your filter" icon="sparkles-outline" active={false} onPress={() => setDescribeOpen(true)} />
           </ScrollView>
         </View>
 
@@ -629,6 +629,7 @@ export default function TransactionsScreen() {
           visible={describeOpen}
           onClose={() => setDescribeOpen(false)}
           bookId={selectedBookId}
+          currency={currency}
           onProposal={(root, sort, limitation) => {
             setAiProposalRoot(root);
             setAiProposalSort(sort);

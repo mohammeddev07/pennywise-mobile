@@ -152,9 +152,9 @@ Both checks passed during this audit. CI (`.github/workflows/super-linter.yml`) 
 `eas.json` now exists (added on `feat/mvp-gap-fixes`, see section 10) with `preview` (internal APK)
 and `production` (app bundle) profiles; neither hardcodes an API URL, both rely on EAS
 environment variables for `EXPO_PUBLIC_API_BASE_URL`. `android/` is still absent, so `expo
-prebuild` has not been retained in this checkout; whether it was ever run is UNKNOWN — needs
+prebuild` has not been retained in this checkout; whether it was ever run is UNKNOWN - needs
 manual check. `app.json` has Android `versionCode: 1`, icon/splash configuration, and now sets
-`android.package: "com.mohammeddev07.pennywise"` (previously absent — chosen to be unique/
+`android.package: "com.mohammeddev07.pennywise"` (previously absent - chosen to be unique/
 permanent for sideloaded APKs, not yet published to the Play Store). Local Android SDK/adb are
 not installed on this machine, so a local Gradle release build cannot run here.
 
@@ -162,14 +162,14 @@ not installed on this machine, so a local Gradle release build cannot run here.
 
 PR #6 (`codex/add-api-client-and-services`) is merged into `develop` at `7f6ac51` (merge commit
 dated before this audit). It added Axios, DTOs, API wrappers, SecureStore-backed auth, and
-API-backed entity stores. `develop` has since moved past this doc's original snapshot — e.g. `git
+API-backed entity stores. `develop` has since moved past this doc's original snapshot - e.g. `git
 log` shows `48c8484` and other commits implementing session validation, single-book flow, mutation
 errors, and numeric correctness landed and merged; this file's sections 1–9 have not been re-audited
 against that state and may be stale outside of the branch-specific updates below.
 
 **New**: `feat/mvp-gap-fixes` (branched off `develop`, pushed to
 `github.com/mohammeddev07/pennywise-mobile/compare/develop...feat/mvp-gap-fixes`, no PR opened yet
-— no `gh` CLI available when it was pushed). Two commits:
+- no `gh` CLI available when it was pushed). Two commits:
 
 - Transactions screen: adds the 7-day range and category filter described in section 3.
 - `app.json`/`eas.json`: adds the Android package id and EAS build profiles described above.
@@ -179,36 +179,36 @@ against that state and may be stale outside of the branch-specific updates below
 
 ## 11. Gaps vs. Target State
 
-- [x] Sign up screen — Done: real API signup in `src/app/(auth)/signup.tsx`.
-- [x] Login screen — Done: real API login in `src/app/(auth)/login.tsx`.
-- [x] Token storage (SecureStore / AsyncStorage) and auth persistence — Done: token in SecureStore; profile/onboarding cache in AsyncStorage; boot validates token with `GET /v1/me`.
-- [x] Auth-guarded navigation (logged-out vs logged-in stacks) — Done: `Stack.Protected` guards in `src/app/_layout.tsx`.
-- [x] Add expense form (amount, category, date, note, cash-in/out toggle) — Done: real POST flow; default payment method is internal-only `CASH` and not displayed.
-- [x] Edit expense — Done: real PATCH with type/category/date/note/title/amount and version replacement.
-- [x] Delete expense — Done: real DELETE, no fake local undo, visible errors.
-- [x] Expense list screen — Done: real cache-backed list. Scope note: latest 100 loaded records only.
-- [x] Running balance display — Done: Home renders only server `balanceMinor`.
-- [x] Date filters (today / 7 days / month / custom) — Done on `feat/mvp-gap-fixes`: Today, 7 Days, Month, and Recent (all-loaded) chips, all computed client-side over the loaded transaction cache; there is still no arbitrary custom range picker.
-- [x] Category filter — Done on `feat/mvp-gap-fixes`: book-scoped category chip row on the Transactions screen, filtering the already-loaded cache client-side; no new endpoint was needed.
-- [x] Category management screen — Done: real CRUD and visible backend errors.
-- [ ] Summary / breakdown view — Partial: exact current-month totals and expense-category breakdown; no income-category breakdown or selectable range.
-- [x] Loading states — Done: primary flows use skeleton/loading UI.
-- [x] Error states and user-facing error messages — Done for API mutations and primary summary/balance loading; background bootstrap errors remain retryable through UI rather than silently changing data.
-- [x] Form validation — Done for auth lengths, category name, transaction title/note, amounts, categories, and currency precision.
-- [x] Empty states — Done: primary tabs and editors use `EmptyState`.
-- [ ] API base URL configurable per environment — Partial: `EXPO_PUBLIC_API_BASE_URL` and `.env.example` exist, but the real deployed URL and build-profile value were not supplied.
+- [x] Sign up screen - Done: real API signup in `src/app/(auth)/signup.tsx`.
+- [x] Login screen - Done: real API login in `src/app/(auth)/login.tsx`.
+- [x] Token storage (SecureStore / AsyncStorage) and auth persistence - Done: token in SecureStore; profile/onboarding cache in AsyncStorage; boot validates token with `GET /v1/me`.
+- [x] Auth-guarded navigation (logged-out vs logged-in stacks) - Done: `Stack.Protected` guards in `src/app/_layout.tsx`.
+- [x] Add expense form (amount, category, date, note, cash-in/out toggle) - Done: real POST flow; default payment method is internal-only `CASH` and not displayed.
+- [x] Edit expense - Done: real PATCH with type/category/date/note/title/amount and version replacement.
+- [x] Delete expense - Done: real DELETE, no fake local undo, visible errors.
+- [x] Expense list screen - Done: real cache-backed list. Scope note: latest 100 loaded records only.
+- [x] Running balance display - Done: Home renders only server `balanceMinor`.
+- [x] Date filters (today / 7 days / month / custom) - Done on `feat/mvp-gap-fixes`: Today, 7 Days, Month, and Recent (all-loaded) chips, all computed client-side over the loaded transaction cache; there is still no arbitrary custom range picker.
+- [x] Category filter - Done on `feat/mvp-gap-fixes`: book-scoped category chip row on the Transactions screen, filtering the already-loaded cache client-side; no new endpoint was needed.
+- [x] Category management screen - Done: real CRUD and visible backend errors.
+- [ ] Summary / breakdown view - Partial: exact current-month totals and expense-category breakdown; no income-category breakdown or selectable range.
+- [x] Loading states - Done: primary flows use skeleton/loading UI.
+- [x] Error states and user-facing error messages - Done for API mutations and primary summary/balance loading; background bootstrap errors remain retryable through UI rather than silently changing data.
+- [x] Form validation - Done for auth lengths, category name, transaction title/note, amounts, categories, and currency precision.
+- [x] Empty states - Done: primary tabs and editors use `EmptyState`.
+- [ ] API base URL configurable per environment - Partial: `EXPO_PUBLIC_API_BASE_URL` and `.env.example` exist, but the real deployed URL and build-profile value were not supplied.
 
 ## 12. APK Build Readiness
 
 - `eas.json` now exists (`feat/mvp-gap-fixes`) with a `preview` profile (`distribution: internal`,
   `android.buildType: apk`, `environment: preview`) and a minimal `production` profile
-  (`android.buildType: app-bundle`, `environment: production`). Neither was run — EAS cloud builds
-  still require an Expo account and project/credential setup, and account ownership is UNKNOWN —
+  (`android.buildType: app-bundle`, `environment: production`). Neither was run - EAS cloud builds
+  still require an Expo account and project/credential setup, and account ownership is UNKNOWN -
   needs manual check. Before running `eas build --profile preview --platform android`, the
   `EXPO_PUBLIC_API_BASE_URL` value must be set per-environment via `eas env:create --environment
 preview --name EXPO_PUBLIC_API_BASE_URL --value "<url>"` (and again for `production`), since the
   profiles deliberately don't hardcode it.
-- `app.json` now sets `android.package: "com.mohammeddev07.pennywise"` (previously absent) — the
+- `app.json` now sets `android.package: "com.mohammeddev07.pennywise"` (previously absent) - the
   permanent package id the readiness list below used to be blocked on.
 - No current dependency requires a custom dev client. The native modules used (SecureStore, DateTimePicker, Gesture Handler, Reanimated, Screens, SVG, splash screen) are Expo SDK-compatible, so Expo Go remains viable for day-to-day Android testing.
 - To produce a signed APK via EAS: run `eas build --profile preview --platform android` after the
