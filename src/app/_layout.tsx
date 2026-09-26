@@ -28,6 +28,9 @@ import {
 import { fonts, tokens } from "@/shared/ui/theme/tokens";
 import { UndoToast } from "@/shared/ui/components/UndoToast";
 import { ExportToast } from "@/shared/ui/components/ExportToast";
+import { UpdateToast } from "@/shared/ui/components/UpdateToast";
+import { useUpdateToastStore } from "@/shared/ui/state/useUpdateToastStore";
+import { useAppUpdates } from "@/features/app-updates/useAppUpdates";
 import { useAuthStore } from "@/features/auth/store";
 import { useBooksStore } from "@/features/books/store";
 import { useCategoriesStore } from "@/features/categories/store";
@@ -95,6 +98,8 @@ export default function RootLayout() {
   const authPersist = useAuthStore.persist;
   const [authStorageHydrated, setAuthStorageHydrated] = useState(() => authPersist.hasHydrated());
   const sessionBootstrapStarted = useRef(false);
+  const updateCheckStarted = useRef(false);
+  const { status: updateStatus, checkAndDownload } = useAppUpdates();
 
   const [fontsLoaded, fontError] = useFonts({
     // UI face - every word in the app.
@@ -149,6 +154,18 @@ export default function RootLayout() {
     SplashScreen.hideAsync().catch(() => {});
   }, [fontsLoaded, fontError, sessionStatus]);
 
+  // Silent check on cold start - a banner only surfaces if an update is
+  // actually there; nothing shown otherwise, and no-op in Expo Go/dev builds.
+  useEffect(() => {
+    if ((!fontsLoaded && !fontError) || sessionStatus === "resolving" || updateCheckStarted.current) return;
+    updateCheckStarted.current = true;
+    void checkAndDownload();
+  }, [fontsLoaded, fontError, sessionStatus, checkAndDownload]);
+
+  useEffect(() => {
+    if (updateStatus === "available") useUpdateToastStore.getState().show();
+  }, [updateStatus]);
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
@@ -181,6 +198,7 @@ export default function RootLayout() {
 
             <UndoToast />
             <ExportToast />
+            <UpdateToast />
           </View>
         </QueryClientProvider>
       </SafeAreaProvider>
