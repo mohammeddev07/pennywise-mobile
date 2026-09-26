@@ -18,6 +18,7 @@ import {
   isDatePrimarySort,
   type DatePreset,
   type FilterRoot,
+  type SortState,
 } from "@/features/transactions/filterModel";
 import { TABLE_MIN_WIDTH, TableHeader, TableRow } from "@/features/transactions/ui/ActivityTable";
 import { DrillBreadcrumb } from "@/features/transactions/ui/DrillBreadcrumb";
@@ -130,6 +131,10 @@ export default function TransactionsScreen() {
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [describeOpen, setDescribeOpen] = useState(false);
   const [aiProposalRoot, setAiProposalRoot] = useState<FilterRoot | null>(null);
+  // Staged alongside the proposed filter, committed only on a successful Apply (never on
+  // Cancel/dismiss) so an AI proposal can never reorder or leave a stray note behind unapplied.
+  const [aiProposalSort, setAiProposalSort] = useState<SortState>([]);
+  const [aiProposalLimitation, setAiProposalLimitation] = useState<string | null>(null);
   const [sortOpen, setSortOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -606,21 +611,28 @@ export default function TransactionsScreen() {
           onClose={() => {
             setAdvancedOpen(false);
             setAiProposalRoot(null);
+            setAiProposalSort([]);
+            setAiProposalLimitation(null);
+          }}
+          onApplied={() => {
+            if (aiProposalSort.length > 0) filters.setSort(aiProposalSort);
           }}
           scope={filters.scope}
           model={filters.modelContext}
           describeContext={filters.describeContext}
           categories={bookCategories}
           initialRoot={aiProposalRoot}
+          limitationNotice={aiProposalLimitation}
         />
 
         <DescribeFilterSheet
           visible={describeOpen}
           onClose={() => setDescribeOpen(false)}
           bookId={selectedBookId}
-          onProposal={(root, sort) => {
+          onProposal={(root, sort, limitation) => {
             setAiProposalRoot(root);
-            if (sort.length > 0) filters.setSort(sort);
+            setAiProposalSort(sort);
+            setAiProposalLimitation(limitation);
             setDescribeOpen(false);
             setAdvancedOpen(true);
           }}

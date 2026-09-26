@@ -29,7 +29,7 @@ export function DescribeFilterSheet({
   visible: boolean;
   onClose: () => void;
   bookId: string | null | undefined;
-  onProposal: (root: FilterRoot, sort: SortState) => void;
+  onProposal: (root: FilterRoot, sort: SortState, limitation: string | null) => void;
 }) {
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
@@ -61,7 +61,7 @@ export function DescribeFilterSheet({
       const response = await proposeFilter(bookId, question, controller.signal);
       if (controller.signal.aborted) return;
       if (response.status === "PROPOSAL" && response.filter) {
-        onProposal(fromWireFilter(response.filter), fromWireSort(response.sort));
+        onProposal(fromWireFilter(response.filter), fromWireSort(response.sort), response.limitation ?? null);
         return;
       }
       setMessage(
