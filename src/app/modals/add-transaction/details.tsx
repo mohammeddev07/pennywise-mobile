@@ -13,6 +13,7 @@ import { useBookCurrency } from "@/features/books/useBookCurrency";
 import { useCategoriesStore } from "@/features/categories/store";
 import { useAddTransactionDraftStore } from "@/features/transactions/addDraftStore";
 import { createTransaction } from "@/features/transactions/actions";
+import { PaymentMethodPicker } from "@/features/transactions/ui/PaymentMethodPicker";
 import { getApiErrorMessage } from "@/shared/api/errors";
 import { formatCurrency, parseAmountToMinor } from "@/shared/utils/formatCurrency";
 
@@ -69,6 +70,7 @@ export default function AddTransactionDetails() {
   const categoryId = useAddTransactionDraftStore((s) => s.categoryId);
   const categoryName = useAddTransactionDraftStore((s) => s.categoryName);
   const occurredAt = useAddTransactionDraftStore((s) => s.occurredAt);
+  const paymentMethod = useAddTransactionDraftStore((s) => s.paymentMethod);
   const idempotencyKey = useAddTransactionDraftStore((s) => s.idempotencyKey);
   const draftBookId = useAddTransactionDraftStore((s) => s.bookId);
 
@@ -76,6 +78,7 @@ export default function AddTransactionDetails() {
   const setNote = useAddTransactionDraftStore((s) => s.setNote);
   const setCategory = useAddTransactionDraftStore((s) => s.setCategory);
   const setOccurredAt = useAddTransactionDraftStore((s) => s.setOccurredAt);
+  const setPaymentMethod = useAddTransactionDraftStore((s) => s.setPaymentMethod);
 
   const occurredAtDate = useMemo(() => parseWhen(occurredAt), [occurredAt]);
   const onOccurredAtChange = useCallback(
@@ -152,8 +155,8 @@ export default function AddTransactionDetails() {
         categoryId: categoryId as string,
         title: title.trim() || undefined,
         note: note.trim() || undefined,
-        // No payment-method picker in this flow: leave it unspecified rather than
-        // fabricating CASH.
+        // Unpicked stays unspecified (omitted), never a fabricated CASH.
+        paymentMethod: paymentMethod ?? undefined,
         occurredAt,
       });
       // null = the account changed while this was in flight; the result is not ours to show.
@@ -325,6 +328,14 @@ export default function AddTransactionDetails() {
                   Choose a category before saving.
                 </AppText>
               ) : null}
+            </View>
+
+            {/* Payment method - optional; pressing the picked chip clears it. */}
+            <View style={{ marginTop: tokens.space[6] }}>
+              <AppText variant="xs" tone="muted" style={{ marginBottom: tokens.space[2] }}>
+                PAYMENT · OPTIONAL
+              </AppText>
+              <PaymentMethodPicker value={paymentMethod} onChange={setPaymentMethod} />
             </View>
 
             {/* When - two inline fields, each its own bottom sheet. Neither

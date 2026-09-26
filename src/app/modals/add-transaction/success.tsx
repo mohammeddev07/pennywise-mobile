@@ -102,7 +102,7 @@ export default function AddTransactionSuccess() {
             </AppText>
             <AppText variant="sm" tone="muted" style={{ marginTop: tokens.space[2], textAlign: "center" }}>
               {/* The success sub-line is one of the four places emoji are allowed. */}
-              Saved to {bookName} — totals are up to date ✨
+              Saved to {bookName}. Totals are up to date ✨
             </AppText>
           </Animated.View>
 

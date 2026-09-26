@@ -4,6 +4,7 @@ import { FlashList } from "@shopify/flash-list";
 import { useFocusEffect, useRouter } from "expo-router";
 
 import { tokens } from "@/shared/ui/theme/tokens";
+import { useBooksStore } from "@/features/books/store";
 import { useCategoriesStore } from "@/features/categories/store";
 import { useRecentTransactions } from "@/features/transactions/queries";
 import { useAddTransactionDraftStore } from "@/features/transactions/addDraftStore";
@@ -100,7 +101,10 @@ export default function AddTransactionCategory() {
 
   const selected = useAddTransactionDraftStore((s) => s.categoryId);
   const setCategory = useAddTransactionDraftStore((s) => s.setCategory);
-  const bookId = useAddTransactionDraftStore((s) => s.bookId);
+  const draftBookId = useAddTransactionDraftStore((s) => s.bookId);
+  const selectedBookId = useBooksStore((s) => s.selectedBookId);
+  // Resolved exactly as step 2 resolves it, so the full list can never disagree with the chips there.
+  const bookId = draftBookId || selectedBookId;
   const kind = useAddTransactionDraftStore((s) => s.kind);
 
   const [query, setQuery] = useState("");

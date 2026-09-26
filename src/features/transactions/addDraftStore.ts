@@ -1,5 +1,7 @@
 import { create } from "zustand";
 
+import type { PaymentMethod } from "@/shared/types/models";
+
 export type DraftKind = "EXPENSE" | "INCOME";
 
 type State = {
@@ -12,6 +14,8 @@ type State = {
   categoryId?: string;
   categoryName: string;
   note: string;
+  /** null = "Not specified"; the create omits it rather than defaulting to CASH. */
+  paymentMethod: PaymentMethod | null;
 
   occurredAt: string;
 
@@ -23,6 +27,7 @@ type State = {
   setTitle: (title: string) => void;
   setCategory: (categoryId: string | undefined, categoryName: string) => void;
   setNote: (note: string) => void;
+  setPaymentMethod: (paymentMethod: PaymentMethod | null) => void;
 
   setOccurredAt: (iso: string) => void;
 
@@ -45,6 +50,7 @@ function freshDraft(): Omit<
   | "setTitle"
   | "setCategory"
   | "setNote"
+  | "setPaymentMethod"
   | "setOccurredAt"
   | "reset"
 > {
@@ -57,6 +63,7 @@ function freshDraft(): Omit<
     categoryId: undefined,
     categoryName: "Uncategorized",
     note: "",
+    paymentMethod: null,
     occurredAt: new Date().toISOString(),
   };
 }
@@ -72,6 +79,7 @@ export const useAddTransactionDraftStore = create<State>((set) => ({
   setTitle: (title) => set({ title }),
   setCategory: (categoryId, categoryName) => set({ categoryId, categoryName: categoryName.trim() || "Uncategorized" }),
   setNote: (note) => set({ note }),
+  setPaymentMethod: (paymentMethod) => set({ paymentMethod }),
 
   setOccurredAt: (iso) => set({ occurredAt: iso }),
 

@@ -46,20 +46,26 @@ export default function AddTransactionAmount() {
 
   const didInitRef = useRef(false);
 
+  const hasBooks = books.length > 0;
+  const selectedBook = useMemo(
+    () => (hasBooks ? (books.find((b) => b.id === selectedBookId) ?? books[0]) : undefined),
+    [books, selectedBookId, hasBooks]
+  );
+
   // Only clear the draft the first time this screen is focused; coming back
   // from step 2 to correct the number must not wipe what was typed there.
+  //
+  // Expo Router's useFocusEffect first fires a render *after* mount - later than
+  // the book effect below - so the reset used to wipe the draft's bookId for the
+  // whole flow, and the full category browser (keyed on it) showed nothing.
+  // Re-seed the book as part of the reset.
   useFocusEffect(
     useCallback(() => {
       if (didInitRef.current) return;
       didInitRef.current = true;
       resetDraft();
-    }, [resetDraft])
-  );
-
-  const hasBooks = books.length > 0;
-  const selectedBook = useMemo(
-    () => (hasBooks ? (books.find((b) => b.id === selectedBookId) ?? books[0]) : undefined),
-    [books, selectedBookId, hasBooks]
+      if (selectedBook) setBookId(selectedBook.id);
+    }, [resetDraft, selectedBook, setBookId])
   );
 
   const currency = useBookCurrency(selectedBook?.id);
