@@ -387,7 +387,7 @@ export default function ProfileScreen() {
                         : updateStatus === "up-to-date"
                           ? "You're up to date"
                           : updateStatus === "error"
-                            ? `Couldn't check right now${updateError ? ` (${updateError})` : ""}`
+                            ? "Couldn't check right now"
                             : undefined
                 }
                 onPress={
@@ -399,6 +399,17 @@ export default function ProfileScreen() {
                 }
               />
             </SettingsGroup>
+            {updateStatus === "error" && updateError ? (
+              // SettingsRow's value is a single truncated line - a multiword diagnostic
+              // (channel/runtime-version/network detail) needs to wrap in full to be useful.
+              <AppText
+                variant="sm"
+                tone="danger"
+                style={{ marginTop: tokens.space[2], paddingHorizontal: tokens.space[2] }}
+              >
+                {updateError}
+              </AppText>
+            ) : null}
           </>
         )}
 
