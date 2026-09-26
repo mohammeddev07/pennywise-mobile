@@ -504,6 +504,9 @@ export function AdvancedFilterSheet({
   model,
   describeContext,
   categories,
+  initialRoot,
+  onApplied,
+  limitationNotice,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -511,6 +514,15 @@ export function AdvancedFilterSheet({
   model: ModelContext;
   describeContext: DescribeContext;
   categories: CategoryOption[];
+  /** Seeds the draft with this tree instead of the applied filter - an AI proposal opening
+   * straight into review, still going through the exact same editor/validate/Apply path. */
+  initialRoot?: FilterRoot | null;
+  /** Fires right after a successful Apply (not on Cancel) - e.g. to commit a sort that was
+   * staged alongside initialRoot, so Cancel truly leaves everything, including sort, untouched. */
+  onApplied?: () => void;
+  /** A non-blocking note shown above the preview - e.g. a limitation an AI proposal reported
+   * alongside an otherwise-valid filter, so the user sees it before Apply. */
+  limitationNotice?: string | null;
 }) {
   const draft = useFilterStore((s) => s.drafts[scope]);
   const beginDraft = useFilterStore((s) => s.beginDraft);
@@ -529,6 +541,7 @@ export function AdvancedFilterSheet({
   useEffect(() => {
     if (visible) {
       beginDraft(scope);
+      if (initialRoot) setDraft(scope, { root: initialRoot });
       setShowErrors(false);
       setOpenKey(null);
       return;
@@ -540,7 +553,7 @@ export function AdvancedFilterSheet({
       dialogUp.current = false;
       Promise.resolve(DateTimePickerAndroid.dismiss("date")).catch(() => {});
     }
-  }, [visible, scope, beginDraft]);
+  }, [visible, scope, beginDraft, initialRoot, setDraft]);
 
   // Present the dialog only after the render that hid the sheet has committed.
   useEffect(() => {
@@ -584,7 +597,10 @@ export function AdvancedFilterSheet({
       setShowErrors(true);
       return;
     }
-    if (applyDraft(scope, "filter")) onClose();
+    if (applyDraft(scope, "filter")) {
+      onApplied?.();
+      onClose();
+    }
   };
 
   if (!root || !validation) {
@@ -627,6 +643,17 @@ export function AdvancedFilterSheet({
           {hasDate ? "" : " · all dates"}
         </AppText>
       </View>
+
+      {limitationNotice ? (
+        <View style={{ ...card, marginBottom: tokens.space[4] }}>
+          <AppText variant="xs" tone="muted">
+            NOTE
+          </AppText>
+          <AppText variant="sm" style={{ marginTop: tokens.space[1] }}>
+            {limitationNotice}
+          </AppText>
+        </View>
+      ) : null}
 
       {validation.treeErrors.map((message) => (
         <AppText key={message} variant="sm" tone="danger" style={{ marginBottom: tokens.space[2] }}>
