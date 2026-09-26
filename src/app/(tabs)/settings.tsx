@@ -383,7 +383,7 @@ export default function ProfileScreen() {
                     : updateStatus === "downloading"
                       ? "Downloading..."
                       : updateStatus === "available"
-                        ? "Update ready — tap to restart"
+                        ? "Update ready - tap to restart"
                         : updateStatus === "up-to-date"
                           ? "You're up to date"
                           : updateStatus === "error"

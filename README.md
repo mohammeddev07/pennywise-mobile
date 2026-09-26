@@ -1,6 +1,6 @@
 # PennyWise
 
-**A not-so-boring cash management app.** Track spending, manage budgets, and understand where your money actually goes — with a fast, native mobile experience and an AI assistant that turns plain English into a real filter.
+**A not-so-boring cash management app.** Track spending, manage budgets, and understand where your money actually goes - with a fast, native mobile experience and an AI assistant that turns plain English into a real filter.
 
 ![Expo](https://img.shields.io/badge/Expo-SDK%2057-000020?logo=expo&logoColor=white)
 ![React Native](https://img.shields.io/badge/React%20Native-0.86-61DAFB?logo=react&logoColor=white)
@@ -10,11 +10,11 @@
 
 ## Why it's different
 
-- **Ask instead of filter.** Type "groceries over $50 last month" into *Describe your filter* and Gemini turns it into a structured query you review and apply — no digging through dropdowns for a question you already know how to ask.
+- **Ask instead of filter.** Type "groceries over $50 last month" into *Describe your filter* and Gemini turns it into a structured query you review and apply - no digging through dropdowns for a question you already know how to ask.
 - **Multiple books, one app.** Track personal and shared finances separately, switch between them without losing context.
 - **Budgets that mean something.** Category-level budgets with real progress tracking, not just a running total.
 - **Import and export that don't fight you.** Bring in transactions from `.xlsx`, export your ledger the same way.
-- **Ships updates instantly.** In-app OTA updates via EAS Update — most fixes reach you the next time you open the app, no app-store wait.
+- **Ships updates instantly.** In-app OTA updates via EAS Update - most fixes reach you the next time you open the app, no app-store wait.
 - **Built for a real free-tier backend.** The app is honest about cold starts instead of pretending they don't exist: auto-retry with backoff and a clear "waking up the server" message instead of a spinner that lies to you.
 
 ## Stack
@@ -46,7 +46,7 @@ Set `EXPO_PUBLIC_API_BASE_URL` in `.env` to your backend's URL (including `/api`
 npm start
 ```
 
-Expo inlines `EXPO_PUBLIC_*` values into the bundle at build/bundle time — they aren't read from the device at runtime. For an EAS build or an OTA update, the same variable must also be set on the [EAS project's Environment Variables page](https://expo.dev), scoped to the matching build/update environment.
+Expo inlines `EXPO_PUBLIC_*` values into the bundle at build/bundle time - they aren't read from the device at runtime. For an EAS build or an OTA update, the same variable must also be set on the [EAS project's Environment Variables page](https://expo.dev), scoped to the matching build/update environment.
 
 ## Scripts
 
@@ -59,4 +59,4 @@ Expo inlines `EXPO_PUBLIC_*` values into the bundle at build/bundle time — the
 
 ## Contributing
 
-See [`CLAUDE.md`](./CLAUDE.md) for branching, commit, and CI/EAS conventions — that's the working agreement this repo actually follows, not just an aspiration.
+See [`CLAUDE.md`](./CLAUDE.md) for branching, commit, and CI/EAS conventions - that's the working agreement this repo actually follows, not just an aspiration.
