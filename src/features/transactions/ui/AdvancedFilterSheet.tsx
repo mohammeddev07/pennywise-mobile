@@ -504,6 +504,7 @@ export function AdvancedFilterSheet({
   model,
   describeContext,
   categories,
+  initialRoot,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -511,6 +512,9 @@ export function AdvancedFilterSheet({
   model: ModelContext;
   describeContext: DescribeContext;
   categories: CategoryOption[];
+  /** Seeds the draft with this tree instead of the applied filter - an AI proposal opening
+   * straight into review, still going through the exact same editor/validate/Apply path. */
+  initialRoot?: FilterRoot | null;
 }) {
   const draft = useFilterStore((s) => s.drafts[scope]);
   const beginDraft = useFilterStore((s) => s.beginDraft);
@@ -529,6 +533,7 @@ export function AdvancedFilterSheet({
   useEffect(() => {
     if (visible) {
       beginDraft(scope);
+      if (initialRoot) setDraft(scope, { root: initialRoot });
       setShowErrors(false);
       setOpenKey(null);
       return;
@@ -540,7 +545,7 @@ export function AdvancedFilterSheet({
       dialogUp.current = false;
       Promise.resolve(DateTimePickerAndroid.dismiss("date")).catch(() => {});
     }
-  }, [visible, scope, beginDraft]);
+  }, [visible, scope, beginDraft, initialRoot, setDraft]);
 
   // Present the dialog only after the render that hid the sheet has committed.
   useEffect(() => {

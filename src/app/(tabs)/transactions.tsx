@@ -17,6 +17,7 @@ import {
   hasAdvancedNodes,
   isDatePrimarySort,
   type DatePreset,
+  type FilterRoot,
 } from "@/features/transactions/filterModel";
 import { TABLE_MIN_WIDTH, TableHeader, TableRow } from "@/features/transactions/ui/ActivityTable";
 import { DrillBreadcrumb } from "@/features/transactions/ui/DrillBreadcrumb";
@@ -24,6 +25,7 @@ import { useFilterStore } from "@/features/transactions/filterStore";
 import { setActivityScroll } from "@/features/transactions/activityScroll";
 import { CustomRangeSheet } from "@/features/transactions/ui/CustomRangeSheet";
 import { AdvancedFilterSheet } from "@/features/transactions/ui/AdvancedFilterSheet";
+import { DescribeFilterSheet } from "@/features/transactions/ui/DescribeFilterSheet";
 import { SortSheet, describeSort } from "@/features/transactions/ui/SortSheet";
 import {
   AmountFilterSheet,
@@ -126,6 +128,8 @@ export default function TransactionsScreen() {
   const [amountOpen, setAmountOpen] = useState(false);
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [describeOpen, setDescribeOpen] = useState(false);
+  const [aiProposalRoot, setAiProposalRoot] = useState<FilterRoot | null>(null);
   const [sortOpen, setSortOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -537,6 +541,7 @@ export default function TransactionsScreen() {
             <FilterChip label="Amount" active={quick.amountMinMinor !== null || quick.amountMaxMinor !== null} onPress={() => setAmountOpen(true)} />
             <FilterChip label="Payment" active={quick.paymentMethods.length > 0 || quick.paymentUnspecified} onPress={() => setPaymentOpen(true)} />
             <FilterChip label="Advanced" icon="settings-outline" active={hasAdvancedNodes(filters.root)} onPress={() => setAdvancedOpen(true)} />
+            <FilterChip label="Describe your filter" icon="sparkles-outline" onPress={() => setDescribeOpen(true)} />
           </ScrollView>
         </View>
 
@@ -598,11 +603,27 @@ export default function TransactionsScreen() {
 
         <AdvancedFilterSheet
           visible={advancedOpen}
-          onClose={() => setAdvancedOpen(false)}
+          onClose={() => {
+            setAdvancedOpen(false);
+            setAiProposalRoot(null);
+          }}
           scope={filters.scope}
           model={filters.modelContext}
           describeContext={filters.describeContext}
           categories={bookCategories}
+          initialRoot={aiProposalRoot}
+        />
+
+        <DescribeFilterSheet
+          visible={describeOpen}
+          onClose={() => setDescribeOpen(false)}
+          bookId={selectedBookId}
+          onProposal={(root, sort) => {
+            setAiProposalRoot(root);
+            if (sort.length > 0) filters.setSort(sort);
+            setDescribeOpen(false);
+            setAdvancedOpen(true);
+          }}
         />
 
         <SortSheet visible={sortOpen} onClose={() => setSortOpen(false)} scope={filters.scope} />
