@@ -541,7 +541,7 @@ export default function TransactionsScreen() {
             <FilterChip label="Amount" active={quick.amountMinMinor !== null || quick.amountMaxMinor !== null} onPress={() => setAmountOpen(true)} />
             <FilterChip label="Payment" active={quick.paymentMethods.length > 0 || quick.paymentUnspecified} onPress={() => setPaymentOpen(true)} />
             <FilterChip label="Advanced" icon="settings-outline" active={hasAdvancedNodes(filters.root)} onPress={() => setAdvancedOpen(true)} />
-            <FilterChip label="Describe your filter" icon="sparkles-outline" onPress={() => setDescribeOpen(true)} />
+            <FilterChip label="Describe your filter" icon="sparkles-outline" active={false} onPress={() => setDescribeOpen(true)} />
           </ScrollView>
         </View>
 
