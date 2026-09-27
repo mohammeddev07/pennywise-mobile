@@ -19,7 +19,7 @@ const MAX_CHARS = 500;
 function examplePrompts(currency: string) {
   return [
     `Groceries over ${currencySymbol(currency)}50 last month`,
-    "Income this year",
+    "Biggest expenses this month",
     "Coffee purchases this month",
     "Uncategorized expenses",
   ];

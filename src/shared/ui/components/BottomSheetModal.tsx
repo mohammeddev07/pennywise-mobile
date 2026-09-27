@@ -113,7 +113,14 @@ export function BottomSheetModal({
           />
 
           <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : undefined}
+            // RN's `Modal` opens its own native window on Android, which the activity's
+            // windowSoftInputMode (adjustResize) never reaches - unlike every plain-screen
+            // KeyboardAvoidingView in this app, `undefined` here means Android gets no keyboard
+            // avoidance at all. A focused text field (e.g. DescribeFilterSheet's question field)
+            // then leaves the keyboard sitting on top of the footer button, so only the sliver
+            // still above the keyboard is tappable. "height" resizes the view in JS instead of
+            // relying on native window resize, so it works even inside a Modal.
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
             style={[fill, { alignItems: "center" }]}
           >
             <Animated.View
