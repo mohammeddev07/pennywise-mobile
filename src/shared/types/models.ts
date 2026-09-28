@@ -1,6 +1,11 @@
 export type BookId = string;
 
 export type Book = {
+  /** Optional for older servers/caches. Unknown keys are preserved, never written back. */
+  icon?: string;
+  color?: string;
+  sortOrder?: number;
+  balanceMinor?: number;
   id: BookId;
   name: string;
   currencyCode: string;
