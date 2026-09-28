@@ -1,8 +1,9 @@
+import { BookManagement } from '@/features/books/ui/BookManagement';
 import { USE_MOCK_API } from '@/shared/api/client';
 import { withBookScope } from "@/features/books/ui/BookScope";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ScrollView, View } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { LinearGradient } from "expo-linear-gradient";
@@ -52,6 +53,9 @@ function SettingsGroup({ children }: { children: React.ReactNode }) {
 
 function ProfileScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ section?: string }>();
+  const scrollRef = useRef<ScrollView>(null);
+  const [draggingBook, setDraggingBook] = useState(false);
   const insets = useSafeAreaInsets();
   const paddingX = useScreenPaddingX();
   const tabClearance = useTabBarClearance();
@@ -199,6 +203,8 @@ function ProfileScreen() {
       }}
     >
       <ScrollView
+        ref={scrollRef}
+        scrollEnabled={!draggingBook}
         style={{ flex: 1 }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
@@ -285,6 +291,7 @@ function ProfileScreen() {
               </View>
             </Card>
 
+            {USE_MOCK_API ? <View onLayout={event => { if (params.section === 'books') { scrollRef.current?.scrollTo({ y: event.nativeEvent.layout.y, animated: true }); router.setParams({ section: undefined }); } }}><BookManagement onDrag={setDraggingBook} /></View> : <>
             {/* Cash book */}
             <SectionHeader title="Cash book" style={{ marginTop: tokens.space[7], marginBottom: tokens.space[3] }} />
 
@@ -352,6 +359,8 @@ function ProfileScreen() {
               Opening balance and currency cannot be changed after a book is created. Stored amounts
               carry no exchange rate, so switching would reinterpret every past transaction.
             </AppText>
+
+            </>}
 
             {/* Preferences */}
             <SectionHeader
