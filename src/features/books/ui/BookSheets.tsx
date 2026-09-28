@@ -16,7 +16,7 @@ import { Button } from "@/shared/ui/components/Button";
 import { Icon } from "@/shared/ui/components/Icon";
 import { tokens } from "@/shared/ui/theme/tokens";
 import { formatCurrency } from "@/shared/utils/formatCurrency";
-import { useUndoToastStore } from "@/shared/ui/state/useUndoToastStore";
+import { getApiErrorMessage } from "@/shared/api/errors";
 import { useBooksStore } from "../store";
 import { BOOK_LIMIT } from "../constants";
 import { selectBook } from "../coordinator";
@@ -24,10 +24,36 @@ import { useBookUIStore } from "./store";
 import { BookTile } from "./BookTile";
 export function BookSheets() {
   const router = useRouter();
-  const { sheet, bookId, close, open } = useBookUIStore();
+  const { sheet, bookId, close, open, error, setError } = useBookUIStore();
   const { books, selectedBookId, isManaging: managingBooks } = useBooksStore();
   const activeOperations = useBookOperations((s) => s.active);
   const isManaging = managingBooks || activeOperations > 0;
+  const reportError = (failure: unknown) =>
+    setError(
+      getApiErrorMessage(
+        failure,
+        failure instanceof Error
+          ? failure.message
+          : "Could not complete this book action.",
+      ),
+    );
+  const feedback = (
+    <>
+      {isManaging && (
+        <AppText accessibilityLiveRegion="polite" tone="muted">
+          Wait for the current operation to finish.
+        </AppText>
+      )}
+      {error && (
+        <AppText
+          accessibilityRole="alert"
+          style={{ color: tokens.colors.danger }}
+        >
+          {error}
+        </AppText>
+      )}
+    </>
+  );
   if (sheet === "create") return <BookEditor />;
   const editing = books.find((b) => b.id === bookId);
   if (sheet === "edit" && editing)
@@ -35,9 +61,7 @@ export function BookSheets() {
   if (sheet === "menu" && editing) {
     const index = books.findIndex((b) => b.id === bookId);
     const move = (to: number) => {
-      void moveBook(editing.id, to)
-        .then(close)
-        .catch((error) => useUndoToastStore.getState().showError(error));
+      void moveBook(editing.id, to).then(close).catch(reportError);
     };
     return (
       <BottomSheetModal
@@ -47,6 +71,7 @@ export function BookSheets() {
         rightAction={<SheetCloseButton onPress={close} />}
       >
         <View style={{ gap: 12 }}>
+          {feedback}
           <Button
             label="Rename or change icon/color"
             disabled={isManaging}
@@ -102,9 +127,7 @@ export function BookSheets() {
               accessibilityState={{ selected: book.id === selectedBookId }}
               accessibilityLabel={`Switch to ${book.name}`}
               onPress={() => {
-                void selectBook(book.id).catch((error) =>
-                  useUndoToastStore.getState().showError(error),
-                );
+                void selectBook(book.id).catch(reportError);
               }}
               style={{
                 minHeight: 76,
@@ -144,6 +167,7 @@ export function BookSheets() {
         ))}
       </View>
       <View style={{ marginTop: 24, gap: 12 }}>
+        {feedback}
         <Button
           label="Add new book"
           variant="outline"
