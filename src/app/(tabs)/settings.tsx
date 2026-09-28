@@ -56,6 +56,13 @@ function ProfileScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ section?: string }>();
   const scrollRef = useRef<ScrollView>(null);
+  const [booksSectionY, setBooksSectionY] = useState<number | null>(null);
+  useEffect(() => {
+    if (params.section === 'books' && booksSectionY !== null) {
+      scrollRef.current?.scrollTo({ y: booksSectionY, animated: true });
+      router.setParams({ section: undefined });
+    }
+  }, [params.section, booksSectionY, router]);
   const [draggingBook, setDraggingBook] = useState(false);
   const insets = useSafeAreaInsets();
   const paddingX = useScreenPaddingX();
@@ -294,7 +301,7 @@ function ProfileScreen() {
               </View>
             </Card>
 
-            {USE_MOCK_API ? <View onLayout={event => { if (params.section === 'books') { scrollRef.current?.scrollTo({ y: event.nativeEvent.layout.y, animated: true }); router.setParams({ section: undefined }); } }}><BookManagement onDrag={setDraggingBook} /></View> : <>
+            {USE_MOCK_API ? <View onLayout={event => setBooksSectionY(event.nativeEvent.layout.y)}><BookManagement onDrag={setDraggingBook} /></View> : <>
             {/* Cash book */}
             <SectionHeader title="Cash book" style={{ marginTop: tokens.space[7], marginBottom: tokens.space[3] }} />
 

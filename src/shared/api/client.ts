@@ -65,7 +65,9 @@ async function handleUnauthorized() {
 apiClient.interceptors.request.use(async (config) => {
   const bookWrite = /\/v1\/books(?:\/|$)/.test(config.url ?? '') && !['get', 'head'].includes(config.method ?? 'get') && !/\/(search|analyze)$/.test(config.url ?? '');
   if (bookWrite && config._bookOperation === undefined) config._bookOperation = beginBookOperation();
-  const token = await SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
+  let token: string | null;
+  try { token = await SecureStore.getItemAsync(ACCESS_TOKEN_KEY); }
+  catch (error) { endBookOperation(config._bookOperation); throw error; }
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
