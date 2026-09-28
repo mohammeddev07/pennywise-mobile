@@ -1,3 +1,4 @@
+import { BookSwitcherPill } from "@/features/books/ui/BookSwitcherPill";
 import { useEffect, useMemo, useState } from "react";
 import { View, ScrollView } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
@@ -335,6 +336,8 @@ export default function Home() {
           onPress={() => router.push("/(tabs)/settings")}
         />
       </View>
+
+      <BookSwitcherPill />
 
       {hydrationError ? (
         <View style={{ marginTop: tokens.space[7] }}>

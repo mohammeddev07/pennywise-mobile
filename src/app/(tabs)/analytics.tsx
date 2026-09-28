@@ -1,3 +1,4 @@
+import { BookSwitcherPill } from "@/features/books/ui/BookSwitcherPill";
 import { useEffect, useMemo, useState } from "react";
 import { ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -206,6 +207,7 @@ export default function AnalyticsScreen() {
         }}
       >
         <ScreenHeader title="Insights" />
+        <BookSwitcherPill />
         <DrillBreadcrumb scope={filters.scope} />
 
         {/* Side by side: two stacked 56px controls cost 124px of a phone screen before any data. */}

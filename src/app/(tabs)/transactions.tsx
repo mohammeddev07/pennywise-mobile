@@ -1,3 +1,4 @@
+import { BookSwitcherPill } from "@/features/books/ui/BookSwitcherPill";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ScrollView, View, useWindowDimensions } from "react-native";
 import { FlashList } from "@shopify/flash-list";
@@ -495,7 +496,8 @@ export default function TransactionsScreen() {
             }
           />
 
-          <DrillBreadcrumb scope={filters.scope} />
+          <BookSwitcherPill />
+        <DrillBreadcrumb scope={filters.scope} />
 
           {searchOpen ? (
             <FormField
