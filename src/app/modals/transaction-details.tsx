@@ -1,3 +1,4 @@
+import { withBookScope } from "@/features/books/ui/BookScope";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { ScrollView, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -96,7 +97,7 @@ function DetailRow({ label, last, children }: { label: string; last?: boolean; c
   );
 }
 
-export default function TransactionDetailsModal() {
+function TransactionDetailsModal() {
   const router = useRouter();
 
   const params = useLocalSearchParams<{ id?: string; bookId?: string }>();
@@ -303,3 +304,5 @@ export default function TransactionDetailsModal() {
     </View>
   );
 }
+
+export default withBookScope(TransactionDetailsModal);

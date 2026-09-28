@@ -1,6 +1,10 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { captureBookScope } from '@/features/books/coordinator';
+import { BookManagement } from '@/features/books/ui/BookManagement';
+import { USE_MOCK_API } from '@/shared/api/client';
+import { withBookScope } from "@/features/books/ui/BookScope";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ScrollView, View } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { LinearGradient } from "expo-linear-gradient";
@@ -48,8 +52,18 @@ function SettingsGroup({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function ProfileScreen() {
+function ProfileScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ section?: string }>();
+  const scrollRef = useRef<ScrollView>(null);
+  const [booksSectionY, setBooksSectionY] = useState<number | null>(null);
+  useEffect(() => {
+    if (params.section === 'books' && booksSectionY !== null) {
+      scrollRef.current?.scrollTo({ y: booksSectionY, animated: true });
+      router.setParams({ section: undefined });
+    }
+  }, [params.section, booksSectionY, router]);
+  const [draggingBook, setDraggingBook] = useState(false);
   const insets = useSafeAreaInsets();
   const paddingX = useScreenPaddingX();
   const tabClearance = useTabBarClearance();
@@ -116,7 +130,8 @@ export default function ProfileScreen() {
 
   const hydrated = booksHydrated && settingsHydrated;
 
-  const selectedBook = useMemo(() => books.find((b) => b.id === selectedBookId) ?? null, [books, selectedBookId]);
+  const booksReady = useBooksStore(s => s.ready);
+  const selectedBook = useMemo(() => USE_MOCK_API && !booksReady ? null : books.find((b) => b.id === selectedBookId) ?? null, [books, selectedBookId, booksReady]);
 
   useEffect(() => {
     setBookName(selectedBook?.name ?? "");
@@ -143,11 +158,13 @@ export default function ProfileScreen() {
 
   const onExport = async () => {
     if (isExporting || !selectedBook) return;
+    const isCurrent = captureBookScope();
     setIsExporting(true);
     try {
       const { fileName } = await exportTransactionsToDevice(selectedBook.id);
-      showExportSuccess(`Saved ${fileName}`);
+      if (isCurrent()) showExportSuccess(`Saved ${fileName}`);
     } catch (error) {
+      if (!isCurrent()) return;
       if (error instanceof ExportCancelledError) {
         // no-op
       } else if (error instanceof MockModeUnsupportedError) {
@@ -196,6 +213,8 @@ export default function ProfileScreen() {
       }}
     >
       <ScrollView
+        ref={scrollRef}
+        scrollEnabled={!draggingBook}
         style={{ flex: 1 }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
@@ -282,6 +301,7 @@ export default function ProfileScreen() {
               </View>
             </Card>
 
+            {USE_MOCK_API ? <View onLayout={event => setBooksSectionY(event.nativeEvent.layout.y)}><BookManagement onDrag={setDraggingBook} /></View> : <>
             {/* Cash book */}
             <SectionHeader title="Cash book" style={{ marginTop: tokens.space[7], marginBottom: tokens.space[3] }} />
 
@@ -349,6 +369,8 @@ export default function ProfileScreen() {
               Opening balance and currency cannot be changed after a book is created. Stored amounts
               carry no exchange rate, so switching would reinterpret every past transaction.
             </AppText>
+
+            </>}
 
             {/* Preferences */}
             <SectionHeader
@@ -447,3 +469,5 @@ export default function ProfileScreen() {
     </View>
   );
 }
+
+export default withBookScope(ProfileScreen, false);

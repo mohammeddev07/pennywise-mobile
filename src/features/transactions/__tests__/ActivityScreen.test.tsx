@@ -38,7 +38,7 @@ function renderScreen() {
 beforeEach(() => {
   mockLayoutClass = "compact";
   useAuthStore.setState({ user: { id: "user-A", email: "a@x.io", defaultCurrencyCode: "USD", createdAt: "" } });
-  useBooksStore.setState({ selectedBookId: book.id, books: [book as never] });
+  useBooksStore.setState({ ready: true, selectedBookId: book.id, books: [book as never] });
   useCategoriesStore.setState({ categories: mockBackend.state.categories as never });
   useFilterStore.getState().clearAllScopes();
 });

@@ -110,7 +110,7 @@ async function allPages(q: Pick<BuiltQuery, "filter" | "sort">) {
 beforeEach(() => {
   installFixture(fx);
   useAuthStore.setState({ user: { id: "user-A", email: "a@x.io", defaultCurrencyCode: "USD", createdAt: "" } });
-  useBooksStore.setState({ selectedBookId: fx.book.id, books: [fx.book as never] });
+  useBooksStore.setState({ ready: true, selectedBookId: fx.book.id, books: [fx.book as never] });
 });
 
 afterEach(async () => {

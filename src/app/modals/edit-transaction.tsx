@@ -1,3 +1,4 @@
+import { withBookScope } from "@/features/books/ui/BookScope";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Keyboard, Platform, ScrollView, View } from "react-native";
 import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
@@ -62,7 +63,7 @@ function parseWhen(iso: string) {
 }
 
 
-export default function EditTransactionModal() {
+function EditTransactionModal() {
   const router = useRouter();
   const { id, bookId } = useLocalSearchParams<{ id?: string; bookId?: string }>();
 
@@ -409,3 +410,5 @@ export default function EditTransactionModal() {
     </View>
   );
 }
+
+export default withBookScope(EditTransactionModal);

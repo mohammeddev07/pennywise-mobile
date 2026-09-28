@@ -1,3 +1,5 @@
+import { useBooksStore } from "@/features/books/store";
+import { USE_MOCK_API } from "@/shared/api/client";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
@@ -52,14 +54,14 @@ export const useBudgetsStore = create<State>()(
         try {
           const res = await budgetsApi.listBudgets(bookId, month);
           const next = res.items.map(normalizeBudget);
-          if (!isCurrentAccountEpoch(accountEpoch)) return;
+          if (!isCurrentAccountEpoch(accountEpoch) || (USE_MOCK_API && useBooksStore.getState().selectedBookId !== bookId)) return;
           set((s) => ({
             budgets: [...s.budgets.filter((b) => !(b.bookId === bookId && b.month === month)), ...next],
             isLoading: false,
             error: null,
           }));
         } catch (err) {
-          if (!isCurrentAccountEpoch(accountEpoch)) return;
+          if (!isCurrentAccountEpoch(accountEpoch) || (USE_MOCK_API && useBooksStore.getState().selectedBookId !== bookId)) return;
           const message = err instanceof Error ? err.message : "Could not load budgets";
           set({ isLoading: false, error: message });
           throw err;

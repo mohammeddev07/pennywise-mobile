@@ -1,3 +1,4 @@
+import { withBookScope } from "@/features/books/ui/BookScope";
 import { useEffect, useMemo, useState } from "react";
 import { View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -46,7 +47,7 @@ const ICONS = [
  */
 const CATEGORY_COLORS: string[] = Object.values(tokens.category);
 
-export default function CategoryEditorModal() {
+function CategoryEditorModal() {
   const router = useRouter();
   const queryClient = useQueryClient();
 
@@ -98,8 +99,8 @@ export default function CategoryEditorModal() {
   const editing = useMemo(() => {
     const id = params.id;
     if (!id) return null;
-    return categories.find((c) => c.id === id) ?? null;
-  }, [categories, params.id]);
+    return categories.find((c) => c.id === id && c.bookId === selectedBookId) ?? null;
+  }, [categories, params.id, selectedBookId]);
 
   const [name, setName] = useState("");
   const [type, setType] = useState<"EXPENSE" | "INCOME">("EXPENSE");
@@ -335,3 +336,5 @@ export default function CategoryEditorModal() {
     </View>
   );
 }
+
+export default withBookScope(CategoryEditorModal);

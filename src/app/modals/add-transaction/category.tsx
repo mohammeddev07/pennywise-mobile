@@ -1,3 +1,4 @@
+import { withBookScope } from "@/features/books/ui/BookScope";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ScrollView, View } from "react-native";
 import { FlashList } from "@shopify/flash-list";
@@ -91,7 +92,7 @@ function CatCard({
   );
 }
 
-export default function AddTransactionCategory() {
+function AddTransactionCategory() {
   const router = useRouter();
 
   const categories = useCategoriesStore((s) => s.categories);
@@ -407,3 +408,5 @@ export default function AddTransactionCategory() {
     </View>
   );
 }
+
+export default withBookScope(AddTransactionCategory);

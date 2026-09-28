@@ -37,6 +37,11 @@ export type AuthResponse = {
 };
 
 export type BookResponse = {
+  /** Optional for older servers/caches. Unknown keys are preserved, never written back. */
+  icon?: string;
+  color?: string;
+  sortOrder?: number;
+  balanceMinor?: number;
   id: string;
   name: string;
   currencyCode: string;

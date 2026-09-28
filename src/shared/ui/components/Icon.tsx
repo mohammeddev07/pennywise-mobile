@@ -1,6 +1,7 @@
 import React from "react";
 import type { StyleProp, ViewStyle } from "react-native";
 import {
+  Briefcase, Heart, Users, GraduationCap, MoreVertical, GripVertical,
   AlertCircle,
   ArrowDown,
   ArrowUp,
@@ -75,6 +76,12 @@ import { tokens } from "@/shared/ui/theme/tokens";
  */
 const MAP = {
   // ---- Actions and chrome ----
+  "briefcase-outline": Briefcase,
+  "heart-outline": Heart,
+  "people-outline": Users,
+  "school-outline": GraduationCap,
+  "ellipsis-vertical": MoreVertical,
+  "reorder-handle": GripVertical,
   add: Plus,
   "add-circle-outline": Plus,
   "alert-circle-outline": AlertCircle,

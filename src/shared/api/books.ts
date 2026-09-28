@@ -1,4 +1,4 @@
-import { apiClient } from "@/shared/api/client";
+import { apiClient, USE_MOCK_API } from "@/shared/api/client";
 import type { BookResponse } from "@/shared/types/api";
 
 export async function listBooks(): Promise<{ items: BookResponse[] }> {
@@ -10,21 +10,25 @@ export async function createBook(
   name: string,
   currencyCode: string,
   timezone: string,
-  openingBalanceMinor = 0
+  openingBalanceMinor = 0,
+  style?: { icon?: string; color?: string }
 ): Promise<BookResponse> {
+  if (style && !USE_MOCK_API) throw new Error("Book management is awaiting backend deployment.");
   const { data } = await apiClient.post<BookResponse>("/v1/books", {
     name,
     currencyCode,
     timezone,
     openingBalanceMinor,
+    ...style,
   });
   return data;
 }
 
-export async function patchBook(id: string, version: number, name: string): Promise<BookResponse> {
+export async function patchBook(id: string, version: number, patch: string | { name?: string; icon?: string; color?: string }): Promise<BookResponse> {
+  if (typeof patch !== "string" && !USE_MOCK_API) throw new Error("Book management is awaiting backend deployment.");
   const { data } = await apiClient.patch<BookResponse>(
     `/v1/books/${id}`,
-    { name },
+    typeof patch === "string" ? { name: patch } : patch,
     { headers: { "If-Match": `"${version}"` } }
   );
   return data;
@@ -32,4 +36,9 @@ export async function patchBook(id: string, version: number, name: string): Prom
 
 export async function deleteBook(id: string, version: number): Promise<void> {
   await apiClient.delete(`/v1/books/${id}`, { headers: { "If-Match": `"${version}"` } });
+}
+
+export async function reorderBooks(bookIds: string[]): Promise<void> {
+  if (!USE_MOCK_API) throw new Error("Book management is awaiting backend deployment.");
+  await apiClient.put("/v1/books/order", { bookIds });
 }

@@ -1,3 +1,5 @@
+import { withBookScope } from "@/features/books/ui/BookScope";
+import { BookSwitcherPill } from "@/features/books/ui/BookSwitcherPill";
 import { useEffect, useMemo, useState } from "react";
 import { View, ScrollView } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
@@ -132,7 +134,7 @@ function BudgetPreview({ item, currency }: { item: BudgetItem; currency: string 
   );
 }
 
-export default function Home() {
+function Home() {
   const router = useRouter();
 
   const user = useAuthStore((s) => s.user);
@@ -335,6 +337,8 @@ export default function Home() {
           onPress={() => router.push("/(tabs)/settings")}
         />
       </View>
+
+      <BookSwitcherPill />
 
       {hydrationError ? (
         <View style={{ marginTop: tokens.space[7] }}>
@@ -562,3 +566,5 @@ export default function Home() {
     </Screen>
   );
 }
+
+export default withBookScope(Home);

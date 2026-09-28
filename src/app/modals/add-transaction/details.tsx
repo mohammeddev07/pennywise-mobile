@@ -1,3 +1,4 @@
+import { withBookScope } from "@/features/books/ui/BookScope";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -51,7 +52,7 @@ function parseWhen(iso: string) {
  * navigating away. Only genuine step changes navigate now: the full category
  * browser and the native date/time picker.
  */
-export default function AddTransactionDetails() {
+function AddTransactionDetails() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const paddingX = useScreenPaddingX();
@@ -403,3 +404,5 @@ export default function AddTransactionDetails() {
     </View>
   );
 }
+
+export default withBookScope(AddTransactionDetails);

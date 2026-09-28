@@ -44,7 +44,7 @@ const seededRows = () => mockBackend.state.transactions.filter((t) => !t.id.star
 
 beforeEach(() => {
   setAccount("user-A");
-  useBooksStore.setState({ selectedBookId: bookId, books: [{ ...book } as never] });
+  useBooksStore.setState({ ready: true, selectedBookId: bookId, books: [{ ...book } as never] });
   mockBackend.seedTransactions(bookId, 230, "2026-03-15");
 });
 

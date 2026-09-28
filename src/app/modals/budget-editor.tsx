@@ -1,3 +1,4 @@
+import { withBookScope } from "@/features/books/ui/BookScope";
 import { useEffect, useMemo, useState } from "react";
 import { View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -50,7 +51,7 @@ function minorToText(amountMinor: number, currency: string) {
   return minorToMajor(amountMinor, currency).toFixed(currencyMinorUnitDigits(currency));
 }
 
-export default function BudgetEditor() {
+function BudgetEditor() {
   const router = useRouter();
   const queryClient = useQueryClient();
 
@@ -291,3 +292,5 @@ export default function BudgetEditor() {
     </View>
   );
 }
+
+export default withBookScope(BudgetEditor);

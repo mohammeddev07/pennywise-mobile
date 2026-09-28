@@ -1,3 +1,6 @@
+import { captureBookScope } from '@/features/books/coordinator';
+import { withBookScope } from "@/features/books/ui/BookScope";
+import { BookSwitcherPill } from "@/features/books/ui/BookSwitcherPill";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ScrollView, View, useWindowDimensions } from "react-native";
 import { FlashList } from "@shopify/flash-list";
@@ -100,7 +103,7 @@ function isWholeMonth(start: Ymd, end: Ymd) {
   return start === startOfMonthYmd(start) && end === endOfMonthYmd(start);
 }
 
-export default function TransactionsScreen() {
+function TransactionsScreen() {
   const insets = useSafeAreaInsets();
   const paddingX = useScreenPaddingX();
   const tabClearance = useTabBarClearance();
@@ -177,6 +180,7 @@ export default function TransactionsScreen() {
 
   const onExport = async () => {
     if (isExporting || !filters.query || !selectedBookId) return;
+    const isCurrent = captureBookScope();
     setIsExporting(true);
     try {
       // The exact applied filter and sort - every matching row, not the visible page.
@@ -184,8 +188,9 @@ export default function TransactionsScreen() {
         filter: filters.query.filter,
         ...(filters.query.sort.length > 0 ? { sort: filters.query.sort } : {}),
       });
-      showExportSuccess(`Saved ${fileName}`);
+      if (isCurrent()) showExportSuccess(`Saved ${fileName}`);
     } catch (error) {
+      if (!isCurrent()) return;
       if (error instanceof ExportCancelledError) return;
       if (error instanceof MockModeUnsupportedError) showError(error, error.message);
       else showError(error, "Couldn't export these transactions.");
@@ -495,7 +500,8 @@ export default function TransactionsScreen() {
             }
           />
 
-          <DrillBreadcrumb scope={filters.scope} />
+          <BookSwitcherPill />
+        <DrillBreadcrumb scope={filters.scope} />
 
           {searchOpen ? (
             <FormField
@@ -648,3 +654,5 @@ export default function TransactionsScreen() {
 function shiftDays(ymd: Ymd, days: number): Ymd {
   return addDaysYmd(ymd, days);
 }
+
+export default withBookScope(TransactionsScreen);

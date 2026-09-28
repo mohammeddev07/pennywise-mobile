@@ -1,3 +1,4 @@
+import { BOOK_LIMIT, BOOK_NAME_MAX, isBookIcon, isBookColor } from '@/features/books/constants';
 import type { AxiosAdapter, AxiosRequestConfig, AxiosResponse, InternalAxiosRequestConfig } from "axios";
 import type {
   AuthResponse,
@@ -51,6 +52,7 @@ const state = {
     defaultCurrencyCode: "USD",
     createdAt: nowIso(),
   } as MeResponse,
+  bookOwners: {} as Record<string, string>,
   books: [] as BookResponse[],
   categories: [] as CategoryResponse[],
   transactions: [] as TransactionResponse[],
@@ -59,9 +61,11 @@ const state = {
 
 function seed() {
   const bookId = uid("book");
+  state.bookOwners[bookId] = state.user.id;
   state.books.push({
     id: bookId,
     name: "Personal",
+    icon: "book", color: "green", sortOrder: 0,
     currencyCode: "USD",
     timezone: "America/New_York",
     openingBalanceMinor: 500000,
@@ -168,6 +172,17 @@ function seed() {
 }
 
 seed();
+
+function ownedBook(id: string) {
+  return state.books.find(b => b.id === id && !b.deletedAt && (state.bookOwners[b.id] ?? 'mock-user-1') === state.user.id);
+}
+function ownedBooks() {
+  return state.books.filter(b => ownedBook(b.id)).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+}
+function bookResponse(book: BookResponse): BookResponse {
+  return { ...book, icon: book.icon ?? 'book', color: book.color ?? 'green', sortOrder: book.sortOrder ?? 0,
+    balanceMinor: book.openingBalanceMinor + bookRows(book.id).reduce((sum, t) => sum + (t.type === 'INCOME' ? t.amountMinor : -t.amountMinor), 0) };
+}
 
 function bookRows(bookId: string) {
   return state.transactions.filter((t) => t.bookId === bookId && !t.deletedAt);
@@ -351,40 +366,65 @@ async function handle(config: InternalAxiosRequestConfig): Promise<AxiosResponse
     return ok(config, state.user);
   }
 
-  // Books
-  if ((m = route("/v1/books", "GET"))) {
-    return ok(config, { items: state.books.filter((b) => !b.deletedAt) });
+  // One ownership/deletion gate for every route nested under a book.
+  const scopedId = /^\/v1\/books\/([^/?]+)(?:\/|$)/.exec(url)?.[1];
+  if (scopedId && scopedId !== 'order' && !ownedBook(decodeURIComponent(scopedId))) {
+    return fail(config, 404, 'Book not found', 'NOT_FOUND');
   }
-
-  if ((m = route("/v1/books", "POST"))) {
-    const { name, currencyCode, timezone, openingBalanceMinor } = body as Partial<BookResponse>;
+  if ((m = route('/v1/books', 'GET'))) {
+    return ok(config, { items: ownedBooks().map(bookResponse) });
+  }
+  if ((m = route('/v1/books', 'POST'))) {
+    if (ownedBooks().length >= BOOK_LIMIT) return fail(config, 409, 'You can have up to 10 active cash books.', 'BOOK_LIMIT_REACHED');
+    if (typeof body.name !== 'string' || !body.name.trim() || body.name.length > BOOK_NAME_MAX ||
+        typeof body.currencyCode !== 'string' || body.currencyCode.length !== 3 ||
+        typeof body.timezone !== 'string' || !body.timezone ||
+        (body.openingBalanceMinor !== undefined && !Number.isSafeInteger(body.openingBalanceMinor)) ||
+        (body.icon !== undefined && !isBookIcon(body.icon)) || (body.color !== undefined && !isBookColor(body.color))) {
+      return fail(config, 400, 'Invalid book name, currency, timezone, opening balance, icon or color.', 'VALIDATION_ERROR');
+    }
     const book: BookResponse = {
-      id: uid("book"),
-      name: name ?? "New Book",
-      currencyCode: currencyCode ?? "USD",
-      timezone: timezone ?? "UTC",
-      openingBalanceMinor: openingBalanceMinor ?? 0,
-      version: 1,
-      createdAt: nowIso(),
-      updatedAt: nowIso(),
-      deletedAt: null,
+      id: uid('book'), name: body.name, currencyCode: body.currencyCode, timezone: body.timezone,
+      openingBalanceMinor: Number(body.openingBalanceMinor ?? 0), icon: String(body.icon ?? 'book'), color: String(body.color ?? 'green'),
+      sortOrder: ownedBooks().length, version: 1, createdAt: nowIso(), updatedAt: nowIso(), deletedAt: null,
     };
+    state.bookOwners[book.id] = state.user.id;
     state.books.push(book);
-    return ok(config, book, 201);
+    // Explicit creation seeds categories, never transactions for the opening balance.
+    for (const [type, name, icon] of [['INCOME', 'Salary', 'cash-outline'], ['EXPENSE', 'Groceries', 'cart-outline'], ['EXPENSE', 'Other', 'pricetag-outline']] as const) {
+      state.categories.push({ id: uid('cat'), bookId: book.id, type, name, icon, color: '#9BD881', isDisabled: false, version: 1, createdAt: nowIso(), deletedAt: null });
+    }
+    return ok(config, bookResponse(book), 201);
   }
-
-  if ((m = route("/v1/books/:id", "PATCH"))) {
-    const book = state.books.find((b) => b.id === m!.id);
-    if (!book) return fail(config, 404, "Book not found");
-    book.name = (body.name as string) ?? book.name;
-    book.version += 1;
-    book.updatedAt = nowIso();
-    return ok(config, book);
+  if ((m = route('/v1/books/order', 'PUT'))) {
+    const ids = body.bookIds;
+    const active = ownedBooks();
+    if (!Array.isArray(ids) || ids.length !== active.length || new Set(ids).size !== ids.length || ids.some(id => typeof id !== 'string' || !active.some(b => b.id === id))) {
+      return fail(config, 400, 'Order must contain every active cash book exactly once.', 'VALIDATION_ERROR');
+    }
+    ids.forEach((id, sortOrder) => { ownedBook(id)!.sortOrder = sortOrder; });
+    return ok(config, undefined, 204);
   }
-
-  if ((m = route("/v1/books/:id", "DELETE"))) {
-    const book = state.books.find((b) => b.id === m!.id);
-    if (!book) return fail(config, 404, "Book not found");
+  if ((m = route('/v1/books/:id', 'PATCH'))) {
+    const book = ownedBook(m.id)!;
+    const expected = ifMatchVersion(config);
+    if (expected === null) return fail(config, 400, 'If-Match header is required', 'MISSING_IF_MATCH');
+    if (expected !== book.version) return fail(config, 412, 'This book changed. Reload it before saving.', 'ETAG_MISMATCH');
+    const patch = Object.fromEntries(Object.entries(body).filter(([, value]) => value != null));
+    if (!Object.keys(patch).length || Object.keys(body).some(key => !['name', 'icon', 'color'].includes(key)) ||
+        (patch.name !== undefined && (typeof patch.name !== 'string' || !patch.name.trim() || patch.name.length > BOOK_NAME_MAX)) ||
+        (patch.icon !== undefined && !isBookIcon(patch.icon)) || (patch.color !== undefined && !isBookColor(patch.color))) {
+      return fail(config, 400, 'Provide a valid changed name, icon or color.', 'VALIDATION_ERROR');
+    }
+    Object.assign(book, patch); book.version += 1; book.updatedAt = nowIso();
+    return ok(config, bookResponse(book));
+  }
+  if ((m = route('/v1/books/:id', 'DELETE'))) {
+    const book = ownedBook(m.id)!;
+    const expected = ifMatchVersion(config);
+    if (expected === null) return fail(config, 400, 'If-Match header is required', 'MISSING_IF_MATCH');
+    if (expected !== book.version) return fail(config, 412, 'This book changed. Review it before deleting.', 'ETAG_MISMATCH');
+    if (ownedBooks().length <= 1) return fail(config, 409, 'Keep at least one cash book.', 'LAST_BOOK_REQUIRED');
     book.deletedAt = nowIso();
     return ok(config, undefined, 204);
   }
@@ -463,7 +503,8 @@ async function handle(config: InternalAxiosRequestConfig): Promise<AxiosResponse
     const payload = body as Record<string, unknown>;
     const unknownCreateField = Object.keys(payload).find((k) => !TX_WRITABLE_FIELDS.has(k));
     if (unknownCreateField) return fail(config, 400, `Unknown field: ${unknownCreateField}`);
-    const category = state.categories.find((c) => c.id === payload.categoryId);
+    const category = state.categories.find((c) => c.id === payload.categoryId && c.bookId === m!.bookId && !c.deletedAt);
+    if (!category) return fail(config, 404, "Category not found", "NOT_FOUND");
     const occurredOn = (payload.occurredOn as string) ?? nowIso().slice(0, 10);
     const tx: TransactionResponse = {
       id: uid("tx"),
@@ -556,6 +597,7 @@ async function handle(config: InternalAxiosRequestConfig): Promise<AxiosResponse
     const changed = Object.keys(next).some((k) => (tx as Record<string, unknown>)[k] !== next[k]);
     if (!changed) return ok(config, tx);
 
+    if (next.categoryId && !state.categories.some(c => c.id === next.categoryId && c.bookId === m!.bookId && !c.deletedAt)) return fail(config, 404, "Category not found", "NOT_FOUND");
     Object.assign(tx, next);
     if (next.categoryId) {
       const category = state.categories.find((c) => c.id === next.categoryId);
@@ -592,7 +634,8 @@ async function handle(config: InternalAxiosRequestConfig): Promise<AxiosResponse
   if ((m = route("/v1/books/:bookId/budgets/:categoryId", "PUT"))) {
     const month = (params.month as string) ?? currentMonth();
     const amountMinor = Number((body as { amountMinor?: number }).amountMinor) || 0;
-    const category = state.categories.find((c) => c.id === m!.categoryId);
+    const category = state.categories.find((c) => c.id === m!.categoryId && c.bookId === m!.bookId && !c.deletedAt);
+    if (!category) return fail(config, 404, "Category not found", "NOT_FOUND");
     let budget = state.budgets.find(
       (b) => b.bookId === m!.bookId && b.categoryId === m!.categoryId && b.month === month
     );
@@ -610,7 +653,7 @@ async function handle(config: InternalAxiosRequestConfig): Promise<AxiosResponse
         amountMinor,
         spentMinor: 0,
         remainingMinor: amountMinor,
-        currencyCode: "USD",
+        currencyCode: ownedBook(m!.bookId)!.currencyCode,
         version: 1,
         createdAt: nowIso(),
         updatedAt: nowIso(),
