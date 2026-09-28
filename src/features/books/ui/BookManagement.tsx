@@ -1,3 +1,5 @@
+import { MoneyAmount } from '@/shared/ui/components/MoneyAmount';
+import { useBookOperations } from '../operations';
 import { useRef } from 'react';
 import { AccessibilityInfo, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -31,13 +33,15 @@ function BookRow({ book, index, total, selected, disabled, drop, onDrag, measure
   const open = () => useBookUIStore.getState().open('menu', book.id);
   const accessibleMove = (to: number) => { void moveBook(book.id, to).then(() => AccessibilityInfo.announceForAccessibility(`${book.name}, position ${to + 1} of ${total}`)).catch(error => useUndoToastStore.getState().showError(error)); };
   return <Animated.View onLayout={e => measure(e.nativeEvent.layout.y, e.nativeEvent.layout.height)} style={[{ flexDirection: 'row', alignItems: 'center', backgroundColor: tokens.colors.surface, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: tokens.colors.divider }, style]}>
-    <HapticPressable accessibilityRole="button" accessibilityLabel={`Switch to ${book.name}`} accessibilityState={{ selected, disabled }} disabled={disabled} onPress={() => { void selectBook(book.id).catch(error => useUndoToastStore.getState().showError(error, error instanceof Error ? error.message : undefined)); }} style={{ flex: 1, minHeight: 76, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 12 }}><BookTile icon={book.icon} color={book.color} /><View style={{ flex: 1 }}><AppText weight="semibold" numberOfLines={1}>{book.name}</AppText><AppText tone="muted" numberOfLines={1}>{book.balanceMinor === undefined ? 'Balance unavailable' : formatCurrency(book.balanceMinor, book.currencyCode)}</AppText></View></HapticPressable>
+    <HapticPressable accessibilityRole="button" accessibilityLabel={`Switch to ${book.name}`} accessibilityState={{ selected, disabled }} disabled={disabled} onPress={() => { void selectBook(book.id).catch(error => useUndoToastStore.getState().showError(error, error instanceof Error ? error.message : undefined)); }} style={{ flex: 1, minHeight: 76, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 12 }}><BookTile icon={book.icon} color={book.color} /><View style={{ flex: 1 }}><AppText weight="semibold" numberOfLines={1}>{book.name}</AppText><MoneyAmount size="sm" tone="neutral" value={book.balanceMinor === undefined ? 'Balance unavailable' : formatCurrency(book.balanceMinor, book.currencyCode)} /></View></HapticPressable>
     <GestureDetector gesture={pan}><View collapsable={false}><HapticPressable accessibilityRole="adjustable" accessibilityLabel={`Reorder ${book.name}`} accessibilityHint="Hold and drag, or use move up and move down actions." accessibilityValue={{ min: 1, max: total, now: index + 1 }} accessibilityState={{ disabled }} accessibilityActions={[...(index > 0 ? [{ name: 'decrement' as const, label: 'Move up' }] : []), ...(index < total - 1 ? [{ name: 'increment' as const, label: 'Move down' }] : [])]} onAccessibilityAction={e => { if (!disabled) accessibleMove(index + (e.nativeEvent.actionName === 'increment' ? 1 : -1)); }} disabled={disabled} onPress={open} style={{ minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' }}><Icon name="reorder-handle" size={18} color={tokens.colors.muted} /></HapticPressable></View></GestureDetector>
     <IconButton icon="ellipsis-vertical" accessibilityLabel={`Manage ${book.name}`} disabled={disabled} onPress={open} />
   </Animated.View>;
 }
 export function BookManagement({ onDrag = () => {} }: { onDrag?: (dragging: boolean) => void }) {
-  const { books, selectedBookId, isManaging, ready, error, loadBooks } = useBooksStore();
+  const { books, selectedBookId, isManaging: managingBooks, ready, error, loadBooks } = useBooksStore();
+  const activeOperations = useBookOperations(s => s.active);
+  const isManaging = managingBooks || activeOperations > 0;
   const positions = useRef<Record<string, { y: number; height: number }>>({});
   const drop = (id: string, dy: number) => {
     const start = positions.current[id]; if (!start) return;

@@ -1,3 +1,5 @@
+import { MoneyAmount } from '@/shared/ui/components/MoneyAmount';
+import { useBookOperations } from '../operations';
 import { confirmDeleteBook } from '../deleteBook';
 import { moveBook } from '../reorder';
 import { BookEditor } from './BookEditor';
@@ -21,7 +23,9 @@ import { BookTile } from './BookTile';
 export function BookSheets() {
   const router = useRouter();
   const { sheet, bookId, close, open } = useBookUIStore();
-  const { books, selectedBookId, isManaging } = useBooksStore();
+  const { books, selectedBookId, isManaging: managingBooks } = useBooksStore();
+  const activeOperations = useBookOperations(s => s.active);
+  const isManaging = managingBooks || activeOperations > 0;
   if (!USE_MOCK_API) return null;
   if (sheet === 'create') return <BookEditor />;
   const editing = books.find(b => b.id === bookId);
@@ -40,7 +44,7 @@ export function BookSheets() {
     <View style={{ borderRadius: 20, backgroundColor: tokens.colors.surface }}>
       {books.map(book => <View key={book.id} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: tokens.colors.divider }}>
         <HapticPressable disabled={isManaging} accessibilityRole="button" accessibilityState={{ selected: book.id === selectedBookId }} accessibilityLabel={`Switch to ${book.name}`} onPress={() => { void selectBook(book.id).catch(error => useUndoToastStore.getState().showError(error)); }} style={{ minHeight: 76, flex: 1, flexDirection: 'row', gap: 14, alignItems: 'center' }}>
-          <BookTile icon={book.icon} color={book.color} /><View style={{ flex: 1 }}><AppText weight="semibold" numberOfLines={1}>{book.name}</AppText><AppText tone="muted">{book.balanceMinor === undefined ? 'Balance unavailable' : formatCurrency(book.balanceMinor, book.currencyCode)}</AppText></View>
+          <BookTile icon={book.icon} color={book.color} /><View style={{ flex: 1 }}><AppText weight="semibold" numberOfLines={1}>{book.name}</AppText><MoneyAmount size="sm" tone="neutral" value={book.balanceMinor === undefined ? 'Balance unavailable' : formatCurrency(book.balanceMinor, book.currencyCode)} /></View>
         </HapticPressable>
         {book.id === selectedBookId ? <Icon name="checkmark" color={tokens.colors.accent} size={22} /> : <IconButton icon="ellipsis-vertical" accessibilityLabel={`Manage ${book.name}`} disabled={isManaging} onPress={() => open('menu', book.id)} />}
       </View>)}

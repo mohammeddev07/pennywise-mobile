@@ -1,3 +1,4 @@
+import { useBookOperations } from '../operations';
 import type { Book } from '@/shared/types/models';
 import { formatCurrency } from '@/shared/utils/formatCurrency';
 import { useState } from 'react';
@@ -29,7 +30,9 @@ export function BookEditor({ book }: { book?: Book }) {
   const [currencyOpen, setCurrencyOpen] = useState(false);
   const [error, setError] = useState('');
   const [timezone] = useState(deviceTimezone);
-  const { isManaging, addBook, updateBook, books } = useBooksStore();
+  const { isManaging: managingBooks, addBook, updateBook, books } = useBooksStore();
+  const activeOperations = useBookOperations(s => s.active);
+  const isManaging = managingBooks || activeOperations > 0;
   const close = useBookUIStore(s => s.close);
   const changed = { ...(name.trim() !== book?.name ? { name: name.trim() } : {}), ...(iconTouched && icon !== book?.icon ? { icon } : {}), ...(colorTouched && color !== book?.color ? { color } : {}) };
   const dirty = book ? Object.keys(changed).length > 0 : Boolean(name || opening || currency !== 'USD' || icon !== 'book' || color !== 'green');

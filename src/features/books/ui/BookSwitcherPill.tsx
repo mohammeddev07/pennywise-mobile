@@ -1,3 +1,4 @@
+import { useBookOperations } from '../operations';
 import { View } from 'react-native';
 import { USE_MOCK_API } from '@/shared/api/client';
 import { useBooksStore } from '../store';
@@ -9,8 +10,10 @@ import { HapticPressable } from '@/shared/ui/components/HapticPressable';
 import { Skeleton } from '@/shared/ui/components/Skeleton';
 import { tokens } from '@/shared/ui/theme/tokens';
 export function BookSwitcherPill() {
-  const { books, selectedBookId, ready, error, isManaging, loadBooks } = useBooksStore();
+  const { books, selectedBookId, ready, error, isManaging: managingBooks, loadBooks } = useBooksStore();
   const book = books.find(b => b.id === selectedBookId);
+  const activeOperations = useBookOperations(s => s.active);
+  const isManaging = managingBooks || activeOperations > 0;
   if (!USE_MOCK_API) return null;
   if (!ready && !error) return <View accessibilityLabel="Loading cash books" style={{ marginTop: 12 }}><Skeleton width={160} height={44} /></View>;
   if (!ready || !book) return <HapticPressable accessibilityRole="button" accessibilityLabel="Retry loading cash books" onPress={() => { void loadBooks().catch(() => {}); }} style={{ minHeight: 44, justifyContent: 'center' }}><AppText tone="muted">{error ? 'Cash books unavailable · Retry' : 'No cash book · Retry'}</AppText></HapticPressable>;

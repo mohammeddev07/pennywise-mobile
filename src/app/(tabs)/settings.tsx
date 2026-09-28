@@ -1,3 +1,4 @@
+import { captureBookScope } from '@/features/books/coordinator';
 import { BookManagement } from '@/features/books/ui/BookManagement';
 import { USE_MOCK_API } from '@/shared/api/client';
 import { withBookScope } from "@/features/books/ui/BookScope";
@@ -150,11 +151,13 @@ function ProfileScreen() {
 
   const onExport = async () => {
     if (isExporting || !selectedBook) return;
+    const isCurrent = captureBookScope();
     setIsExporting(true);
     try {
       const { fileName } = await exportTransactionsToDevice(selectedBook.id);
-      showExportSuccess(`Saved ${fileName}`);
+      if (isCurrent()) showExportSuccess(`Saved ${fileName}`);
     } catch (error) {
+      if (!isCurrent()) return;
       if (error instanceof ExportCancelledError) {
         // no-op
       } else if (error instanceof MockModeUnsupportedError) {

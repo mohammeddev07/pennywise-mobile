@@ -17,6 +17,6 @@ export function useBookCurrency(bookId?: string): CurrencyCode {
   const fallback = useSettingsStore((s) => s.primaryCurrency);
 
   const id = bookId || selectedBookId;
-  const book = books.find((b) => b.id === id) ?? books[0];
+  const book = books.find((b) => b.id === id);
   return (book?.currencyCode ?? fallback) as CurrencyCode;
 }

@@ -99,8 +99,8 @@ function CategoryEditorModal() {
   const editing = useMemo(() => {
     const id = params.id;
     if (!id) return null;
-    return categories.find((c) => c.id === id) ?? null;
-  }, [categories, params.id]);
+    return categories.find((c) => c.id === id && c.bookId === selectedBookId) ?? null;
+  }, [categories, params.id, selectedBookId]);
 
   const [name, setName] = useState("");
   const [type, setType] = useState<"EXPENSE" | "INCOME">("EXPENSE");

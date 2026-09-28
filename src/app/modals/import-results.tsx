@@ -1,3 +1,4 @@
+import { useBooksStore } from '@/features/books/store';
 import { withBookScope } from "@/features/books/ui/BookScope";
 import { useEffect } from "react";
 import { View } from "react-native";
@@ -53,7 +54,8 @@ function ErrorRow({ item }: { item: ImportRowError }) {
 function ImportResultsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const result = useImportResultStore((s) => s.result);
+  const bookId = useBooksStore(s => s.selectedBookId);
+  const result = useImportResultStore(s => s.bookId === bookId ? s.result : null);
   const clearResult = useImportResultStore((s) => s.clear);
 
   useEffect(() => () => clearResult(), [clearResult]);
