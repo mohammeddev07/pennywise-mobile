@@ -1,3 +1,4 @@
+import { BookEditor } from './BookEditor';
 import { useRouter } from 'expo-router';
 import { View } from 'react-native';
 import { USE_MOCK_API } from '@/shared/api/client';
@@ -20,6 +21,7 @@ export function BookSheets() {
   const { sheet, close, open } = useBookUIStore();
   const { books, selectedBookId, isManaging } = useBooksStore();
   if (!USE_MOCK_API) return null;
+  if (sheet === 'create') return <BookEditor />;
   return <BottomSheetModal visible={sheet === 'switcher'} onClose={close} title="Cash books" scroll={books.length > 4} rightAction={<SheetCloseButton onPress={close} />}>
     <View style={{ borderRadius: 20, backgroundColor: tokens.colors.surface }}>
       {books.map(book => <View key={book.id} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: tokens.colors.divider }}>
