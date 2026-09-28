@@ -1,3 +1,4 @@
+import { hasBookOperation } from './operations';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
@@ -46,6 +47,7 @@ let loadInFlight: { epoch: number; promise: Promise<Book[]> } | null = null;
 let managementEpoch: number | null = null;
 async function manage<T>(work: (epoch: number) => Promise<T>): Promise<T> {
   const epoch = getAccountEpoch();
+  if (USE_MOCK_API && hasBookOperation()) throw new Error('Wait for the current operation before managing books.');
   if (managementEpoch === epoch) throw new Error('Please wait for the current book operation.');
   managementEpoch = epoch;
   useBooksStore.setState({ isManaging: true });

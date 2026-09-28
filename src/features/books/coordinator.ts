@@ -77,3 +77,17 @@ export function installBookCoordinator() {
     if (state.selectedBookId !== previous.selectedBookId || (state.ready && !previous.ready)) transition(previous.selectedBookId, state.selectedBookId);
   });
 }
+
+/** Drop a removed book's retained client data, including inactive query/filter scopes. */
+export async function purgeBookData(id: string) {
+  await queryClient.cancelQueries({ predicate: q => queryForBook(q.queryKey, id) });
+  queryClient.removeQueries({ predicate: q => queryForBook(q.queryKey, id) });
+  useCategoriesStore.setState(s => ({ categories: s.categories.filter(c => c.bookId !== id) }));
+  useBudgetsStore.setState(s => ({ budgets: s.budgets.filter(b => b.bookId !== id) }));
+  const scope = makeScope(useAuthStore.getState().user?.id, id);
+  useFilterStore.setState(s => {
+    const byScope = { ...s.byScope }, drafts = { ...s.drafts }, drills = { ...s.drills }, pendingScroll = { ...s.pendingScroll };
+    delete byScope[scope]; delete drafts[scope]; delete drills[scope]; delete pendingScroll[scope];
+    return { byScope, drafts, drills, pendingScroll };
+  });
+}

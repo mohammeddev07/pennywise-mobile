@@ -1,3 +1,4 @@
+import { confirmDeleteBook } from '../deleteBook';
 import { moveBook } from '../reorder';
 import { BookEditor } from './BookEditor';
 import { useRouter } from 'expo-router';
@@ -31,6 +32,7 @@ export function BookSheets() {
     return <BottomSheetModal visible title={editing.name} onClose={close} rightAction={<SheetCloseButton onPress={close} />}><View style={{ gap: 12 }}>
       <Button label="Rename or change icon/color" disabled={isManaging} onPress={() => open('edit', editing.id)} />
       <Button label="Move up" variant="secondary" disabled={isManaging || index === 0} onPress={() => move(index - 1)} />
+      <Button label="Delete book" variant="danger" disabled={isManaging} onPress={() => confirmDeleteBook(editing.id)} />
       <Button label="Move down" variant="secondary" disabled={isManaging || index === books.length - 1} onPress={() => move(index + 1)} />
     </View></BottomSheetModal>;
   }
