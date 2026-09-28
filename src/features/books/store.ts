@@ -3,7 +3,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import * as booksApi from "@/shared/api/books";
-import { USE_MOCK_API } from "@/shared/api/client";
 import { getApiErrorMessage } from "@/shared/api/errors";
 import type { Book } from "@/shared/types/models";
 import { useSettingsStore } from "@/features/settings/store";
@@ -77,7 +76,7 @@ let managementEpoch: number | null = null;
 let reconciling = false;
 async function manage<T>(work: (epoch: number) => Promise<T>): Promise<T> {
   const epoch = getAccountEpoch();
-  if (USE_MOCK_API && hasBookOperation())
+  if (hasBookOperation())
     throw new Error("Wait for the current operation before managing books.");
   if (managementEpoch === epoch)
     throw new Error("Please wait for the current book operation.");
@@ -88,7 +87,7 @@ async function manage<T>(work: (epoch: number) => Promise<T>): Promise<T> {
     // uncertain load must be reconciled before accepting another mutation.
     reconciling = true;
     if (loadInFlight?.epoch === epoch) await loadInFlight.promise;
-    if (USE_MOCK_API && !useBooksStore.getState().ready)
+    if (!useBooksStore.getState().ready)
       await useBooksStore.getState().loadBooks();
     if (!isCurrentAccountEpoch(epoch))
       throw new Error("Your account changed. Please try again.");
@@ -145,9 +144,7 @@ export const useBooksStore = create<State>()(
             }
             set({
               books,
-              selectedBookId: USE_MOCK_API
-                ? selectedOrFirst(books, get().selectedBookId)
-                : (books[0]?.id ?? ""),
+              selectedBookId: selectedOrFirst(books, get().selectedBookId),
               isLoading: false,
               error: null,
               ready: true,
@@ -188,22 +185,12 @@ export const useBooksStore = create<State>()(
         set({ selectedBookId: selectedOrFirst(get().books, id) }),
       addBook: (input) =>
         manage(async (epoch) => {
-          const existing = get().books[0];
-          if (!USE_MOCK_API && existing) {
-            set({ selectedBookId: existing.id });
-            return existing.id;
-          }
-          const name = USE_MOCK_API
-            ? validateBookName(input.name)
-            : input.name.trim() || "Untitled";
+          const name = validateBookName(input.name);
           const currency =
             input.currencyCode ??
             useSettingsStore.getState().primaryCurrency ??
             "USD";
-          if (
-            USE_MOCK_API &&
-            !(BOOK_CURRENCIES as readonly string[]).includes(currency)
-          )
+          if (!(BOOK_CURRENCIES as readonly string[]).includes(currency))
             throw new Error("Choose a supported currency.");
           const opening = input.openingBalanceMinor ?? 0;
           if (!Number.isSafeInteger(opening))
@@ -220,9 +207,7 @@ export const useBooksStore = create<State>()(
               currency,
               input.timezone ?? deviceTimezone(),
               opening,
-              USE_MOCK_API
-                ? { icon: input.icon, color: input.color }
-                : undefined,
+              { icon: input.icon, color: input.color },
             ),
           );
           if (!isCurrentAccountEpoch(epoch)) return "";
@@ -253,13 +238,11 @@ export const useBooksStore = create<State>()(
             if (input.color !== current.color) patch.color = input.color;
           }
           if (!Object.keys(patch).length) return;
-          if (!USE_MOCK_API && (patch.icon || patch.color))
-            throw new Error("Book management is awaiting backend deployment.");
           const book = normalizeBook(
             await booksApi.patchBook(
               id,
               current.version,
-              USE_MOCK_API ? patch : patch.name!,
+              patch,
             ),
           );
           if (isCurrentAccountEpoch(epoch))

@@ -1,6 +1,5 @@
 import { captureBookScope } from '@/features/books/coordinator';
 import { BookManagement } from '@/features/books/ui/BookManagement';
-import { USE_MOCK_API } from '@/shared/api/client';
 import { withBookScope } from "@/features/books/ui/BookScope";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ScrollView, View } from "react-native";
@@ -16,18 +15,15 @@ import { AppText } from "@/shared/ui/components/AppText";
 import { Button } from "@/shared/ui/components/Button";
 import { Card } from "@/shared/ui/components/Card";
 import { EmptyState } from "@/shared/ui/components/EmptyState";
-import { FormField } from "@/shared/ui/components/FormField";
 import { ScreenHeader } from "@/shared/ui/components/ScreenHeader";
 import { SectionHeader } from "@/shared/ui/components/SectionHeader";
 import { SettingsRow } from "@/shared/ui/components/SettingsRow";
 import { Skeleton } from "@/shared/ui/components/Skeleton";
 import { useScreenPaddingX, useTabBarClearance } from "@/shared/ui/components/Screen";
 import { useBooksStore } from "@/features/books/store";
-import { useBookCurrency } from "@/features/books/useBookCurrency";
 import { useSettingsStore } from "@/features/settings/store";
 import { useAuthStore } from "@/features/auth/store";
 import { useAppUpdates } from "@/features/app-updates/useAppUpdates";
-import { formatCurrency, currencySymbol } from "@/shared/utils/formatCurrency";
 import { useUndoToastStore } from "@/shared/ui/state/useUndoToastStore";
 import { useExportToastStore } from "@/shared/ui/state/useExportToastStore";
 import { exportTransactionsToDevice, ExportCancelledError, MockModeUnsupportedError } from "@/shared/utils/exportFile";
@@ -70,8 +66,6 @@ function ProfileScreen() {
 
   const books = useBooksStore((s) => s.books);
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
-  const updateBook = useBooksStore((s) => s.updateBook);
-  const currency = useBookCurrency();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const showError = useUndoToastStore((s) => s.showError);
@@ -84,9 +78,6 @@ function ProfileScreen() {
   const [booksHydrated, setBooksHydrated] = useState<boolean>(() => booksPersist?.hasHydrated?.() ?? true);
   const [settingsHydrated, setSettingsHydrated] = useState<boolean>(() => settingsPersist?.hasHydrated?.() ?? true);
   const [hydrationError, setHydrationError] = useState(false);
-  const [bookName, setBookName] = useState("");
-  const [isEditingName, setIsEditingName] = useState(false);
-  const [isSavingBook, setIsSavingBook] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [mailUnavailable, setMailUnavailable] = useState(false);
@@ -131,30 +122,7 @@ function ProfileScreen() {
   const hydrated = booksHydrated && settingsHydrated;
 
   const booksReady = useBooksStore(s => s.ready);
-  const selectedBook = useMemo(() => USE_MOCK_API && !booksReady ? null : books.find((b) => b.id === selectedBookId) ?? null, [books, selectedBookId, booksReady]);
-
-  useEffect(() => {
-    setBookName(selectedBook?.name ?? "");
-  }, [selectedBook?.id, selectedBook?.name]);
-
-  const onSaveBook = async () => {
-    if (!selectedBook || isSavingBook) return;
-    const name = bookName.trim();
-    if (!name) {
-      showError(null, "Book name is required.");
-      return;
-    }
-
-    setIsSavingBook(true);
-    try {
-      await updateBook(selectedBook.id, { name });
-      setIsEditingName(false);
-    } catch (error) {
-      showError(error, "Couldn’t rename the cash book.");
-    } finally {
-      setIsSavingBook(false);
-    }
-  };
+  const selectedBook = useMemo(() => !booksReady ? null : books.find((b) => b.id === selectedBookId) ?? null, [books, selectedBookId, booksReady]);
 
   const onExport = async () => {
     if (isExporting || !selectedBook) return;
@@ -301,76 +269,9 @@ function ProfileScreen() {
               </View>
             </Card>
 
-            {USE_MOCK_API ? <View onLayout={event => setBooksSectionY(event.nativeEvent.layout.y)}><BookManagement onDrag={setDraggingBook} /></View> : <>
-            {/* Cash book */}
-            <SectionHeader title="Cash book" style={{ marginTop: tokens.space[7], marginBottom: tokens.space[3] }} />
-
-            {isEditingName ? (
-              <Card variant="surface" padding={16}>
-                <FormField
-                  label="Book name"
-                  value={bookName}
-                  onChangeText={setBookName}
-                  maxLength={80}
-                  autoCorrect={false}
-                  autoFocus
-                />
-                <View style={{ flexDirection: "row", gap: tokens.space[3], marginTop: tokens.space[4] }}>
-                  <View style={{ flex: 1 }}>
-                    <Button
-                      label="Cancel"
-                      variant="secondary"
-                      size="md"
-                      onPress={() => {
-                        setBookName(selectedBook?.name ?? "");
-                        setIsEditingName(false);
-                      }}
-                    />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Button
-                      label={isSavingBook ? "Saving…" : "Save"}
-                      size="md"
-                      loading={isSavingBook}
-                      disabled={!bookName.trim() || bookName.trim() === selectedBook?.name}
-                      onPress={onSaveBook}
-                    />
-                  </View>
-                </View>
-              </Card>
-            ) : (
-              <SettingsGroup>
-                <SettingsRow
-                  icon="book-outline"
-                  label="Book name"
-                  value={selectedBook?.name ?? "Personal"}
-                  onPress={() => setIsEditingName(true)}
-                />
-                <SettingsRow
-                  icon="time-outline"
-                  label="Opening balance"
-                  value={formatCurrency(
-                    selectedBook?.openingBalanceMinor ?? 0,
-                    selectedBook?.currencyCode ?? currency
-                  )}
-                  valueIsMoney
-                  locked
-                />
-                <SettingsRow
-                  icon="cash-outline"
-                  label="Currency"
-                  value={`${currencySymbol(currency)} ${currency}`}
-                  locked
-                />
-              </SettingsGroup>
-            )}
-
-            <AppText variant="sm" tone="muted" style={{ marginTop: tokens.space[3] }}>
-              Opening balance and currency cannot be changed after a book is created. Stored amounts
-              carry no exchange rate, so switching would reinterpret every past transaction.
-            </AppText>
-
-            </>}
+            <View onLayout={(event) => setBooksSectionY(event.nativeEvent.layout.y)}>
+              <BookManagement onDrag={setDraggingBook} />
+            </View>
 
             {/* Preferences */}
             <SectionHeader

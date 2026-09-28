@@ -9,7 +9,6 @@ import { useAuthStore } from "@/features/auth/store";
 import { useUndoToastStore } from "@/shared/ui/state/useUndoToastStore";
 import { useExportToastStore } from "@/shared/ui/state/useExportToastStore";
 import { queryClient } from "@/shared/api/queryClient";
-import { USE_MOCK_API } from "@/shared/api/client";
 import { getAccountEpoch } from "@/shared/session/accountEpoch";
 import { hasBookOperation } from "./operations";
 import { useBookUIStore } from "./ui/store";
@@ -146,7 +145,6 @@ function transition(previousId: string, nextId: string) {
     .catch(() => {});
 }
 export function installBookCoordinator() {
-  if (!USE_MOCK_API) return () => {};
   return useBooksStore.subscribe((state, previous) => {
     if (state.ready && state.books !== previous.books) {
       for (const book of previous.books) {

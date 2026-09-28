@@ -1,4 +1,3 @@
-import { USE_MOCK_API } from '@/shared/api/client';
 import { installBookCoordinator, setBookNavigation } from '@/features/books/coordinator';
 import { BookSheets } from '@/features/books/ui/BookSheets';
 import "react-native-gesture-handler";
@@ -36,10 +35,8 @@ import { useUpdateToastStore } from "@/shared/ui/state/useUpdateToastStore";
 import { useAppUpdates } from "@/features/app-updates/useAppUpdates";
 import { useAuthStore } from "@/features/auth/store";
 import { useBooksStore } from "@/features/books/store";
-import { useCategoriesStore } from "@/features/categories/store";
 import { queryClient } from "@/shared/api/queryClient";
 import { purgeLegacyTransactionCache } from "@/features/transactions/legacy";
-import { useBudgetsStore } from "@/features/budgets/store";
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -56,11 +53,6 @@ function applyDefaultFont() {
   TextInputAny.defaultProps.style = [{ fontFamily: fonts.regular }, TextInputAny.defaultProps.style].filter(Boolean);
 }
 
-function currentMonthKey() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
-
 function DataBootstrap() {
   const pathname = usePathname();
   useLayoutEffect(() => installBookCoordinator(), []);
@@ -70,9 +62,6 @@ function DataBootstrap() {
   const onboardingCompleted = useAuthStore((s) => s.onboardingCompleted);
   const loadBooks = useBooksStore((s) => s.loadBooks);
   const ensureBook = useBooksStore((s) => s.ensureBook);
-  const selectedBookId = useBooksStore((s) => s.selectedBookId);
-  const loadCategories = useCategoriesStore((s) => s.loadCategories);
-  const loadBudgets = useBudgetsStore((s) => s.loadBudgets);
 
   useEffect(() => {
     if (sessionStatus !== "authenticated" || !user) return;
@@ -86,12 +75,6 @@ function DataBootstrap() {
     }
     loadBooks().catch(() => {});
   }, [ensureBook, loadBooks, onboardingCompleted, sessionStatus, user]);
-
-  useEffect(() => {
-    if (USE_MOCK_API || sessionStatus !== "authenticated" || !user || !selectedBookId) return;
-    loadCategories(selectedBookId).catch(() => {});
-    loadBudgets(selectedBookId, currentMonthKey()).catch(() => {});
-  }, [loadBudgets, loadCategories, selectedBookId, sessionStatus, user]);
 
   return null;
 }

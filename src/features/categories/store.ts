@@ -1,5 +1,4 @@
 import { useBooksStore } from "@/features/books/store";
-import { USE_MOCK_API } from "@/shared/api/client";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
@@ -79,14 +78,14 @@ export const useCategoriesStore = create<CategoriesState>()(
         try {
           const res = await categoriesApi.listCategories(bookId);
           const next = res.items.map((item) => normalizeCategory(item, bookId));
-          if (!isCurrentAccountEpoch(accountEpoch) || (USE_MOCK_API && useBooksStore.getState().selectedBookId !== bookId)) return;
+          if (!isCurrentAccountEpoch(accountEpoch) || useBooksStore.getState().selectedBookId !== bookId) return;
           set((s) => ({
             categories: [...s.categories.filter((c) => c.bookId !== bookId), ...next],
             isLoading: false,
             error: null,
           }));
         } catch (err) {
-          if (!isCurrentAccountEpoch(accountEpoch) || (USE_MOCK_API && useBooksStore.getState().selectedBookId !== bookId)) return;
+          if (!isCurrentAccountEpoch(accountEpoch) || useBooksStore.getState().selectedBookId !== bookId) return;
           const message = err instanceof Error ? err.message : "Could not load categories";
           set({ isLoading: false, error: message });
           throw err;
