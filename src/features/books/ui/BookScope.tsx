@@ -1,7 +1,6 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { type ComponentType } from "react";
 import { View } from "react-native";
-import { USE_MOCK_API } from "@/shared/api/client";
 import { useBooksStore } from "../store";
 import { useAuthStore } from "@/features/auth/store";
 import { EmptyState } from "@/shared/ui/components/EmptyState";
@@ -13,7 +12,6 @@ export function withBookScope(Screen: ComponentType, gate = true) {
     const params = useLocalSearchParams<{ bookId?: string }>();
     const router = useRouter();
     const accountId = useAuthStore((s) => s.user?.id ?? "");
-    if (!USE_MOCK_API) return <Screen />;
     if (params.bookId && params.bookId !== selectedBookId)
       return (
         <EmptyState

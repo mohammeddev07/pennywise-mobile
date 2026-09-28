@@ -1,4 +1,3 @@
-import { USE_MOCK_API } from '@/shared/api/client';
 import { useInfiniteQuery, useQuery, type QueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
 
@@ -311,7 +310,7 @@ export async function invalidateTransactionData(
   for (const m of opts.months ?? []) if (m) months.add(monthOf(m) ?? m);
 
   await Promise.all([
-    ...(USE_MOCK_API ? [useBooksStore.getState().loadBooks().catch(() => {})] : []),
+    useBooksStore.getState().loadBooks().catch(() => {}),
     client.invalidateQueries({ predicate: (q) => forBook(q.queryKey) }),
     client.invalidateQueries({ queryKey: ["balance", bookId] }),
     client.invalidateQueries({ queryKey: ["summary", bookId] }),

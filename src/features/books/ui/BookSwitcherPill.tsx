@@ -1,6 +1,5 @@
 import { useBookOperations } from "../operations";
 import { View } from "react-native";
-import { USE_MOCK_API } from "@/shared/api/client";
 import { useBooksStore } from "../store";
 import { bookStyle } from "../constants";
 import { useBookUIStore } from "./store";
@@ -21,7 +20,6 @@ export function BookSwitcherPill() {
   const book = books.find((b) => b.id === selectedBookId);
   const activeOperations = useBookOperations((s) => s.active);
   const isManaging = managingBooks || activeOperations > 0;
-  if (!USE_MOCK_API) return null;
   if (!ready && !error)
     return (
       <View accessibilityLabel="Loading cash books" style={{ marginTop: 12 }}>

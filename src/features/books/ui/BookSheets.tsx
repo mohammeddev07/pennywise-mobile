@@ -5,7 +5,6 @@ import { moveBook } from "../reorder";
 import { BookEditor } from "./BookEditor";
 import { useRouter } from "expo-router";
 import { View } from "react-native";
-import { USE_MOCK_API } from "@/shared/api/client";
 import {
   BottomSheetModal,
   SheetCloseButton,
@@ -29,7 +28,6 @@ export function BookSheets() {
   const { books, selectedBookId, isManaging: managingBooks } = useBooksStore();
   const activeOperations = useBookOperations((s) => s.active);
   const isManaging = managingBooks || activeOperations > 0;
-  if (!USE_MOCK_API) return null;
   if (sheet === "create") return <BookEditor />;
   const editing = books.find((b) => b.id === bookId);
   if (sheet === "edit" && editing)
