@@ -215,6 +215,7 @@ function AnalyticsScreen() {
         <View style={{ marginTop: tokens.space[4], flexDirection: "row", gap: tokens.space[3] }}>
           <View style={{ flex: 1 }}>
             <SegmentedControl
+              motion="calm"
               items={[
                 { label: "Months", value: "MONTH" },
                 { label: "Years", value: "YEAR" },
@@ -225,6 +226,7 @@ function AnalyticsScreen() {
           </View>
           <View style={{ flex: 1 }}>
             <SegmentedControl
+              motion="calm"
               items={[
                 { label: "Spending", value: "EXPENSE", color: tokens.colors.danger },
                 { label: "Income", value: "INCOME", color: tokens.colors.income },

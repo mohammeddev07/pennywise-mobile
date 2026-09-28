@@ -34,6 +34,7 @@ type Props = PropsWithChildren<{
    * A `scroll` sheet also returns at the scroll position it was left at.
    */
   animateIn?: boolean;
+  entrance?: "slide" | "fade";
 }>;
 
 // The sheet decelerates into place and stops - no spring, so there is no
@@ -59,6 +60,7 @@ export function BottomSheetModal({
   footer,
   scroll,
   animateIn = true,
+  entrance = "slide",
   children,
 }: Props) {
   const insets = useSafeAreaInsets();
@@ -125,7 +127,7 @@ export function BottomSheetModal({
           >
             <Animated.View
               // Reduced motion: the sheet fades in place instead of travelling up the screen.
-              entering={animateIn ? (reduceMotion ? FADE_ENTER : SHEET_ENTER) : undefined}
+              entering={animateIn ? (reduceMotion || entrance === "fade" ? FADE_ENTER : SHEET_ENTER) : undefined}
               collapsable={false}
               accessibilityViewIsModal
               aria-modal

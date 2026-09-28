@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Platform, View } from "react-native";
 import DateTimePicker, { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
-import Animated, { FadeIn } from "react-native-reanimated";
 
 import { tokens } from "@/shared/ui/theme/tokens";
 import { AppText } from "@/shared/ui/components/AppText";
@@ -167,6 +166,7 @@ export function CustomRangeSheet({
     <BottomSheetModal
       visible={visible && !picking}
       animateIn={!returning}
+      entrance="fade"
       onClose={onClose}
       title="Custom range"
       rightAction={<SheetCloseButton onPress={onClose} />}
@@ -177,7 +177,7 @@ export function CustomRangeSheet({
       </View>
 
       {Platform.OS === "ios" ? (
-        <Animated.View key={editing} entering={FadeIn.duration(tokens.motion.fast)} style={{ marginTop: tokens.space[4] }}>
+        <View style={{ marginTop: tokens.space[4] }}>
           <DateTimePicker
             value={ymdToLocalDate(value)}
             mode="date"
@@ -188,7 +188,7 @@ export function CustomRangeSheet({
               if (selected) setField(editing, localDateToYmd(selected));
             }}
           />
-        </Animated.View>
+        </View>
       ) : Platform.OS === "web" ? (
         <View style={{ marginTop: tokens.space[4] }}>
           <WebDateInput mode="date" value={ymdToLocalDate(value)} onChange={(next) => setField(editing, localDateToYmd(next))} />
