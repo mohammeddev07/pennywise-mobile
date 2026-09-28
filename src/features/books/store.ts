@@ -69,6 +69,7 @@ export const useBooksStore = create<State>()(persist((set, get) => ({
     set({ isLoading: true, error: null });
     const promise = (async () => {
       try {
+        if (!useBooksStore.persist.hasHydrated()) await useBooksStore.persist.rehydrate();
         const res = await booksApi.listBooks();
         const books = res.items.map(normalizeBook);
         if (!isCurrentAccountEpoch(epoch)) return [];

@@ -86,7 +86,10 @@ async function clearAccountState() {
     Promise.resolve(useSettingsStore.persist.rehydrate()),
   ]);
 
+  (await import("@/features/imports/store")).useImportResultStore.getState().clear();
+  (await import("@/features/books/ui/store")).useBookUIStore.getState().close();
   useBooksStore.setState({
+    ready: false, isManaging: false,
     books: [],
     selectedBookId: "",
     isLoading: false,

@@ -4,12 +4,13 @@ import type { ImportResponse } from "@/shared/types/api";
 
 type State = {
   result: ImportResponse | null;
-  setResult: (result: ImportResponse) => void;
+  bookId: string | null;
+  setResult: (result: ImportResponse, bookId: string) => void;
   clear: () => void;
 };
 
 export const useImportResultStore = create<State>((set) => ({
-  result: null,
-  setResult: (result) => set({ result }),
-  clear: () => set({ result: null }),
+  result: null, bookId: null,
+  setResult: (result, bookId) => set({ result, bookId }),
+  clear: () => set({ result: null, bookId: null }),
 }));

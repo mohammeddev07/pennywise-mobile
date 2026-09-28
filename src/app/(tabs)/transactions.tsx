@@ -1,3 +1,4 @@
+import { withBookScope } from "@/features/books/ui/BookScope";
 import { BookSwitcherPill } from "@/features/books/ui/BookSwitcherPill";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ScrollView, View, useWindowDimensions } from "react-native";
@@ -101,7 +102,7 @@ function isWholeMonth(start: Ymd, end: Ymd) {
   return start === startOfMonthYmd(start) && end === endOfMonthYmd(start);
 }
 
-export default function TransactionsScreen() {
+function TransactionsScreen() {
   const insets = useSafeAreaInsets();
   const paddingX = useScreenPaddingX();
   const tabClearance = useTabBarClearance();
@@ -650,3 +651,5 @@ export default function TransactionsScreen() {
 function shiftDays(ymd: Ymd, days: number): Ymd {
   return addDaysYmd(ymd, days);
 }
+
+export default withBookScope(TransactionsScreen);

@@ -1,3 +1,4 @@
+import { withBookScope } from "@/features/books/ui/BookScope";
 import { useEffect, useMemo, useState } from "react";
 import { View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -46,7 +47,7 @@ const ICONS = [
  */
 const CATEGORY_COLORS: string[] = Object.values(tokens.category);
 
-export default function CategoryEditorModal() {
+function CategoryEditorModal() {
   const router = useRouter();
   const queryClient = useQueryClient();
 
@@ -335,3 +336,5 @@ export default function CategoryEditorModal() {
     </View>
   );
 }
+
+export default withBookScope(CategoryEditorModal);

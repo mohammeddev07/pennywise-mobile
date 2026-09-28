@@ -1,3 +1,5 @@
+import { USE_MOCK_API } from '@/shared/api/client';
+import { withBookScope } from "@/features/books/ui/BookScope";
 import React, { useEffect, useMemo, useState } from "react";
 import { ScrollView, View } from "react-native";
 import { useRouter } from "expo-router";
@@ -48,7 +50,7 @@ function SettingsGroup({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function ProfileScreen() {
+function ProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const paddingX = useScreenPaddingX();
@@ -116,7 +118,8 @@ export default function ProfileScreen() {
 
   const hydrated = booksHydrated && settingsHydrated;
 
-  const selectedBook = useMemo(() => books.find((b) => b.id === selectedBookId) ?? null, [books, selectedBookId]);
+  const booksReady = useBooksStore(s => s.ready);
+  const selectedBook = useMemo(() => USE_MOCK_API && !booksReady ? null : books.find((b) => b.id === selectedBookId) ?? null, [books, selectedBookId, booksReady]);
 
   useEffect(() => {
     setBookName(selectedBook?.name ?? "");
@@ -447,3 +450,5 @@ export default function ProfileScreen() {
     </View>
   );
 }
+
+export default withBookScope(ProfileScreen, false);

@@ -1,3 +1,4 @@
+import { duringBookOperation } from '@/features/books/operations';
 import { Platform } from "react-native";
 import * as FileSystem from "expo-file-system/legacy";
 import * as SecureStore from "expo-secure-store";
@@ -52,7 +53,7 @@ async function saveCachedFile(downloadedUri: string, fileName: string): Promise<
 }
 
 /** Downloads the book's whole transactions export (the existing all-book flow). */
-export async function exportTransactionsToDevice(bookId: string): Promise<{ fileName: string }> {
+async function exportTransactionsToDeviceImpl(bookId: string): Promise<{ fileName: string }> {
   if (USE_MOCK_API) throw new MockModeUnsupportedError();
 
   const fileName = `pennywise-export-${bookId}-${Date.now()}.xlsx`;
@@ -79,7 +80,7 @@ function arrayBufferToBase64(buffer: ArrayBuffer) {
  * page. The body is a POST, which the platform download APIs cannot make, so the bytes
  * come through the authenticated API client and are then saved like the all-book export.
  */
-export async function exportQueryToDevice(bookId: string, query: TransactionQuery): Promise<{ fileName: string }> {
+async function exportQueryToDeviceImpl(bookId: string, query: TransactionQuery): Promise<{ fileName: string }> {
   if (USE_MOCK_API) throw new MockModeUnsupportedError();
 
   const fileName = `pennywise-export-filtered-${bookId}-${Date.now()}.xlsx`;
@@ -99,3 +100,7 @@ export async function exportQueryToDevice(bookId: string, query: TransactionQuer
   await FileSystem.writeAsStringAsync(cacheUri, arrayBufferToBase64(bytes), { encoding: FileSystem.EncodingType.Base64 });
   return saveCachedFile(cacheUri, fileName);
 }
+
+export function exportTransactionsToDevice(...args: Parameters<typeof exportTransactionsToDeviceImpl>) { return duringBookOperation(() => exportTransactionsToDeviceImpl(...args)); }
+
+export function exportQueryToDevice(...args: Parameters<typeof exportQueryToDeviceImpl>) { return duringBookOperation(() => exportQueryToDeviceImpl(...args)); }

@@ -1,3 +1,4 @@
+import { withBookScope } from "@/features/books/ui/BookScope";
 import { useEffect, useMemo, useState } from "react";
 import { View } from "react-native";
 import { FlashList } from "@shopify/flash-list";
@@ -183,7 +184,7 @@ function Tile({ item, currency }: { item: CategoryTile; currency: CurrencyCode }
   );
 }
 
-export default function CategoriesScreen() {
+function CategoriesScreen() {
   const insets = useSafeAreaInsets();
   const paddingX = useScreenPaddingX();
   const tabClearance = useTabBarClearance();
@@ -526,3 +527,5 @@ export default function CategoriesScreen() {
     </View>
   );
 }
+
+export default withBookScope(CategoriesScreen);

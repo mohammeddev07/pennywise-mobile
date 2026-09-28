@@ -1,3 +1,4 @@
+import { withBookScope } from "@/features/books/ui/BookScope";
 import { BookSwitcherPill } from "@/features/books/ui/BookSwitcherPill";
 import { useEffect, useMemo, useState } from "react";
 import { ScrollView, View } from "react-native";
@@ -43,7 +44,7 @@ import { formatCurrency } from "@/shared/utils/formatCurrency";
 import { formatYmd } from "@/shared/utils/ledgerDate";
 import { balanceColor } from "@/shared/ui/theme/money";
 
-export default function AnalyticsScreen() {
+function AnalyticsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const paddingX = useScreenPaddingX();
@@ -505,3 +506,5 @@ export default function AnalyticsScreen() {
     </View>
   );
 }
+
+export default withBookScope(AnalyticsScreen);

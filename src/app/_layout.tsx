@@ -1,8 +1,11 @@
+import { USE_MOCK_API } from '@/shared/api/client';
+import { installBookCoordinator, setBookNavigation } from '@/features/books/coordinator';
+import { BookSheets } from '@/features/books/ui/BookSheets';
 import "react-native-gesture-handler";
 import "../../global.css";
 
-import { useEffect, useRef, useState } from "react";
-import { Stack } from "expo-router";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Stack, usePathname, router } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -59,6 +62,9 @@ function currentMonthKey() {
 }
 
 function DataBootstrap() {
+  const pathname = usePathname();
+  useLayoutEffect(() => installBookCoordinator(), []);
+  useLayoutEffect(() => { setBookNavigation(pathname, () => router.replace('/(tabs)/home')); }, [pathname]);
   const user = useAuthStore((s) => s.user);
   const sessionStatus = useAuthStore((s) => s.sessionStatus);
   const onboardingCompleted = useAuthStore((s) => s.onboardingCompleted);
@@ -82,7 +88,7 @@ function DataBootstrap() {
   }, [ensureBook, loadBooks, onboardingCompleted, sessionStatus, user]);
 
   useEffect(() => {
-    if (sessionStatus !== "authenticated" || !user || !selectedBookId) return;
+    if (USE_MOCK_API || sessionStatus !== "authenticated" || !user || !selectedBookId) return;
     loadCategories(selectedBookId).catch(() => {});
     loadBudgets(selectedBookId, currentMonthKey()).catch(() => {});
   }, [loadBudgets, loadCategories, selectedBookId, sessionStatus, user]);
@@ -196,6 +202,7 @@ export default function RootLayout() {
               </Stack.Protected>
             </Stack>
 
+            <BookSheets />
             <UndoToast />
             <ExportToast />
             <UpdateToast />

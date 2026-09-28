@@ -1,3 +1,4 @@
+import { withBookScope } from "@/features/books/ui/BookScope";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useWindowDimensions, View } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
@@ -28,7 +29,7 @@ import { applyAmountKey, formatForTicker } from "@/shared/ui/components/AmountIn
  * Everything secondary (title, category, date, note) lives on step 2 so this
  * screen is a single decision - type the number, pick a direction, continue.
  */
-export default function AddTransactionAmount() {
+function AddTransactionAmount() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
@@ -214,3 +215,5 @@ export default function AddTransactionAmount() {
     </View>
   );
 }
+
+export default withBookScope(AddTransactionAmount);

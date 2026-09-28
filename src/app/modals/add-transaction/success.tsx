@@ -1,3 +1,4 @@
+import { withBookScope } from "@/features/books/ui/BookScope";
 import { useEffect, useMemo, useRef } from "react";
 import { View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -37,7 +38,7 @@ function whenLabel(iso?: string) {
  * then replaces to here. This screen only reports and clears the draft, so it
  * has no failure state of its own.
  */
-export default function AddTransactionSuccess() {
+function AddTransactionSuccess() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const paddingX = useScreenPaddingX();
@@ -156,3 +157,5 @@ export default function AddTransactionSuccess() {
     </View>
   );
 }
+
+export default withBookScope(AddTransactionSuccess);

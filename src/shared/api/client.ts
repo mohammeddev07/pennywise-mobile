@@ -1,3 +1,4 @@
+import { beginBookOperation, endBookOperation } from '@/features/books/operations';
 import axios from "axios";
 import { router } from "expo-router";
 import * as SecureStore from "expo-secure-store";
@@ -6,6 +7,7 @@ import { AppState, type AppStateStatus } from "react-native";
 declare module "axios" {
   export interface AxiosRequestConfig {
     _retriedForColdStart?: boolean;
+    _bookOperation?: number;
     _coldStartCandidate?: boolean;
   }
 }
@@ -61,6 +63,8 @@ async function handleUnauthorized() {
 }
 
 apiClient.interceptors.request.use(async (config) => {
+  const bookWrite = /\/v1\/books(?:\/|$)/.test(config.url ?? '') && !['get', 'head'].includes(config.method ?? 'get') && !/\/(search|analyze)$/.test(config.url ?? '');
+  if (bookWrite && config._bookOperation === undefined) config._bookOperation = beginBookOperation();
   const token = await SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -83,7 +87,7 @@ export function isAuthError(err: unknown) {
 }
 
 apiClient.interceptors.response.use(
-  (res) => res,
+  (res) => { endBookOperation(res.config._bookOperation); return res; },
   async (err) => {
     if (err.response?.status === 401 && !isAuthRequest(err.config?.url)) {
       await handleUnauthorized().catch(() => {
@@ -100,6 +104,7 @@ apiClient.interceptors.response.use(
       return apiClient(config);
     }
 
+    endBookOperation(config?._bookOperation);
     return Promise.reject(err);
   }
 );

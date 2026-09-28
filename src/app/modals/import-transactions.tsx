@@ -1,3 +1,5 @@
+import { captureBookScope } from '@/features/books/coordinator';
+import { withBookScope } from "@/features/books/ui/BookScope";
 import { useState } from "react";
 import { View } from "react-native";
 import { Icon } from "@/shared/ui/components/Icon";
@@ -22,7 +24,7 @@ import { invalidateTransactionData } from "@/features/transactions/queries";
 
 const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
-export default function ImportTransactionsModal() {
+function ImportTransactionsModal() {
   const router = useRouter();
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
   const showError = useUndoToastStore((s) => s.showError);
@@ -51,6 +53,7 @@ export default function ImportTransactionsModal() {
 
   const runImport = async () => {
     if (!file) return;
+    const isCurrent = captureBookScope();
     setIsImporting(true);
     try {
       const response = await importTransactions(selectedBookId, {
@@ -58,12 +61,13 @@ export default function ImportTransactionsModal() {
         name: file.name,
         mimeType: file.mimeType ?? XLSX_MIME,
       });
-      setImportResult(response);
+      if (!isCurrent()) return;
+      setImportResult(response, selectedBookId);
       // Imported rows change every list, total, balance and budget for the book.
       if (response.importedCount > 0) await invalidateTransactionData(queryClient, selectedBookId);
-      router.replace("/modals/import-results");
+      if (isCurrent()) router.replace("/modals/import-results");
     } catch (error) {
-      showError(error, "Couldn't import transactions.");
+      if (isCurrent()) showError(error, "Couldn't import transactions.");
     } finally {
       setIsImporting(false);
     }
@@ -124,3 +128,5 @@ export default function ImportTransactionsModal() {
     </View>
   );
 }
+
+export default withBookScope(ImportTransactionsModal);
