@@ -116,3 +116,17 @@ it("shows deletion failure inside the open modal and preserves the book", async 
   fireEvent.press(screen.getAllByLabelText("Close")[1]);
   expect(useBookUIStore.getState().error).toBeNull();
 });
+it("lets the current book be managed and drops the move buttons", () => {
+  render(<BookSheets />);
+  fireEvent.press(screen.getByLabelText("Manage Personal"));
+  expect(screen.getByText("Delete book")).toBeTruthy();
+  expect(screen.queryByText("Move up")).toBeNull();
+  expect(screen.queryByText("Move down")).toBeNull();
+});
+it("closes the editor with X while a slow write is still running", () => {
+  render(<BookSheets />);
+  fireEvent.press(screen.getByText("Add new book"));
+  act(() => useBooksStore.setState({ isManaging: true }));
+  fireEvent.press(screen.getAllByLabelText("Close")[1]);
+  expect(useBookUIStore.getState().sheet).toBeNull();
+});

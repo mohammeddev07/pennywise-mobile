@@ -1,7 +1,7 @@
+import { useResolvedAppearance } from "@/shared/ui/theme/appearance";
 import { MoneyAmount } from "@/shared/ui/components/MoneyAmount";
 import { useBookOperations } from "../operations";
 import { confirmDeleteBook } from "../deleteBook";
-import { moveBook } from "../reorder";
 import { BookEditor } from "./BookEditor";
 import { useRouter } from "expo-router";
 import { View } from "react-native";
@@ -23,6 +23,7 @@ import { selectBook } from "../coordinator";
 import { useBookUIStore } from "./store";
 import { BookTile } from "./BookTile";
 export function BookSheets() {
+  useResolvedAppearance();
   const router = useRouter();
   const { sheet, bookId, close, open, error, setError } = useBookUIStore();
   const { books, selectedBookId, isManaging: managingBooks } = useBooksStore();
@@ -59,10 +60,6 @@ export function BookSheets() {
   if (sheet === "edit" && editing)
     return <BookEditor key={editing.id} book={editing} />;
   if (sheet === "menu" && editing) {
-    const index = books.findIndex((b) => b.id === bookId);
-    const move = (to: number) => {
-      void moveBook(editing.id, to).then(close).catch(reportError);
-    };
     return (
       <BottomSheetModal
         visible
@@ -78,22 +75,10 @@ export function BookSheets() {
             onPress={() => open("edit", editing.id)}
           />
           <Button
-            label="Move up"
-            variant="secondary"
-            disabled={isManaging || index === 0}
-            onPress={() => move(index - 1)}
-          />
-          <Button
             label="Delete book"
             variant="danger"
             disabled={isManaging}
             onPress={() => confirmDeleteBook(editing.id)}
-          />
-          <Button
-            label="Move down"
-            variant="secondary"
-            disabled={isManaging || index === books.length - 1}
-            onPress={() => move(index + 1)}
           />
         </View>
       </BottomSheetModal>
@@ -155,14 +140,14 @@ export function BookSheets() {
             </HapticPressable>
             {book.id === selectedBookId ? (
               <Icon name="checkmark" color={tokens.colors.accent} size={22} />
-            ) : (
-              <IconButton
-                icon="ellipsis-vertical"
-                accessibilityLabel={`Manage ${book.name}`}
-                disabled={isManaging}
-                onPress={() => open("menu", book.id)}
-              />
-            )}
+            ) : null}
+            {/* The current book needs rename/delete too - it used to show only a checkmark. */}
+            <IconButton
+              icon="ellipsis-vertical"
+              accessibilityLabel={`Manage ${book.name}`}
+              disabled={isManaging}
+              onPress={() => open("menu", book.id)}
+            />
           </View>
         ))}
       </View>
