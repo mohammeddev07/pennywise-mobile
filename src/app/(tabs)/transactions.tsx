@@ -19,6 +19,7 @@ import {
   dateRangeLabel,
   hasAdvancedNodes,
   isDatePrimarySort,
+  DEFAULT_SORT,
   type DatePreset,
   type FilterRoot,
   type SortState,
@@ -30,7 +31,7 @@ import { setActivityScroll } from "@/features/transactions/activityScroll";
 import { CustomRangeSheet } from "@/features/transactions/ui/CustomRangeSheet";
 import { AdvancedFilterSheet } from "@/features/transactions/ui/AdvancedFilterSheet";
 import { DescribeFilterSheet } from "@/features/transactions/ui/DescribeFilterSheet";
-import { SortSheet, describeSort } from "@/features/transactions/ui/SortSheet";
+import { SortSheet, describeSort, directionLabels, reverseSort } from "@/features/transactions/ui/SortSheet";
 import {
   AmountFilterSheet,
   CategoryFilterSheet,
@@ -139,6 +140,8 @@ function TransactionsScreen() {
   const [aiProposalSort, setAiProposalSort] = useState<SortState>([]);
   const [aiProposalLimitation, setAiProposalLimitation] = useState<string | null>(null);
   const [sortOpen, setSortOpen] = useState(false);
+  const primarySort = filters.sort[0] ?? DEFAULT_SORT[0];
+  const orderLabel = directionLabels(primarySort.field)[primarySort.direction];
   const [searchOpen, setSearchOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
@@ -409,9 +412,23 @@ function TransactionsScreen() {
           </AppText>
         ) : null}
         {results.totalCount > 0 ? (
-          <AppText variant="caption" tone="subtle" style={{ marginTop: tokens.space[2] }}>
-            Showing {results.rows.length} of {results.totalCount}
-          </AppText>
+          <View style={{ marginTop: tokens.space[2], flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+            <AppText variant="caption" tone="subtle">
+              Showing {results.rows.length} of {results.totalCount}
+            </AppText>
+            <HapticPressable
+              accessibilityRole="button"
+              accessibilityLabel={`Order: ${orderLabel}. Tap to reverse.`}
+              onPress={() => filters.setSort(reverseSort(filters.sort))}
+              hitSlop={12}
+              style={{ minHeight: 24, flexDirection: "row", alignItems: "center", gap: tokens.space[1] }}
+            >
+              <Icon name={primarySort.direction === "DESC" ? "arrow-down" : "arrow-up"} size={14} color={tokens.colors.accent} />
+              <AppText variant="caption" weight="semibold" style={{ color: tokens.colors.accent }}>
+                {orderLabel}
+              </AppText>
+            </HapticPressable>
+          </View>
         ) : null}
       </View>
     </View>
