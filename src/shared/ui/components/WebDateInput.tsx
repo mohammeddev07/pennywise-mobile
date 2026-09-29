@@ -1,3 +1,4 @@
+import { getResolvedAppearance } from "@/shared/ui/theme/appearance";
 import React from "react";
 import { format } from "date-fns";
 
@@ -56,7 +57,7 @@ export function WebDateInput({
       padding: "0 16px",
       fontSize: 15,
       fontFamily: "inherit",
-      colorScheme: "dark",
+      colorScheme: getResolvedAppearance(),
       boxSizing: "border-box",
     },
   });

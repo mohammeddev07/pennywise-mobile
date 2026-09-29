@@ -26,6 +26,7 @@ export function TypeToggle({
 }) {
   return (
     <SegmentedControl<TransactionKind>
+      motion="calm"
       value={value}
       onChange={onChange}
       disabled={disabled}

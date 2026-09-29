@@ -1,3 +1,4 @@
+import { useResolvedAppearance } from "@/shared/ui/theme/appearance";
 import { useCallback } from "react";
 import { BackHandler, View } from "react-native";
 import { router, useFocusEffect } from "expo-router";
@@ -11,6 +12,7 @@ import { Icon } from "@/shared/ui/components/Icon";
 import { Container } from "@/shared/ui/components/Screen";
 
 export default function WelcomeScreen() {
+  useResolvedAppearance();
   useFocusEffect(
     useCallback(() => {
       const sub = BackHandler.addEventListener("hardwareBackPress", () => {

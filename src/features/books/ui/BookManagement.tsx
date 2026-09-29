@@ -1,6 +1,6 @@
 import { MoneyAmount } from "@/shared/ui/components/MoneyAmount";
 import { useBookOperations } from "../operations";
-import { useRef } from "react";
+import { useEffect } from "react";
 import { AccessibilityInfo, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
@@ -8,7 +8,9 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withTiming,
+  type SharedValue,
 } from "react-native-reanimated";
+import * as Haptics from "expo-haptics";
 import type { Book } from "@/shared/types/models";
 import { Card } from "@/shared/ui/components/Card";
 import { AppText } from "@/shared/ui/components/AppText";
@@ -27,47 +29,67 @@ import { selectBook } from "../coordinator";
 import { moveBook } from "../reorder";
 import { useBookUIStore } from "./store";
 import { BookTile } from "./BookTile";
+type DragState = {
+  from: SharedValue<number>;
+  to: SharedValue<number>;
+  y: SharedValue<number>;
+  rowHeight: SharedValue<number>;
+};
 function BookRow({
   book,
   index,
   total,
   selected,
   disabled,
+  drag,
   drop,
   onDrag,
-  measure,
 }: {
   book: Book;
   index: number;
   total: number;
   selected: boolean;
   disabled: boolean;
-  drop: (id: string, dy: number) => void;
+  drag: DragState;
+  drop: (id: string, to: number) => void;
   onDrag: (dragging: boolean) => void;
-  measure: (y: number, height: number) => void;
 }) {
-  const y = useSharedValue(0);
-  const dragging = useSharedValue(false);
-  const style = useAnimatedStyle(() => ({
-    transform: [{ translateY: y.value }],
-    zIndex: dragging.value ? 10 : 0,
-  }));
+  const { from, to, y, rowHeight } = drag;
+  // The held row follows the finger; rows between its origin and the hovered
+  // slot slide one row over, so the list previews the drop before release.
+  const style = useAnimatedStyle(() => {
+    if (from.value === -1) return { transform: [{ translateY: 0 }], zIndex: 0 };
+    if (from.value === index) return { transform: [{ translateY: y.value }], zIndex: 10 };
+    const shift =
+      from.value < to.value && index > from.value && index <= to.value
+        ? -rowHeight.value
+        : from.value > to.value && index < from.value && index >= to.value
+          ? rowHeight.value
+          : 0;
+    return { transform: [{ translateY: withTiming(shift, { duration: 140 }) }], zIndex: 0 };
+  }, [index]);
+  const tick = () => void Haptics.selectionAsync().catch(() => {});
   const pan = Gesture.Pan()
     .enabled(!disabled)
     .activateAfterLongPress(180)
     .onStart(() => {
-      dragging.value = true;
+      from.value = index;
+      to.value = index;
+      y.value = 0;
       runOnJS(onDrag)(true);
     })
     .onUpdate((e) => {
       y.value = e.translationY;
+      const next = Math.min(total - 1, Math.max(0, Math.round(index + e.translationY / rowHeight.value)));
+      if (next !== to.value) {
+        to.value = next;
+        runOnJS(tick)();
+      }
     })
-    .onEnd((e) => {
-      runOnJS(drop)(book.id, e.translationY);
+    .onEnd(() => {
+      runOnJS(drop)(book.id, to.value);
     })
     .onFinalize(() => {
-      y.value = withTiming(0, { duration: 120 });
-      dragging.value = false;
       runOnJS(onDrag)(false);
     });
   const open = () => useBookUIStore.getState().open("menu", book.id);
@@ -82,9 +104,9 @@ function BookRow({
   };
   return (
     <Animated.View
-      onLayout={(e) =>
-        measure(e.nativeEvent.layout.y, e.nativeEvent.layout.height)
-      }
+      onLayout={(e) => {
+        rowHeight.value = e.nativeEvent.layout.height;
+      }}
       style={[
         {
           flexDirection: "row",
@@ -196,27 +218,33 @@ export function BookManagement({
   } = useBooksStore();
   const activeOperations = useBookOperations((s) => s.active);
   const isManaging = managingBooks || activeOperations > 0;
-  const positions = useRef<Record<string, { y: number; height: number }>>({});
-  const drop = (id: string, dy: number) => {
-    const start = positions.current[id];
-    if (!start) return;
-    const target = start.y + start.height / 2 + dy;
-    let destination = 0,
-      distance = Infinity;
-    books.forEach((b, i) => {
-      const p = positions.current[b.id];
-      if (p && Math.abs(p.y + p.height / 2 - target) < distance) {
-        distance = Math.abs(p.y + p.height / 2 - target);
-        destination = i;
-      }
-    });
+  const drag: DragState = {
+    from: useSharedValue(-1),
+    to: useSharedValue(-1),
+    y: useSharedValue(0),
+    rowHeight: useSharedValue(76),
+  };
+  const settle = () => {
+    drag.from.value = -1;
+    drag.to.value = -1;
+    drag.y.value = 0;
+  };
+  // Hold the previewed layout until the reordered list renders, so rows don't
+  // flash back to their old slots for a frame. The reorder is optimistic.
+  const order = books.map((b) => b.id).join();
+  useEffect(settle, [order]); // eslint-disable-line react-hooks/exhaustive-deps
+  const drop = (id: string, destination: number) => {
+    if (books.findIndex((b) => b.id === id) === destination) return settle();
     void moveBook(id, destination)
       .then(() =>
         AccessibilityInfo.announceForAccessibility(
           `Book moved to position ${destination + 1}`,
         ),
       )
-      .catch((error) => useUndoToastStore.getState().showError(error));
+      .catch((error) => {
+        settle();
+        useUndoToastStore.getState().showError(error);
+      });
   };
   const selected = books.find((b) => b.id === selectedBookId);
   return (
@@ -245,11 +273,9 @@ export function BookManagement({
                   total={books.length}
                   selected={book.id === selectedBookId}
                   disabled={isManaging}
+                  drag={drag}
                   drop={drop}
                   onDrag={onDrag}
-                  measure={(y, height) => {
-                    positions.current[book.id] = { y, height };
-                  }}
                 />
               ))}
             </View>

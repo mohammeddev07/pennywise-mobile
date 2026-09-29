@@ -4,7 +4,7 @@ import { purgeBookData } from "./coordinator";
 import { useBookUIStore } from "./ui/store";
 import { confirmDestructive, alertCompat } from "@/shared/ui/utils/confirm";
 import { useUndoToastStore } from "@/shared/ui/state/useUndoToastStore";
-import { getApiErrorCode } from "@/shared/api/errors";
+import { getApiErrorCode, getApiErrorMessage } from "@/shared/api/errors";
 import {
   getAccountEpoch,
   isCurrentAccountEpoch,
@@ -54,12 +54,14 @@ export function confirmDeleteBook(id: string) {
             await purgeBookData(id);
             useBookUIStore.getState().close();
           }
-          useUndoToastStore
-            .getState()
-            .showError(
-              error,
-              error instanceof Error ? error.message : "Could not delete book.",
-            );
+          const fallback =
+            error instanceof Error ? error.message : "Could not delete book.";
+          const ui = useBookUIStore.getState();
+          if (ui.sheet === "menu" && ui.bookId === id) {
+            ui.setError(getApiErrorMessage(error, fallback));
+          } else {
+            useUndoToastStore.getState().showError(error, fallback);
+          }
         }
       })();
     },

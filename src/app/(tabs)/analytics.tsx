@@ -1,3 +1,4 @@
+import { CategoryDonut } from "@/shared/ui/components/CategoryDonut";
 import { withBookScope } from "@/features/books/ui/BookScope";
 import { BookSwitcherPill } from "@/features/books/ui/BookSwitcherPill";
 import { useEffect, useMemo, useState } from "react";
@@ -117,8 +118,10 @@ function AnalyticsScreen() {
     [filters.ready, filters.revision, filters.root, span, filters.today]
   );
   const analysisQuery = useAnalysis(query, bucket);
-  // Never present the previous filter's or window's numbers as the current answer.
-  const analysis = analysisQuery.isPlaceholderData ? null : (analysisQuery.data ?? null);
+  // While a new window or filter loads, the previous figures stay on screen dimmed and
+  // labelled "Updating" (see `updating`) instead of collapsing to skeletons - that swap
+  // made every Months/Years toggle flash. They are never shown as an answer after an error.
+  const analysis = analysisQuery.isPlaceholderData && analysisQuery.isError ? null : (analysisQuery.data ?? null);
   const updating = analysisQuery.isPlaceholderData || (analysisQuery.isFetching && !analysisQuery.isPending);
 
   const currency = analysis?.currencyCode ?? bookCurrency;
@@ -215,6 +218,7 @@ function AnalyticsScreen() {
         <View style={{ marginTop: tokens.space[4], flexDirection: "row", gap: tokens.space[3] }}>
           <View style={{ flex: 1 }}>
             <SegmentedControl
+              motion="calm"
               items={[
                 { label: "Months", value: "MONTH" },
                 { label: "Years", value: "YEAR" },
@@ -225,6 +229,7 @@ function AnalyticsScreen() {
           </View>
           <View style={{ flex: 1 }}>
             <SegmentedControl
+              motion="calm"
               items={[
                 { label: "Spending", value: "EXPENSE", color: tokens.colors.danger },
                 { label: "Income", value: "INCOME", color: tokens.colors.income },
@@ -438,6 +443,7 @@ function AnalyticsScreen() {
                   </AppText>
                 }
               />
+              <CategoryDonut label={type === "EXPENSE" ? "Spending" : "Income"} entries={rows.map(row => ({ id: row.categoryId, name: row.categoryName, amount: row.totalMinor, color: categoryMeta.get(row.categoryId)?.color ?? tokens.colors.accent }))} />
               {rows.length > 0 ? (
                 <AppText variant="caption" tone="subtle">
                   Tap a category to plot it above, then open its transactions.
@@ -460,8 +466,8 @@ function AnalyticsScreen() {
                         color={meta?.color ?? tokens.colors.accent}
                         amount={money(row.totalMinor)}
                         count={row.count}
-                        share={row.percentOfExpense === null ? null : row.percentOfExpense / 100}
-                        shareLabel="of filtered spending"
+                        share={total > 0 ? row.totalMinor / total : null}
+                        shareLabel={type === "EXPENSE" ? "of filtered spending" : "of filtered income"}
                         selected={selected}
                         onPress={() => setCategoryId(selected ? null : row.categoryId)}
                         footer={

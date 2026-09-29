@@ -15,6 +15,7 @@ import { Icon } from "@/shared/ui/components/Icon";
 import { tokens } from "@/shared/ui/theme/tokens";
 import { confirmDestructive } from "@/shared/ui/utils/confirm";
 import { getApiErrorMessage } from "@/shared/api/errors";
+import { useUndoToastStore } from "@/shared/ui/state/useUndoToastStore";
 import {
   BOOK_CURRENCIES,
   BOOK_NAME_MAX,
@@ -71,8 +72,10 @@ export function BookEditor({ book }: { book?: Book }) {
         icon !== "book" ||
         color !== "green",
       );
+  // Never a dead X: a cold-starting backend can hold a write (isManaging) for a
+  // minute. The write keeps going after close; its failure falls back to a toast.
   const closeEditor = () => {
-    if (isManaging) return;
+    if (isManaging) return close();
     if (dirty)
       confirmDestructive(
         book ? "Discard book changes?" : "Discard new book?",
@@ -84,6 +87,11 @@ export function BookEditor({ book }: { book?: Book }) {
   };
   const nameValid = Boolean(name.trim()) && name.trim().length <= BOOK_NAME_MAX;
   const minor = parseOpeningBalance(opening, currency);
+  const sheetKind = book ? "edit" : "create";
+  const stillOpen = () => {
+    const ui = useBookUIStore.getState();
+    return ui.sheet === sheetKind && ui.bookId === (book?.id ?? null);
+  };
   const save = async () => {
     if (!nameValid || minor === null || isManaging || (book && !dirty)) return;
     const epoch = getAccountEpoch();
@@ -99,15 +107,15 @@ export function BookEditor({ book }: { book?: Book }) {
           icon,
           color,
         });
-      if (isCurrentAccountEpoch(epoch)) close();
+      if (isCurrentAccountEpoch(epoch) && stillOpen()) close();
     } catch (error) {
-      if (isCurrentAccountEpoch(epoch))
-        setError(
-          getApiErrorMessage(
-            error,
-            book ? "Could not save book." : "Could not create book.",
-          ),
-        );
+      if (!isCurrentAccountEpoch(epoch)) return;
+      const message = getApiErrorMessage(
+        error,
+        book ? "Could not save book." : "Could not create book.",
+      );
+      if (stillOpen()) setError(message);
+      else useUndoToastStore.getState().showError(error, message);
     }
   };
   return (

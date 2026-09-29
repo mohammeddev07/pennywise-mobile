@@ -1,3 +1,4 @@
+import { useResolvedAppearance } from "@/shared/ui/theme/appearance";
 import { useState } from "react";
 import { KeyboardAvoidingView, Platform, View } from "react-native";
 import { router } from "expo-router";
@@ -18,6 +19,7 @@ function isEmail(value: string) {
 }
 
 export default function SignupScreen() {
+  useResolvedAppearance();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitted, setSubmitted] = useState(false);

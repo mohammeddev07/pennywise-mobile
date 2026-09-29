@@ -1,7 +1,7 @@
+import { useResolvedAppearance } from "@/shared/ui/theme/appearance";
 import { MoneyAmount } from "@/shared/ui/components/MoneyAmount";
 import { useBookOperations } from "../operations";
 import { confirmDeleteBook } from "../deleteBook";
-import { moveBook } from "../reorder";
 import { BookEditor } from "./BookEditor";
 import { useRouter } from "expo-router";
 import { View } from "react-native";
@@ -16,29 +16,50 @@ import { Button } from "@/shared/ui/components/Button";
 import { Icon } from "@/shared/ui/components/Icon";
 import { tokens } from "@/shared/ui/theme/tokens";
 import { formatCurrency } from "@/shared/utils/formatCurrency";
-import { useUndoToastStore } from "@/shared/ui/state/useUndoToastStore";
+import { getApiErrorMessage } from "@/shared/api/errors";
 import { useBooksStore } from "../store";
 import { BOOK_LIMIT } from "../constants";
 import { selectBook } from "../coordinator";
 import { useBookUIStore } from "./store";
 import { BookTile } from "./BookTile";
 export function BookSheets() {
+  useResolvedAppearance();
   const router = useRouter();
-  const { sheet, bookId, close, open } = useBookUIStore();
+  const { sheet, bookId, close, open, error, setError } = useBookUIStore();
   const { books, selectedBookId, isManaging: managingBooks } = useBooksStore();
   const activeOperations = useBookOperations((s) => s.active);
   const isManaging = managingBooks || activeOperations > 0;
+  const reportError = (failure: unknown) =>
+    setError(
+      getApiErrorMessage(
+        failure,
+        failure instanceof Error
+          ? failure.message
+          : "Could not complete this book action.",
+      ),
+    );
+  const feedback = (
+    <>
+      {isManaging && (
+        <AppText accessibilityLiveRegion="polite" tone="muted">
+          Wait for the current operation to finish.
+        </AppText>
+      )}
+      {error && (
+        <AppText
+          accessibilityRole="alert"
+          style={{ color: tokens.colors.danger }}
+        >
+          {error}
+        </AppText>
+      )}
+    </>
+  );
   if (sheet === "create") return <BookEditor />;
   const editing = books.find((b) => b.id === bookId);
   if (sheet === "edit" && editing)
     return <BookEditor key={editing.id} book={editing} />;
   if (sheet === "menu" && editing) {
-    const index = books.findIndex((b) => b.id === bookId);
-    const move = (to: number) => {
-      void moveBook(editing.id, to)
-        .then(close)
-        .catch((error) => useUndoToastStore.getState().showError(error));
-    };
     return (
       <BottomSheetModal
         visible
@@ -47,28 +68,17 @@ export function BookSheets() {
         rightAction={<SheetCloseButton onPress={close} />}
       >
         <View style={{ gap: 12 }}>
+          {feedback}
           <Button
             label="Rename or change icon/color"
             disabled={isManaging}
             onPress={() => open("edit", editing.id)}
           />
           <Button
-            label="Move up"
-            variant="secondary"
-            disabled={isManaging || index === 0}
-            onPress={() => move(index - 1)}
-          />
-          <Button
             label="Delete book"
             variant="danger"
             disabled={isManaging}
             onPress={() => confirmDeleteBook(editing.id)}
-          />
-          <Button
-            label="Move down"
-            variant="secondary"
-            disabled={isManaging || index === books.length - 1}
-            onPress={() => move(index + 1)}
           />
         </View>
       </BottomSheetModal>
@@ -102,9 +112,7 @@ export function BookSheets() {
               accessibilityState={{ selected: book.id === selectedBookId }}
               accessibilityLabel={`Switch to ${book.name}`}
               onPress={() => {
-                void selectBook(book.id).catch((error) =>
-                  useUndoToastStore.getState().showError(error),
-                );
+                void selectBook(book.id).catch(reportError);
               }}
               style={{
                 minHeight: 76,
@@ -132,18 +140,19 @@ export function BookSheets() {
             </HapticPressable>
             {book.id === selectedBookId ? (
               <Icon name="checkmark" color={tokens.colors.accent} size={22} />
-            ) : (
-              <IconButton
-                icon="ellipsis-vertical"
-                accessibilityLabel={`Manage ${book.name}`}
-                disabled={isManaging}
-                onPress={() => open("menu", book.id)}
-              />
-            )}
+            ) : null}
+            {/* The current book needs rename/delete too - it used to show only a checkmark. */}
+            <IconButton
+              icon="ellipsis-vertical"
+              accessibilityLabel={`Manage ${book.name}`}
+              disabled={isManaging}
+              onPress={() => open("menu", book.id)}
+            />
           </View>
         ))}
       </View>
       <View style={{ marginTop: 24, gap: 12 }}>
+        {feedback}
         <Button
           label="Add new book"
           variant="outline"

@@ -9,7 +9,7 @@ import { IconButton } from "@/shared/ui/components/IconButton";
 import { SegmentedControl } from "@/shared/ui/components/SegmentedControl";
 import { BottomSheetModal, SheetCloseButton } from "@/shared/ui/components/BottomSheetModal";
 import { QUERY_LIMITS, type QueryField, type SortKey } from "@/shared/types/transactionQuery";
-import { FIELDS, SORT_FIELD_LABELS, fieldMeta, sanitizeSort } from "../filterModel";
+import { DEFAULT_SORT, FIELDS, SORT_FIELD_LABELS, fieldMeta, sanitizeSort } from "../filterModel";
 import { useFilterStore, type ScopeKey } from "../filterStore";
 
 export function directionLabels(field: QueryField): { ASC: string; DESC: string } {
@@ -17,6 +17,11 @@ export function directionLabels(field: QueryField): { ASC: string; DESC: string 
   if (kind === "DATE" || kind === "TIMESTAMP") return { ASC: "Oldest first", DESC: "Newest first" };
   if (kind === "NUMBER") return { ASC: "Lowest first", DESC: "Highest first" };
   return { ASC: "A to Z", DESC: "Z to A" };
+}
+
+/** The whole order reversed - every key flips, so ties reverse too. Empty means the server default. */
+export function reverseSort(sort: SortKey[]): SortKey[] {
+  return (sort.length ? sort : DEFAULT_SORT).map((s) => ({ ...s, direction: s.direction === "ASC" ? "DESC" : "ASC" }));
 }
 
 /** "Date (newest first), then Amount (highest first)" - the server's order, in words. */

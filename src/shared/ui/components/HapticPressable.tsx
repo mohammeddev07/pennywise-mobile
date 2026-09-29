@@ -151,7 +151,7 @@ export function HapticPressable({
         doHaptic();
         onPress?.(e);
       }}
-      style={[style as any, ring ? FOCUS_RING : null, animated]}
+      style={[style as any, ring ? { ...FOCUS_RING, outlineColor: tokens.colors.accent } : null, animated]}
     >
       {children}
     </APressable>

@@ -1,3 +1,4 @@
+import { useResolvedAppearance } from "@/shared/ui/theme/appearance";
 import { useEffect } from "react";
 import { Platform, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -58,7 +59,7 @@ const VISIBLE_TABS = ["home", "transactions", "analytics", "settings"];
  * mock draws. Tertiary on this surface lands near 3:1, and these labels are
  * 11px - readability wins over the extra half-step of recession.
  */
-const INACTIVE = tokens.colors.muted;
+
 
 function AddButton({ onPress }: { onPress: () => void }) {
   const scale = useSharedValue(1);
@@ -135,7 +136,7 @@ function NavItem({
 }) {
   const pop = useSharedValue(1);
   const icon = ICONS[name] ?? { active: "ellipse" as IconName, inactive: "ellipse-outline" as IconName };
-  const color = isFocused ? tokens.colors.accent : INACTIVE;
+  const color = isFocused ? tokens.colors.accent : tokens.colors.muted;
 
   useEffect(() => {
     if (!isFocused) return;
@@ -204,6 +205,7 @@ type NavBarProps = {
 };
 
 export function BottomNavigation({ state, navigation }: NavBarProps) {
+  const appearance = useResolvedAppearance();
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
@@ -245,7 +247,7 @@ export function BottomNavigation({ state, navigation }: NavBarProps) {
       >
         <BlurView
           intensity={Platform.OS === "android" ? 0 : 18}
-          tint="dark"
+          tint={appearance}
           style={{
             flex: 1,
             // The blur alone is too transparent to keep 11px labels legible

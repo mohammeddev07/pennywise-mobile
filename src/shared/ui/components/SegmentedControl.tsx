@@ -5,6 +5,9 @@ import Animated, {
   useAnimatedStyle,
   useDerivedValue,
   withSpring,
+  withTiming,
+  Easing,
+  useReducedMotion,
 } from "react-native-reanimated";
 
 import { AppText } from "@/shared/ui/components/AppText";
@@ -39,11 +42,13 @@ export function SegmentedControl<T extends string>({
   onChange,
   disabled,
   haptic = "selection",
+  motion = "spring",
 }: {
   items: SegmentItem<T>[];
   value: T;
   onChange: (value: T) => void;
   disabled?: boolean;
+  motion?: "spring" | "calm";
   /** Mode switches (expense/income) commit a decision and use `impactMedium`. */
   haptic?: "selection" | "impactMedium" | "none";
 }) {
@@ -55,7 +60,10 @@ export function SegmentedControl<T extends string>({
   );
   const segmentWidth = width > 0 ? (width - PAD * 2) / items.length : 0;
 
-  const progress = useDerivedValue(() => withSpring(index, tokens.spring.thumb), [index]);
+  const reducedMotion = useReducedMotion();
+  const progress = useDerivedValue(() => reducedMotion ? index : motion === "calm"
+    ? withTiming(index, { duration: 160, easing: Easing.out(Easing.cubic) })
+    : withSpring(index, tokens.spring.thumb), [index, motion, reducedMotion]);
 
   // rgba, not 8-digit hex: interpolateColor needs the former.
   const colors = items.map((i) => withAlpha(i.color ?? tokens.colors.accent, 0.14));
@@ -126,7 +134,7 @@ export function SegmentedControl<T extends string>({
             onPress={() => onChange(item.value)}
             disabled={disabled}
             haptic={haptic}
-            pressScale={0.98}
+            pressScale={motion === "calm" ? 1 : 0.98}
             pressOpacity={1}
             accessibilityRole="button"
             accessibilityState={{ selected: active }}

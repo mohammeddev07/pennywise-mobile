@@ -1,3 +1,4 @@
+import { getResolvedAppearance } from "@/shared/ui/theme/appearance";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Platform, View } from "react-native";
 import DateTimePicker, { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
@@ -72,13 +73,14 @@ type Ctx = {
   root: FilterRoot;
 };
 
+// Getters, so each spread reads the current light/dark palette.
 const card = {
   borderRadius: tokens.radii.md,
   borderWidth: 1,
-  borderColor: tokens.colors.stroke,
-  backgroundColor: tokens.colors.surface,
+  get borderColor() { return tokens.colors.stroke; },
+  get backgroundColor() { return tokens.colors.surface; },
   padding: tokens.space[3],
-} as const;
+};
 
 // ------------------------------------------------------------------ date value
 
@@ -128,7 +130,7 @@ function DateValue({ node, index, ctx }: { node: FilterConditionNode; index: num
           value={date}
           mode="date"
           display="spinner"
-          themeVariant="dark"
+          themeVariant={getResolvedAppearance()}
           textColor={tokens.colors.text}
           onChange={(_e, selected) => {
             if (selected) set(localDateToYmd(selected));

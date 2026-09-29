@@ -1,3 +1,4 @@
+import { getResolvedAppearance } from "./appearance";
 import type { TextStyle } from "react-native";
 
 /**
@@ -49,7 +50,7 @@ const TABULAR: "tabular-nums"[] = ["tabular-nums"];
  * concatenating (`${color}22`); keeping every base color a plain 6-digit hex
  * keeps that pattern valid.
  */
-export const tokens = {
+export const darkTokens = {
   colors: {
     // Elevation ladder. Nothing in the app should invent a background between
     // these four steps. Depth is layer + hairline + (for the accent only)
@@ -408,6 +409,39 @@ export const tokens = {
     none: ["#00000000", "#00000000"],
   },
 } as const;
+
+type Palette = { [K in keyof typeof darkTokens.colors]: string };
+export const lightColors: Palette = {
+  ...darkTokens.colors,
+  app: '#F4F6F5', surface: '#FFFFFF', card: '#FFFFFF', surfaceAlt: '#E9EEEB', surfacePressed: '#DEE6E0',
+  text: '#17251D', muted: '#435349', subtle: '#5E6F64',
+  stroke: '#17251D26', divider: '#17251D18', edgeHighlight: '#FFFFFF',
+  accent: '#087A30', accentPressed: '#056225', onAccent: '#FFFFFF',
+  income: '#087A30', danger: '#B92E35', dangerPressed: '#962029', success: '#087A30', warning: '#8A5700',
+  greenSoft: '#087A3014', incomeSoft: '#087A3014', redSoft: '#B92E3514', amberSoft: '#8A570014',
+  neutralSoft: '#17251D0D', ripple: '#17251D14', rippleOnAccent: '#FFFFFF26',
+};
+const lightSemantic = {
+  ...darkTokens.semantic, bg: lightColors.app, surface: lightColors.surface, surfaceAlt: lightColors.surfaceAlt,
+  surfacePressed: lightColors.surfacePressed, text: lightColors.text, textMuted: lightColors.muted,
+  textSubtle: lightColors.subtle, border: lightColors.stroke, divider: lightColors.divider,
+  primary: lightColors.accent, primaryPressed: lightColors.accentPressed, primarySoft: lightColors.greenSoft,
+  danger: lightColors.danger, dangerSoft: lightColors.redSoft, warning: lightColors.warning,
+  warningSoft: lightColors.amberSoft, success: lightColors.success, neutralSoft: lightColors.neutralSoft,
+  income: lightColors.income, expense: lightColors.danger,
+};
+/** Runtime getters also keep non-React formatting helpers on the current palette.
+ * Screens subscribe with useResolvedAppearance; no navigation tree is remounted.
+ */
+export const tokens = {
+  ...darkTokens,
+  get colors(): Palette { return getResolvedAppearance() === 'light' ? lightColors : darkTokens.colors; },
+  get semantic() { return getResolvedAppearance() === 'light' ? lightSemantic : darkTokens.semantic; },
+  get glow() { return getResolvedAppearance() === 'light' ? {
+    accent: darkTokens.glow.none, accentSoft: darkTokens.glow.none, success: darkTokens.glow.none,
+    danger: darkTokens.glow.none, none: darkTokens.glow.none,
+  } : darkTokens.glow; },
+};
 
 /**
  * Keypad amount autoshrink. The display-L size holds up to 6 glyphs; past

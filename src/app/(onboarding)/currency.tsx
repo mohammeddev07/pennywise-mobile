@@ -1,3 +1,4 @@
+import { useResolvedAppearance } from "@/shared/ui/theme/appearance";
 import { useEffect, useState } from "react";
 import { ScrollView, View } from "react-native";
 import { useRouter } from "expo-router";
@@ -43,6 +44,7 @@ function parseStartingBalance(value: string, currency: CurrencyCode) {
 }
 
 export default function CurrencyScreen() {
+  useResolvedAppearance();
   const router = useRouter();
 
   const primaryCurrency = useSettingsStore((s) => s.primaryCurrency);
