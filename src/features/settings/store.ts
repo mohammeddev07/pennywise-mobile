@@ -4,8 +4,6 @@ import { createJSONStorage, persist } from "zustand/middleware";
 
 import type { CurrencyCode } from "@/shared/types/models";
 
-export const DISPLAY_NAME_MAX = 40;
-
 /**
  * Account-level currency fallback ONLY.
  *
@@ -19,9 +17,6 @@ export const DISPLAY_NAME_MAX = 40;
 type State = {
   appearance: "system" | "light" | "dark";
   setAppearance: (value: "system" | "light" | "dark") => void;
-  /** Greeting name. Device-local until the backend profile has a name field. */
-  displayName: string;
-  setDisplayName: (value: string) => void;
   /** Seeds the generated avatar; re-rolled by tapping it. */
   avatarSeed: number;
   shuffleAvatar: () => void;
@@ -34,8 +29,6 @@ export const useSettingsStore = create<State>()(
     (set) => ({
       appearance: "system",
       setAppearance: appearance => set({ appearance }),
-      displayName: "",
-      setDisplayName: (value) => set({ displayName: value.trim().slice(0, DISPLAY_NAME_MAX) }),
       avatarSeed: Math.floor(Math.random() * 1e9),
       shuffleAvatar: () => set({ avatarSeed: Math.floor(Math.random() * 1e9) }),
       primaryCurrency: "USD",
@@ -51,7 +44,6 @@ export const useSettingsStore = create<State>()(
         const allowed: CurrencyCode[] = ["USD", "EUR", "GBP", "JPY", "INR"];
         return {
           appearance: ["light", "dark"].includes(persisted?.appearance) ? persisted.appearance : "system",
-          displayName: typeof persisted?.displayName === "string" ? persisted.displayName.slice(0, DISPLAY_NAME_MAX) : "",
           avatarSeed: Number.isFinite(persisted?.avatarSeed) ? persisted.avatarSeed : Math.floor(Math.random() * 1e9),
           primaryCurrency: allowed.includes(c) ? c : "USD",
         } as State;

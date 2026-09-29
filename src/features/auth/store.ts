@@ -112,7 +112,7 @@ async function clearAccountState() {
   await clearQueryCache();
   useFilterStore.getState().clearAllScopes();
   await purgeLegacyTransactionCache();
-  useSettingsStore.setState({ primaryCurrency: "USD", displayName: "", avatarSeed: Math.floor(Math.random() * 1e9) });
+  useSettingsStore.setState({ primaryCurrency: "USD", avatarSeed: Math.floor(Math.random() * 1e9) });
 
   // These stores are not persisted, but may still contain data from the
   // previous account for the lifetime of the running app.

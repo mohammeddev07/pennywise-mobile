@@ -68,7 +68,7 @@ function ProfileScreen() {
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
-  const displayName = useSettingsStore((s) => s.displayName);
+  const displayName = user?.displayName;
   const avatarSeed = useSettingsStore((s) => s.avatarSeed);
   const shuffleAvatar = useSettingsStore((s) => s.shuffleAvatar);
   const showError = useUndoToastStore((s) => s.showError);

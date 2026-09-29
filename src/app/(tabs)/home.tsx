@@ -188,7 +188,7 @@ function Home() {
   const categories = useCategoriesStore((s) => s.categories);
   const budgets = useBudgetsStore((s) => s.budgets);
   const primaryCurrency = useSettingsStore((s) => s.primaryCurrency);
-  const savedName = useSettingsStore((s) => s.displayName);
+  const savedName = useAuthStore((s) => s.user?.displayName);
   const avatarSeed = useSettingsStore((s) => s.avatarSeed);
   const shuffleAvatar = useSettingsStore((s) => s.shuffleAvatar);
   const showError = useUndoToastStore((s) => s.showError);

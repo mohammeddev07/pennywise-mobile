@@ -362,7 +362,10 @@ async function handle(config: InternalAxiosRequestConfig): Promise<AxiosResponse
   }
 
   if ((m = route("/v1/me", "PATCH"))) {
-    state.user = { ...state.user, ...body };
+    const { displayName, ...rest } = body as { displayName?: string };
+    state.user = { ...state.user, ...rest };
+    // Mirrors the server: trimmed, and blank clears it.
+    if (displayName !== undefined) state.user = { ...state.user, displayName: displayName.trim() || null };
     return ok(config, state.user);
   }
 

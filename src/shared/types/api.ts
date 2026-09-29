@@ -21,12 +21,16 @@ export type ApiErrorResponse = {
 export type MeResponse = {
   id: string;
   email: string | null;
+  /** Absent on backends older than the display-name migration. */
+  displayName?: string | null;
   defaultCurrencyCode: string | null;
   createdAt: string;
 };
 
 export type MeUpdateRequest = {
   defaultCurrencyCode?: string;
+  /** Blank clears it. At most 40 characters. */
+  displayName?: string;
 };
 
 export type AuthResponse = {
