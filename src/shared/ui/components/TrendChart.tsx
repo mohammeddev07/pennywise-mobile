@@ -32,7 +32,7 @@ const DENSE_BARS = 8;
 const LABEL_WIDTH = 44;
 const LABEL_ROW = tokens.typography.caption.lineHeight;
 
-const BAR_FILL = withAlpha(tokens.colors.muted, 0.6);
+
 
 /** Smallest bar that still reads as "some spend". Zero is never given this: it draws no bar at all. */
 const MIN_POSITIVE_BAR = 2;
@@ -149,7 +149,7 @@ export function TrendChart({
                     height: barHeight,
                     borderRadius: tokens.radii.sm,
                     overflow: "hidden",
-                    backgroundColor: BAR_FILL,
+                    backgroundColor: withAlpha(tokens.colors.muted, 0.6),
                   },
                   point.partial ? { borderWidth: 1, borderStyle: "dashed", borderColor: tokens.colors.muted } : null,
                   isActive ? tokens.glow.accentSoft : null,

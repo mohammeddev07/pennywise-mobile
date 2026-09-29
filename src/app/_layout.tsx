@@ -1,3 +1,6 @@
+import { vars } from "nativewind";
+import { useSettingsStore } from "@/features/settings/store";
+import { useResolvedAppearance } from "@/shared/ui/theme/appearance";
 import { installBookCoordinator, setBookNavigation } from '@/features/books/coordinator';
 import { BookSheets } from '@/features/books/ui/BookSheets';
 import "react-native-gesture-handler";
@@ -10,7 +13,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
-import { Text, TextInput, View } from "react-native";
+import { Appearance, Text, TextInput, View } from "react-native";
 import { useFonts } from "expo-font";
 import {
   Sora_400Regular,
@@ -80,6 +83,12 @@ function DataBootstrap() {
 }
 
 export default function RootLayout() {
+  const appearance = useResolvedAppearance();
+  const appearancePreference = useSettingsStore((s) => s.appearance);
+  // Native chrome (alerts, keyboards, pickers) follows the in-app choice too.
+  useEffect(() => {
+    Appearance.setColorScheme?.(appearancePreference === "system" ? "unspecified" : appearancePreference);
+  }, [appearancePreference]);
   const sessionStatus = useAuthStore((s) => s.sessionStatus);
   const onboardingCompleted = useAuthStore((s) => s.onboardingCompleted);
   const hydrateAccessToken = useAuthStore((s) => s.hydrateAccessToken);
@@ -160,8 +169,10 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
           <DataBootstrap />
-          <StatusBar style="light" />
-          <View style={{ flex: 1 }}>
+          <StatusBar style={appearance === "dark" ? "light" : "dark"} />
+          <View style={[{ flex: 1 }, vars(Object.fromEntries(Object.entries({ ...tokens.colors,
+            accentSoft: tokens.colors.greenSoft, dangerSoft: tokens.colors.redSoft, warningSoft: tokens.colors.amberSoft,
+          }).map(([key, value]) => [`--color-${key}`, value])))]}>
             <Stack
               screenOptions={{
                 headerShown: false,

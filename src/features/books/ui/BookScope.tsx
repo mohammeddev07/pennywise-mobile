@@ -1,3 +1,4 @@
+import { useResolvedAppearance } from "@/shared/ui/theme/appearance";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { type ComponentType } from "react";
 import { View } from "react-native";
@@ -8,6 +9,7 @@ import { Skeleton } from "@/shared/ui/components/Skeleton";
 /** Keyed children reset local drafts/animations before the new book can paint. */
 export function withBookScope(Screen: ComponentType, gate = true) {
   return function BookScopedScreen() {
+    useResolvedAppearance();
     const { selectedBookId, books, ready, error, ensureBook } = useBooksStore();
     const params = useLocalSearchParams<{ bookId?: string }>();
     const router = useRouter();

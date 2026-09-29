@@ -1,3 +1,4 @@
+import { getResolvedAppearance } from "@/shared/ui/theme/appearance";
 import { useEffect, useRef, useState } from "react";
 import { Platform, View } from "react-native";
 import DateTimePicker, { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
@@ -182,7 +183,7 @@ export function CustomRangeSheet({
             value={ymdToLocalDate(value)}
             mode="date"
             display="spinner"
-            themeVariant="dark"
+            themeVariant={getResolvedAppearance()}
             textColor={tokens.colors.text}
             onChange={(_event, selected) => {
               if (selected) setField(editing, localDateToYmd(selected));

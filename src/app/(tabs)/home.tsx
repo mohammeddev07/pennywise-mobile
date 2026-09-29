@@ -16,12 +16,12 @@ import { Skeleton } from "@/shared/ui/components/Skeleton";
 import { TransactionRow } from "@/shared/ui/components/TransactionRow";
 import { IconButton } from "@/shared/ui/components/IconButton";
 import { SectionHeader } from "@/shared/ui/components/SectionHeader";
-import { StatBlock } from "@/shared/ui/components/StatBlock";
 import { HeroAmount, MoneyAmount } from "@/shared/ui/components/MoneyAmount";
 import { TrendAreaChart, type AreaPoint } from "@/shared/ui/components/TrendAreaChart";
 import { BreakdownRow } from "@/shared/ui/components/BreakdownRow";
 import { LinkButton } from "@/shared/ui/components/Button";
-import { HapticPressable } from "@/shared/ui/components/HapticPressable";
+import { Avatar } from "@/shared/ui/components/Avatar";
+import { Icon } from "@/shared/ui/components/Icon";
 
 import { useAuthStore } from "@/features/auth/store";
 import { useBooksStore } from "@/features/books/store";
@@ -134,6 +134,50 @@ function BudgetPreview({ item, currency }: { item: BudgetItem; currency: string 
   );
 }
 
+/** This month's money in or out, with its direction as an icon so color is never the only cue. */
+function FlowStat({ kind, label, value }: { kind: "INCOME" | "EXPENSE"; label: string; value: string }) {
+  const color = kind === "INCOME" ? tokens.colors.income : tokens.colors.danger;
+  return (
+    <View style={{ flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: tokens.space[3] }}>
+      <View
+        style={{
+          width: 36,
+          height: 36,
+          borderRadius: 18,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: withAlpha(color, 0.14),
+        }}
+      >
+        <Icon name={kind === "INCOME" ? "trending-up" : "trending-down"} size={18} color={color} />
+      </View>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <AppText variant="caption" tone="muted" numberOfLines={1}>
+          {label}
+        </AppText>
+        <MoneyAmount value={value} kind={kind} size="sm" weight="semibold" />
+      </View>
+    </View>
+  );
+}
+
+/** How much of this month's income is already spent - one bar, one sentence. */
+function SpendShare({ spent, income }: { spent: number; income: number }) {
+  const share = spent / income;
+  const over = share > 1;
+  const color = over ? tokens.colors.danger : share > 0.8 ? tokens.colors.warning : tokens.colors.accent;
+  return (
+    <View style={{ marginTop: tokens.space[4] }}>
+      <View style={{ height: 6, borderRadius: tokens.radii.pill, backgroundColor: tokens.colors.neutralSoft, overflow: "hidden" }}>
+        <View style={{ width: `${Math.min(100, Math.round(share * 100))}%`, height: 6, borderRadius: tokens.radii.pill, backgroundColor: color }} />
+      </View>
+      <AppText variant="caption" tone="muted" style={{ marginTop: tokens.space[2] }}>
+        {over ? `Spent ${Math.round((share - 1) * 100)}% more than you earned this month` : `${Math.round(share * 100)}% of this month's income spent`}
+      </AppText>
+    </View>
+  );
+}
+
 function Home() {
   const router = useRouter();
 
@@ -144,6 +188,9 @@ function Home() {
   const categories = useCategoriesStore((s) => s.categories);
   const budgets = useBudgetsStore((s) => s.budgets);
   const primaryCurrency = useSettingsStore((s) => s.primaryCurrency);
+  const savedName = useSettingsStore((s) => s.displayName);
+  const avatarSeed = useSettingsStore((s) => s.avatarSeed);
+  const shuffleAvatar = useSettingsStore((s) => s.shuffleAvatar);
   const showError = useUndoToastStore((s) => s.showError);
   const [isRestoringBook, setIsRestoringBook] = useState(false);
 
@@ -186,9 +233,10 @@ function Home() {
   const currentMonth = useMemo(() => nowMonthKey(), []);
   const monthShort = useMemo(() => format(new Date(), "MMM"), []);
   const displayName = useMemo(() => {
+    if (savedName) return savedName;
     const name = user?.email?.split("@")[0]?.trim();
     return name ? name.slice(0, 1).toUpperCase() + name.slice(1) : selectedBookName;
-  }, [selectedBookName, user?.email]);
+  }, [savedName, selectedBookName, user?.email]);
 
   const balanceQuery = useQuery({
     queryKey: ["balance", selectedBookId],
@@ -304,33 +352,15 @@ function Home() {
     <Screen scroll bottom="tab" ambient="accent">
       {/* Greeting */}
       <View style={{ flexDirection: "row", alignItems: "center" }}>
-        <LinearGradient
-          colors={[withAlpha(tokens.colors.income, 1), tokens.colors.accentPressed]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{
-            width: 48,
-            height: 48,
-            borderRadius: tokens.radii.pill,
-            alignItems: "center",
-            justifyContent: "center",
-            ...tokens.glow.accentSoft,
-          }}
-        >
-          <AppText variant="base" weight="bold" style={{ color: tokens.colors.onAccent }}>
-            {displayName.slice(0, 1).toUpperCase()}
-          </AppText>
-        </LinearGradient>
-
+        <Avatar seed={avatarSeed} size={52} onShuffle={shuffleAvatar} />
         <View style={{ flex: 1, marginLeft: tokens.space[3] }}>
           <AppText variant="sm" tone="muted">
-            {emoji} {greetingText}
+            {emoji} {greetingText},
           </AppText>
-          <AppText variant="lg" numberOfLines={1}>
+          <AppText variant="xl" numberOfLines={1}>
             {displayName}
           </AppText>
         </View>
-
         <IconButton
           icon="settings-outline"
           accessibilityLabel="Settings"
@@ -371,9 +401,9 @@ function Home() {
       ) : (
         <>
           {/* Balance - the single strongest element on the screen. */}
-          <View style={{ marginTop: tokens.space[7] }}>
+          <View style={{ marginTop: tokens.space[5] }}>
             {balanceQuery.isPending ? (
-              <Skeleton height={96} borderRadius={16} />
+              <Skeleton height={210} borderRadius={tokens.radii.xl} />
             ) : balanceMinor === undefined ? (
               <Card variant="surface" padding={20}>
                 <EmptyState
@@ -388,66 +418,70 @@ function Home() {
                 />
               </Card>
             ) : (
-              <>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: tokens.space[2] }}>
-                  <AppText variant="xs" tone="muted">
-                    TOTAL BALANCE
-                  </AppText>
-                  <View
-                    style={{
-                      paddingHorizontal: tokens.space[2],
-                      paddingVertical: 2,
-                      borderRadius: tokens.radii.pill,
-                      backgroundColor: tokens.colors.neutralSoft,
-                    }}
-                  >
+              <View
+                style={{
+                  borderRadius: tokens.radii.xl,
+                  overflow: "hidden",
+                  backgroundColor: tokens.colors.surface,
+                  borderWidth: 1,
+                  borderColor: tokens.colors.stroke,
+                  borderTopColor: tokens.colors.edgeHighlight,
+                }}
+              >
+                <LinearGradient
+                  colors={[withAlpha(tokens.colors.accent, 0.16), withAlpha(tokens.colors.accent, 0)]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={{ padding: tokens.space[5] }}
+                >
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: tokens.space[2] }}>
                     <AppText variant="xs" tone="muted">
-                      {dashboardCurrency}
+                      TOTAL BALANCE
                     </AppText>
+                    <View
+                      style={{
+                        paddingHorizontal: tokens.space[2],
+                        paddingVertical: 2,
+                        borderRadius: tokens.radii.pill,
+                        backgroundColor: tokens.colors.neutralSoft,
+                      }}
+                    >
+                      <AppText variant="xs" tone="muted">
+                        {dashboardCurrency}
+                      </AppText>
+                    </View>
                   </View>
-                </View>
-                <View style={{ marginTop: tokens.space[2] }}>
-                  {/*
-                    The hero splits the currency symbol out at half size in the
-                    tertiary color - the one place the system allows two sizes
-                    in one figure - so the digits carry all the weight.
-                    `countedBalance` animates; the accessibility label states
-                    the settled value so a screen reader never reads a
-                    mid-animation number.
-                  */}
-                  <HeroAmount
-                    value={formatCurrencyDigits(countedBalance, dashboardCurrency)}
-                    symbol={currencySymbol(dashboardCurrency)}
-                    color={balanceColor(balanceMinor)}
-                    accessibilityLabel={`Total balance ${formatCurrency(balanceMinor, dashboardCurrency)}`}
-                  />
-                </View>
+                  <View style={{ marginTop: tokens.space[2] }}>
+                    {/*
+                      `countedBalance` animates; the accessibility label states the
+                      settled value so a screen reader never reads a mid-animation number.
+                    */}
+                    <HeroAmount
+                      value={formatCurrencyDigits(countedBalance, dashboardCurrency)}
+                      symbol={currencySymbol(dashboardCurrency)}
+                      size={52}
+                      color={balanceColor(balanceMinor)}
+                      accessibilityLabel={`Total balance ${formatCurrency(balanceMinor, dashboardCurrency)}`}
+                    />
+                  </View>
 
-                {incomeMinor === undefined || expenseMinor === undefined ? (
-                  <View style={{ marginTop: tokens.space[6] }}>
-                    <Skeleton height={48} borderRadius={16} />
-                  </View>
-                ) : (
-                  <View
-                    style={{
-                      flexDirection: "row",
-                      marginTop: tokens.space[5],
-                      gap: tokens.space[4],
-                    }}
-                  >
-                    <StatBlock
-                      label={`Income · ${monthShort}`}
-                      value={formatCurrency(incomeMinor, dashboardCurrency)}
-                      tone="income"
-                    />
-                    <StatBlock
-                      label={`Spent · ${monthShort}`}
-                      value={formatCurrency(expenseMinor, dashboardCurrency)}
-                      tone="expense"
-                    />
-                  </View>
-                )}
-              </>
+                  <View style={{ height: 1, backgroundColor: tokens.colors.divider, marginTop: tokens.space[5] }} />
+
+                  {incomeMinor === undefined || expenseMinor === undefined ? (
+                    <View style={{ marginTop: tokens.space[4] }}>
+                      <Skeleton height={44} borderRadius={12} />
+                    </View>
+                  ) : (
+                    <>
+                      <View style={{ flexDirection: "row", marginTop: tokens.space[4], gap: tokens.space[3] }}>
+                        <FlowStat kind="INCOME" label={`Income · ${monthShort}`} value={formatCurrency(incomeMinor, dashboardCurrency)} />
+                        <FlowStat kind="EXPENSE" label={`Spent · ${monthShort}`} value={formatCurrency(expenseMinor, dashboardCurrency)} />
+                      </View>
+                      {incomeMinor > 0 ? <SpendShare spent={expenseMinor} income={incomeMinor} /> : null}
+                    </>
+                  )}
+                </LinearGradient>
+              </View>
             )}
           </View>
 
@@ -470,14 +504,14 @@ function Home() {
                 </View>
               }
             />
-            <View style={{ marginTop: tokens.space[4] }}>
+            <Card variant="surface" padding={12} style={{ marginTop: tokens.space[3] }}>
               <TrendAreaChart
                 data={weekSpend}
                 height={190}
                 formatValue={(minor) => formatCurrency(minor, dashboardCurrency)}
                 accessibilityLabel={`Spending over the last seven days. ${weekSpend.map((p) => `${p.label} ${formatCurrency(p.value, dashboardCurrency)}`).join(", ")}`}
               />
-            </View>
+            </Card>
           </View>
 
           {/* Top spending */}
@@ -489,7 +523,7 @@ function Home() {
                   <LinkButton label="Insights" onPress={() => router.push("/(tabs)/analytics")} />
                 }
               />
-              <View style={{ marginTop: tokens.space[1] }}>
+              <Card variant="surface" padding={12} style={{ marginTop: tokens.space[3] }}>
                 {topSpending.rows.map((row) => (
                   <BreakdownRow
                     key={row.id}
@@ -500,7 +534,7 @@ function Home() {
                     share={topSpending.total > 0 ? row.minor / topSpending.total : 0}
                   />
                 ))}
-              </View>
+              </Card>
             </View>
           ) : null}
 
@@ -524,7 +558,7 @@ function Home() {
                 />
               </View>
             ) : (
-              <View style={{ marginTop: tokens.space[1] }}>
+              <Card variant="surface" padding={12} style={{ marginTop: tokens.space[3] }}>
                 {recentTransactions.map((tx, index) => (
                   <View key={tx.id}>
                     <TransactionRow item={tx} enableActions={false} embedded />
@@ -533,7 +567,7 @@ function Home() {
                     ) : null}
                   </View>
                 ))}
-              </View>
+              </Card>
             )}
           </View>
 

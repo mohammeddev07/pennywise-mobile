@@ -6,11 +6,8 @@ import { ScrollView, View } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { LinearGradient } from "expo-linear-gradient";
-
 import { alertCompat } from "@/shared/ui/utils/confirm";
 import { tokens } from "@/shared/ui/theme/tokens";
-import { withAlpha } from "@/shared/ui/theme/color";
 import { AppText } from "@/shared/ui/components/AppText";
 import { Button } from "@/shared/ui/components/Button";
 import { Card } from "@/shared/ui/components/Card";
@@ -29,6 +26,9 @@ import { useExportToastStore } from "@/shared/ui/state/useExportToastStore";
 import { exportTransactionsToDevice, ExportCancelledError, MockModeUnsupportedError } from "@/shared/utils/exportFile";
 import { openSupportEmail, SUPPORT_EMAIL } from "@/shared/utils/supportEmail";
 import { Icon } from "@/shared/ui/components/Icon";
+import { Avatar } from "@/shared/ui/components/Avatar";
+import { AppearanceSetting } from "@/features/settings/ui/AppearanceSetting";
+import { DisplayNameSetting } from "@/features/settings/ui/DisplayNameSetting";
 
 /** A titled group of settings rows, separated by hairlines. */
 function SettingsGroup({ children }: { children: React.ReactNode }) {
@@ -68,6 +68,9 @@ function ProfileScreen() {
   const selectedBookId = useBooksStore((s) => s.selectedBookId);
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
+  const displayName = useSettingsStore((s) => s.displayName);
+  const avatarSeed = useSettingsStore((s) => s.avatarSeed);
+  const shuffleAvatar = useSettingsStore((s) => s.shuffleAvatar);
   const showError = useUndoToastStore((s) => s.showError);
   const showExportSuccess = useExportToastStore((s) => s.showSuccess);
   const { status: updateStatus, error: updateError, checkAndDownload, applyUpdate } = useAppUpdates();
@@ -227,30 +230,14 @@ function ProfileScreen() {
             {/* Account */}
             <Card variant="surface" padding={16} style={{ marginTop: tokens.space[6] }}>
               <View style={{ flexDirection: "row", alignItems: "center" }}>
-                <LinearGradient
-                  colors={[withAlpha(tokens.colors.income, 1), tokens.colors.accentPressed]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: tokens.radii.pill,
-                    alignItems: "center",
-                    justifyContent: "center",
-                    ...tokens.glow.accentSoft,
-                  }}
-                >
-                  <AppText variant="base" weight="bold" style={{ color: tokens.colors.onAccent }}>
-                    {email.slice(0, 1).toUpperCase()}
-                  </AppText>
-                </LinearGradient>
+                <Avatar seed={avatarSeed} onShuffle={shuffleAvatar} />
 
                 <View style={{ flex: 1, marginLeft: tokens.space[3] }}>
                   <AppText variant="base" weight="semibold" numberOfLines={1}>
-                    {email}
+                    {displayName || email}
                   </AppText>
                   <AppText variant="sm" tone="muted" numberOfLines={1} style={{ marginTop: 2 }}>
-                    {selectedBook?.name ?? "Personal"} · signed in
+                    {displayName ? email : `${selectedBook?.name ?? "Personal"} · signed in`}
                   </AppText>
                 </View>
 
@@ -279,6 +266,8 @@ function ProfileScreen() {
               style={{ marginTop: tokens.space[7], marginBottom: tokens.space[3] }}
             />
             <SettingsGroup>
+              <DisplayNameSetting />
+              <AppearanceSetting />
               <SettingsRow
                 icon="grid-outline"
                 label="Categories & budgets"

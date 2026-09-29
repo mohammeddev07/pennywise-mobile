@@ -17,44 +17,44 @@ module.exports = {
     extend: {
       colors: {
         // Elevation ladder
-        app: "#0B0D0F",
-        surface: "#121518",
-        card: "#121518",
-        surfaceAlt: "#181C20",
-        surfacePressed: "#20252A",
-        ink: "#0B0D0F",
-        onAccent: "#0B0D0F",
+        app: "var(--color-app)",
+        surface: "var(--color-surface)",
+        card: "var(--color-card)",
+        surfaceAlt: "var(--color-surfaceAlt)",
+        surfacePressed: "var(--color-surfacePressed)",
+        ink: "var(--color-ink)",
+        onAccent: "var(--color-onAccent)",
 
         // Hairlines
-        stroke: "#FFFFFF12",
-        divider: "#FFFFFF0F",
-        edgeHighlight: "#FFFFFF14",
+        stroke: "var(--color-stroke)",
+        divider: "var(--color-divider)",
+        edgeHighlight: "var(--color-edgeHighlight)",
 
         // Text ladder
-        text: "#F5F7F8",
-        muted: "#98A2AD",
-        subtle: "#7D8791",
+        text: "var(--color-text)",
+        muted: "var(--color-muted)",
+        subtle: "var(--color-subtle)",
 
         // Brand
-        accent: "#00C805",
-        accentPressed: "#00A804",
-        accentSoft: "#00C8051F",
+        accent: "var(--color-accent)",
+        accentPressed: "var(--color-accentPressed)",
+        accentSoft: "var(--color-accentSoft)",
 
         // Money / status
-        income: "#51D99B",
-        incomeSoft: "#51D99B1F",
-        danger: "#FF6B67",
-        dangerSoft: "#FF6B671F",
-        warning: "#F5A524",
-        warningSoft: "#F5A5241F",
-        success: "#51D99B",
+        income: "var(--color-income)",
+        incomeSoft: "var(--color-incomeSoft)",
+        danger: "var(--color-danger)",
+        dangerSoft: "var(--color-dangerSoft)",
+        warning: "var(--color-warning)",
+        warningSoft: "var(--color-warningSoft)",
+        success: "var(--color-success)",
 
-        greenSoft: "#00C8051F",
-        redSoft: "#FF6B671F",
-        amberSoft: "#F5A5241F",
-        blueSoft: "#5B8CFF1F",
-        purpleSoft: "#8B5CF61F",
-        neutralSoft: "#FFFFFF0D",
+        greenSoft: "var(--color-greenSoft)",
+        redSoft: "var(--color-redSoft)",
+        amberSoft: "var(--color-amberSoft)",
+        blueSoft: "var(--color-blueSoft)",
+        purpleSoft: "var(--color-purpleSoft)",
+        neutralSoft: "var(--color-neutralSoft)",
 
         // Category identity. Icon stroke at full value, tile fill at ~13%.
         catFood: "#FFB35C",

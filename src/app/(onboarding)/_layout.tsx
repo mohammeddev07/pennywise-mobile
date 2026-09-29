@@ -1,7 +1,9 @@
+import { useResolvedAppearance } from "@/shared/ui/theme/appearance";
 import { Stack } from "expo-router";
 import { tokens } from "@/shared/ui/theme/tokens";
 
 export default function OnboardingLayout() {
+  useResolvedAppearance();
   return (
     <Stack
       screenOptions={{

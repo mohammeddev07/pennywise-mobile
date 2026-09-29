@@ -1,3 +1,4 @@
+import { getResolvedAppearance } from "@/shared/ui/theme/appearance";
 import { withBookScope } from "@/features/books/ui/BookScope";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Keyboard, Platform, ScrollView, View } from "react-native";
@@ -382,7 +383,7 @@ function EditTransactionModal() {
                       value={occurredAt}
                       mode="date"
                       display="spinner"
-                      themeVariant="dark"
+                      themeVariant={getResolvedAppearance()}
                       textColor={tokens.colors.text}
                       onChange={onDateChange}
                     />
@@ -392,7 +393,7 @@ function EditTransactionModal() {
                       value={occurredAt}
                       mode="time"
                       display="spinner"
-                      themeVariant="dark"
+                      themeVariant={getResolvedAppearance()}
                       textColor={tokens.colors.text}
                       onChange={onDateChange}
                     />

@@ -1,7 +1,7 @@
 import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react-native";
 
-import { tokens } from "@/shared/ui/theme/tokens";
+import { darkTokens, lightColors, tokens } from "@/shared/ui/theme/tokens";
 import { heroScale } from "@/shared/ui/components/MoneyAmount";
 import { Button } from "@/shared/ui/components/Button";
 import { FilterChip } from "@/shared/ui/components/FilterChip";
@@ -18,8 +18,10 @@ function contrast(a: string, b: string) {
   return (hi + 0.05) / (lo + 0.05);
 }
 
-describe("colour contrast (text >= 4.5:1, WCAG 1.4.3)", () => {
-  const c = tokens.colors;
+describe.each([
+  ["dark", darkTokens.colors],
+  ["light", lightColors],
+] as const)("%s colour contrast (text >= 4.5:1, WCAG 1.4.3)", (_theme, c) => {
   // `surfacePressed` is a transient press state that never hosts resting text, so it is not a floor here.
   const grounds = { app: c.app, surface: c.surface, surfaceAlt: c.surfaceAlt };
 
