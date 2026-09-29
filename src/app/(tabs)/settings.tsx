@@ -29,6 +29,7 @@ import { Icon } from "@/shared/ui/components/Icon";
 import { Avatar } from "@/shared/ui/components/Avatar";
 import { AppearanceSetting } from "@/features/settings/ui/AppearanceSetting";
 import { DisplayNameSetting } from "@/features/settings/ui/DisplayNameSetting";
+import { ConnectGoogleRow } from "@/features/auth/ui/ConnectGoogleRow";
 
 /** A titled group of settings rows, separated by hairlines. */
 function SettingsGroup({ children }: { children: React.ReactNode }) {
@@ -268,6 +269,7 @@ function ProfileScreen() {
             <SettingsGroup>
               <DisplayNameSetting />
               <AppearanceSetting />
+              <ConnectGoogleRow />
               <SettingsRow
                 icon="grid-outline"
                 label="Categories & budgets"

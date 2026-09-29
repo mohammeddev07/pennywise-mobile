@@ -8,6 +8,7 @@ import * as authApi from "@/shared/api/auth";
 import type { MeResponse } from "@/shared/types/api";
 import { useSettingsStore, type CurrencyCode } from "@/features/settings/store";
 import { bumpAccountEpoch } from "@/shared/session/accountEpoch";
+import { signOutOfGoogle } from "./google";
 
 export const AUTH_STORAGE_KEY = "pennywise_demo_auth_v1";
 
@@ -31,6 +32,7 @@ type State = {
 
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string, currencyCode?: string) => Promise<void>;
+  loginWithGoogle: (idToken: string) => Promise<void>;
   logout: () => Promise<void>;
   setUser: (user: MeResponse) => void;
   setUnlocked: (v: boolean) => void;
@@ -142,6 +144,18 @@ export const useAuthStore = create<State>()(
         });
       },
 
+      loginWithGoogle: async (idToken) => {
+        const res = await authApi.google(idToken);
+        await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, res.accessToken);
+        syncDefaultCurrency(res.user);
+        set({
+          accessToken: res.accessToken,
+          user: res.user,
+          sessionStatus: "authenticated",
+          unlocked: true,
+        });
+      },
+
       signup: async (email, password, currencyCode) => {
         const res = await authApi.signup(email.trim().toLowerCase(), password, currencyCode);
         await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, res.accessToken);
@@ -174,6 +188,7 @@ export const useAuthStore = create<State>()(
           } catch (error) {
             cleanupError = error;
           }
+          await signOutOfGoogle();
           try {
             await SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY);
           } catch (error) {
