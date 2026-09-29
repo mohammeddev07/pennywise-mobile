@@ -15,6 +15,18 @@ export async function login(email: string, password: string): Promise<AuthRespon
   return data;
 }
 
+/** Log in, or create an account, with a Google ID token. */
+export async function google(idToken: string): Promise<AuthResponse> {
+  const { data } = await apiClient.post<AuthResponse>("/v1/auth/google", { idToken });
+  return data;
+}
+
+/** Attach Google to the signed-in account, so it can log in with either. */
+export async function linkGoogle(idToken: string): Promise<MeResponse> {
+  const { data } = await apiClient.post<MeResponse>("/v1/auth/google/link", { idToken });
+  return data;
+}
+
 export async function getMe(): Promise<MeResponse> {
   const { data } = await apiClient.get<MeResponse>("/v1/me");
   return data;
