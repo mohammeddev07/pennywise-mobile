@@ -19,7 +19,7 @@ export function CategoryDonut({ entries, label }: { entries: DonutEntry[]; label
   let offset = 0;
   return <View style={{ alignItems: 'center', paddingVertical: 20, gap: 12 }}>
     <View accessible accessibilityRole="image" accessibilityLabel={`${label}. ${shares.map(e => `${e.name}: ${(e.share * 100).toFixed(1)} percent`).join(', ')}`} style={{ width: 176, height: 176 }}>
-      <Svg width={176} height={176} viewBox="0 0 176 176" accessible={false}>
+      <Svg width={176} height={176} viewBox="0 0 176 176">
         {shares.map(entry => {
           const start = offset; offset += entry.share * circumference;
           return <Circle key={entry.id} cx={88} cy={88} r={68} fill="none" stroke={entry.color} strokeWidth={24}

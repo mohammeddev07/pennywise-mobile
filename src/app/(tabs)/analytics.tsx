@@ -118,8 +118,10 @@ function AnalyticsScreen() {
     [filters.ready, filters.revision, filters.root, span, filters.today]
   );
   const analysisQuery = useAnalysis(query, bucket);
-  // Never present the previous filter's or window's numbers as the current answer.
-  const analysis = analysisQuery.isPlaceholderData ? null : (analysisQuery.data ?? null);
+  // While a new window or filter loads, the previous figures stay on screen dimmed and
+  // labelled "Updating" (see `updating`) instead of collapsing to skeletons - that swap
+  // made every Months/Years toggle flash. They are never shown as an answer after an error.
+  const analysis = analysisQuery.isPlaceholderData && analysisQuery.isError ? null : (analysisQuery.data ?? null);
   const updating = analysisQuery.isPlaceholderData || (analysisQuery.isFetching && !analysisQuery.isPending);
 
   const currency = analysis?.currencyCode ?? bookCurrency;
