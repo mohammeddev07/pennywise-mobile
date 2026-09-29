@@ -366,6 +366,14 @@ async function handle(config: InternalAxiosRequestConfig): Promise<AxiosResponse
     return ok(config, state.user);
   }
 
+  if ((m = route("/v1/support/contact", "POST"))) {
+    const { subject, message } = body as { subject?: string; message?: string };
+    if (!subject?.trim() || !message?.trim() || subject.length > 120 || message.length > 5000) {
+      return fail(config, 400, "Subject and message are required.", "VALIDATION_ERROR");
+    }
+    return ok(config, null, 204);
+  }
+
   // One ownership/deletion gate for every route nested under a book.
   const scopedId = /^\/v1\/books\/([^/?]+)(?:\/|$)/.exec(url)?.[1];
   if (scopedId && scopedId !== 'order' && !ownedBook(decodeURIComponent(scopedId))) {
