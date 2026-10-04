@@ -13,6 +13,7 @@ import { useAuthStore } from "@/features/auth/store";
 import { getAuthErrorMessage } from "@/shared/api/errors";
 import { Icon } from "@/shared/ui/components/Icon";
 import { Container } from "@/shared/ui/components/Screen";
+import { GoogleSignInButton } from "@/features/auth/ui/GoogleSignInButton";
 
 function isEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
@@ -101,6 +102,7 @@ export default function SignupScreen() {
 
         <View className="mt-auto gap-4">
           <Button label={isSubmitting ? "Creating..." : "Continue"} onPress={onContinue} disabled={isSubmitting} />
+          <GoogleSignInButton disabled={isSubmitting} />
 
           <View className="flex-row justify-center gap-2 items-center">
             <AppText variant="sm" tone="muted">

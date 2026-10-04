@@ -10,10 +10,11 @@ import { IconButton } from "@/shared/ui/components/IconButton";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { tokens } from "@/shared/ui/theme/tokens";
 import { useAuthStore } from "@/features/auth/store";
-import { useBooksStore } from "@/features/books/store";
+import { enterApp } from "@/features/auth/enterApp";
 import { getAuthErrorMessage } from "@/shared/api/errors";
 import { Icon } from "@/shared/ui/components/Icon";
 import { Container } from "@/shared/ui/components/Screen";
+import { GoogleSignInButton } from "@/features/auth/ui/GoogleSignInButton";
 
 function isEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
@@ -28,8 +29,6 @@ export default function LoginScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [coldStartWait, setColdStartWait] = useState(false);
   const login = useAuthStore((s) => s.login);
-  const completeOnboarding = useAuthStore((s) => s.completeOnboarding);
-  const loadBooks = useBooksStore((s) => s.loadBooks);
 
   const emailError = submitted && !isEmail(email) ? "Enter a valid email." : undefined;
   const passwordError = submitted && password.trim().length < 8 ? "Enter at least 8 characters." : undefined;
@@ -51,13 +50,7 @@ export default function LoginScreen() {
     const coldStartTimer = setTimeout(() => setColdStartWait(true), 12_000);
     try {
       await login(email, password);
-      const books = await loadBooks();
-      if (books.length > 0) {
-        completeOnboarding();
-        router.replace("/(tabs)/home");
-      } else {
-        router.replace("/(onboarding)/currency");
-      }
+      await enterApp();
     } catch (err) {
       setApiError(getAuthErrorMessage(err));
     } finally {
@@ -123,6 +116,7 @@ export default function LoginScreen() {
 
         <View className="mt-auto gap-4">
           <Button label={isSubmitting ? "Signing in..." : "Continue"} onPress={onContinue} disabled={isSubmitting} />
+          <GoogleSignInButton disabled={isSubmitting} />
 
           <View className="flex-row justify-center gap-2 items-center">
             <AppText variant="sm" tone="muted">

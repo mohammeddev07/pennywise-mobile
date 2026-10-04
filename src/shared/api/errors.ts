@@ -26,5 +26,8 @@ export function getAuthErrorMessage(error: unknown) {
   const code = getApiErrorCode(error);
   if (code === "INVALID_CREDENTIALS") return "Incorrect email or password";
   if (code === "EMAIL_ALREADY_REGISTERED") return "An account with this email already exists";
+  if (code === "GOOGLE_ACCOUNT_LINK_REQUIRED")
+    return "This email already has an account. Log in with your password, then connect Google in Profile.";
+  if (code === "GOOGLE_SIGN_IN_NOT_CONFIGURED") return "Google sign-in isn't set up on the server yet.";
   return getApiErrorMessage(error);
 }

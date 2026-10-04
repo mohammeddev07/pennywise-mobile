@@ -345,6 +345,20 @@ async function handle(config: InternalAxiosRequestConfig): Promise<AxiosResponse
     return ok(config, res, 201);
   }
 
+  if ((m = route("/v1/auth/google", "POST"))) {
+    const res: AuthResponse = {
+      accessToken: "mock-access-token",
+      tokenType: "Bearer",
+      expiresInSeconds: 3600,
+      user: state.user,
+    };
+    return ok(config, res);
+  }
+
+  if ((m = route("/v1/auth/google/link", "POST"))) {
+    return ok(config, state.user);
+  }
+
   if ((m = route("/v1/auth/login", "POST"))) {
     const { email } = body as { email?: string };
     if (email) state.user = { ...state.user, email };
