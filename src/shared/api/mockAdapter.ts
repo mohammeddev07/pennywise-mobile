@@ -345,6 +345,20 @@ async function handle(config: InternalAxiosRequestConfig): Promise<AxiosResponse
     return ok(config, res, 201);
   }
 
+  if ((m = route("/v1/auth/google", "POST"))) {
+    const res: AuthResponse = {
+      accessToken: "mock-access-token",
+      tokenType: "Bearer",
+      expiresInSeconds: 3600,
+      user: state.user,
+    };
+    return ok(config, res);
+  }
+
+  if ((m = route("/v1/auth/google/link", "POST"))) {
+    return ok(config, state.user);
+  }
+
   if ((m = route("/v1/auth/login", "POST"))) {
     const { email } = body as { email?: string };
     if (email) state.user = { ...state.user, email };
@@ -364,6 +378,14 @@ async function handle(config: InternalAxiosRequestConfig): Promise<AxiosResponse
   if ((m = route("/v1/me", "PATCH"))) {
     state.user = { ...state.user, ...body };
     return ok(config, state.user);
+  }
+
+  if ((m = route("/v1/support/contact", "POST"))) {
+    const { subject, message } = body as { subject?: string; message?: string };
+    if (!subject?.trim() || !message?.trim() || subject.length > 120 || message.length > 5000) {
+      return fail(config, 400, "Subject and message are required.", "VALIDATION_ERROR");
+    }
+    return ok(config, null, 204);
   }
 
   // One ownership/deletion gate for every route nested under a book.

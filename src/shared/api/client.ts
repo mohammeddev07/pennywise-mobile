@@ -40,8 +40,8 @@ AppState.addEventListener("change", (state: AppStateStatus) => {
 
 let unauthorizedCleanup: Promise<void> | null = null;
 
-function isAuthRequest(url?: string) {
-  return /\/v1\/auth(?:\/|$)/.test(url ?? "");
+function isPublicAuthRequest(url?: string) {
+  return /\/v1\/auth\/(?:login|signup|google)\/?(?:[?#]|$)/.test(url ?? "");
 }
 
 async function handleUnauthorized() {
@@ -91,7 +91,7 @@ export function isAuthError(err: unknown) {
 apiClient.interceptors.response.use(
   (res) => { endBookOperation(res.config._bookOperation); return res; },
   async (err) => {
-    if (err.response?.status === 401 && !isAuthRequest(err.config?.url)) {
+    if (err.response?.status === 401 && !isPublicAuthRequest(err.config?.url)) {
       await handleUnauthorized().catch(() => {
         // Navigation still belongs here even if a storage implementation
         // reports an error while clearing the expired session.

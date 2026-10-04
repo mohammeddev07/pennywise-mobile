@@ -4,7 +4,8 @@ module.exports = {
   // React Query / zustand-persist leave idle timers behind in hook tests; without this a single-file run never exits.
   forceExit: true,
   globalSetup: "<rootDir>/jest.global-setup.js",
-  setupFiles: ["<rootDir>/jest.env.js"],
+  // The Google sign-in package ships its own native-module mock; its exports map hides the path, so load it by file.
+  setupFiles: ["<rootDir>/jest.env.js", "<rootDir>/node_modules/@react-native-google-signin/google-signin/jest/build/jest/setup.js"],
   setupFilesAfterEnv: ["<rootDir>/jest.setup.ts"],
   moduleNameMapper: { "^@/(.*)$": "<rootDir>/src/$1" },
   testMatch: ["<rootDir>/src/**/__tests__/**/*.test.(ts|tsx)"],

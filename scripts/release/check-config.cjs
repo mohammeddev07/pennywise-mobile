@@ -17,6 +17,10 @@ else if (/^https?:\/\/(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.
 else if (/^http:\/\//.test(url)) problems.push(`EXPO_PUBLIC_API_BASE_URL is cleartext http: ${url} (tokens would travel unencrypted).`);
 else if (!/\/api\/?$/.test(url)) problems.push(`EXPO_PUBLIC_API_BASE_URL should include the backend context path (/api): ${url}`);
 
+if (!/^[0-9]+-[a-z0-9-]+\.apps\.googleusercontent\.com$/.test((env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? "").trim())) {
+  problems.push("EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID must be a valid Google OAuth Web client ID.");
+}
+
 const app = JSON.parse(fs.readFileSync(path.join(__dirname, "../../app.json"), "utf8")).expo;
 if (app.android?.usesCleartextTraffic === true) problems.push("app.json android.usesCleartextTraffic is true.");
 if (app.ios?.infoPlist?.NSAppTransportSecurity?.NSAllowsArbitraryLoads === true) problems.push("app.json ios NSAllowsArbitraryLoads is true.");
