@@ -1,5 +1,5 @@
 module.exports = function (api) {
-  api.cache(true);
+  const isTest = api.env("test");
   return {
     presets: [
       "babel-preset-expo",
@@ -7,6 +7,7 @@ module.exports = function (api) {
       "nativewind/babel",
     ],
     plugins: [
+      ...(isTest ? ["@babel/plugin-transform-dynamic-import"] : []),
       // Reanimated plugin MUST be last
       "react-native-reanimated/plugin",
     ],

@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { SettingsRow } from "@/shared/ui/components/SettingsRow";
 import { useUndoToastStore } from "@/shared/ui/state/useUndoToastStore";
-import { getApiErrorMessage } from "@/shared/api/errors";
 import { linkGoogle } from "@/shared/api/auth";
-import { getGoogleIdToken, googleSignInAvailable } from "../google";
+import { getGoogleIdToken, googleSignInAvailable, getGoogleSignInErrorMessage } from "../google";
 import { useAuthStore } from "../store";
 
 /**
@@ -25,7 +24,7 @@ export function ConnectGoogleRow() {
       setStatus("done");
     } catch (error) {
       setStatus("idle");
-      useUndoToastStore.getState().showError(error, getApiErrorMessage(error, "Couldn't connect Google."));
+      useUndoToastStore.getState().showError(error, getGoogleSignInErrorMessage(error));
     }
   };
 

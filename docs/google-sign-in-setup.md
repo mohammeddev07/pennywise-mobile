@@ -16,3 +16,7 @@ The package's Expo config plugin without Firebase only writes an iOS URL scheme 
 This change adds a native module and raises the Expo app version to `1.1.0`, which is the EAS Update runtime version under the `appVersion` policy. Build and install a fresh preview APK before testing Google sign-in. An OTA update cannot put the native module into a previously installed APK, and a `1.1.0` update will not target an older `1.0.0` runtime. Later JavaScript-only fixes for this `1.1.0` binary can use OTA with both `--channel preview` and `--environment preview`, after the preview channel is linked to the intended EAS Update branch.
 
 When push notifications are added later, their native module, config plugin, and Android FCM setup will require another fresh APK. Keep that as a separate build checkpoint.
+
+## Regression checks
+
+Run `npm run typecheck` and `npm test -- --runInBand`. The test-only Babel transform lets Jest exercise the existing dynamic imports used by expired-session cleanup without changing production bundling. Regression coverage verifies Google-link 401 cleanup, public-auth exemptions, actionable native errors in the sign-in UI, and no Google package initialization on web, iOS, Expo Go, or Android builds missing the native module. These checks do not replace native-device OAuth testing.

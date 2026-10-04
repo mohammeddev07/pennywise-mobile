@@ -4,8 +4,7 @@ import Svg, { Path } from "react-native-svg";
 
 import { Button } from "@/shared/ui/components/Button";
 import { AppText } from "@/shared/ui/components/AppText";
-import { getAuthErrorMessage } from "@/shared/api/errors";
-import { getGoogleIdToken, googleSignInAvailable } from "../google";
+import { getGoogleIdToken, googleSignInAvailable, getGoogleSignInErrorMessage } from "../google";
 import { useAuthStore } from "../store";
 import { enterApp } from "../enterApp";
 
@@ -43,7 +42,7 @@ export function GoogleSignInButton({ disabled }: { disabled?: boolean }) {
       await loginWithGoogle(idToken);
       await enterApp();
     } catch (failure) {
-      setError(getAuthErrorMessage(failure));
+      setError(getGoogleSignInErrorMessage(failure));
     } finally {
       clearTimeout(timer);
       setColdStartWait(false);

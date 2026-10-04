@@ -16,9 +16,16 @@ jest.mock("@react-native-google-signin/google-signin", () => ({
     signOut: jest.fn().mockResolvedValue(null),
   },
 }));
-jest.mock("../google", () => ({
-  ...jest.requireActual("../google"),
-  googleSignInAvailable: true,
+jest.mock("../google", () => {
+  const { Platform, TurboModuleRegistry } = require("react-native");
+  Platform.OS = "android";
+  jest.spyOn(TurboModuleRegistry, "get").mockReturnValue({});
+  return jest.requireActual("../google");
+});
+jest.mock("expo-constants", () => ({
+  __esModule: true,
+  default: { executionEnvironment: "bare" },
+  ExecutionEnvironment: { StoreClient: "storeClient" },
 }));
 
 const signIn = GoogleSignin.signIn as jest.Mock;
@@ -88,3 +95,22 @@ it("links Google to an authenticated account through the link endpoint", async (
   expect(link).toHaveBeenCalledWith("link-tok");
   link.mockRestore();
 });
+
+ it.each([
+  ["services", /Google Play services is unavailable/],
+  ["configuration", /check the Android client's SHA-1/],
+  ["missing-token", /didn't return a sign-in token/],
+ ])("shows actionable %s guidance in the sign-in UI", async (kind, message) => {
+  const { GoogleSignInButton } = require("../ui/GoogleSignInButton");
+  if (kind === "services") {
+    (GoogleSignin.hasPlayServices as jest.Mock).mockRejectedValueOnce(
+      Object.assign(new Error("native"), { code: statusCodes.PLAY_SERVICES_NOT_AVAILABLE }));
+  } else if (kind === "configuration") {
+    signIn.mockRejectedValueOnce(Object.assign(new Error("DEVELOPER_ERROR"), { code: "10" }));
+  } else {
+    signIn.mockResolvedValueOnce({ type: "success", data: { idToken: null } });
+  }
+  render(<GoogleSignInButton />);
+  fireEvent.press(screen.getByText("Continue with Google"));
+  await waitFor(() => expect(screen.getByText(message)).toBeTruthy());
+ });
