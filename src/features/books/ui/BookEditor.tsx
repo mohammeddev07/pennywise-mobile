@@ -1,7 +1,7 @@
 import { useBookOperations } from "../operations";
 import type { Book } from "@/shared/types/models";
 import { formatCurrency } from "@/shared/utils/formatCurrency";
-import { useState } from "react";
+import { useEffect, useState, type MutableRefObject } from "react";
 import { View } from "react-native";
 import {
   BottomSheetModal,
@@ -34,7 +34,15 @@ import {
   getAccountEpoch,
   isCurrentAccountEpoch,
 } from "@/shared/session/accountEpoch";
-export function BookEditor({ book }: { book?: Book }) {
+export function BookEditor({
+  book,
+  embedded = false,
+  closeRequest,
+}: {
+  book?: Book;
+  embedded?: boolean;
+  closeRequest?: MutableRefObject<() => void>;
+}) {
   const [name, setName] = useState(book?.name ?? "");
   const [currency, setCurrency] = useState<string>("USD");
   const [opening, setOpening] = useState("");
@@ -85,6 +93,14 @@ export function BookEditor({ book }: { book?: Book }) {
       );
     else close();
   };
+  // The persistent native host must use the same discard guard as the X.
+  useEffect(() => {
+    if (!closeRequest) return;
+    closeRequest.current = closeEditor;
+    return () => {
+      closeRequest.current = close;
+    };
+  }, [closeRequest, close, dirty, isManaging, book]);
   const nameValid = Boolean(name.trim()) && name.trim().length <= BOOK_NAME_MAX;
   const minor = parseOpeningBalance(opening, currency);
   const sheetKind = book ? "edit" : "create";
@@ -120,6 +136,8 @@ export function BookEditor({ book }: { book?: Book }) {
   };
   return (
     <BottomSheetModal
+      embedded={embedded}
+      animateIn={!embedded}
       visible
       onClose={closeEditor}
       scroll

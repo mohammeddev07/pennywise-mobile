@@ -6,6 +6,7 @@ import { useBooksStore } from "../store";
 import { useAuthStore } from "@/features/auth/store";
 import { EmptyState } from "@/shared/ui/components/EmptyState";
 import { Skeleton } from "@/shared/ui/components/Skeleton";
+import { tokens } from "@/shared/ui/theme/tokens";
 /** Keyed children reset local drafts/animations before the new book can paint. */
 export function withBookScope(Screen: ComponentType, gate = true) {
   return function BookScopedScreen() {
@@ -16,16 +17,18 @@ export function withBookScope(Screen: ComponentType, gate = true) {
     const accountId = useAuthStore((s) => s.user?.id ?? "");
     if (params.bookId && params.bookId !== selectedBookId)
       return (
-        <EmptyState
-          title="This transaction belongs to another cash book"
-          message="Switch to that book before opening its transactions."
-          actionLabel="Return home"
-          onAction={() => router.replace("/(tabs)/home")}
-        />
+        <View style={{ flex: 1, padding: 24, justifyContent: "center", backgroundColor: tokens.colors.app }}>
+          <EmptyState
+            title="This transaction belongs to another cash book"
+            message="Switch to that book before opening its transactions."
+            actionLabel="Return home"
+            onAction={() => router.replace("/(tabs)/home")}
+          />
+        </View>
       );
     if (gate && (!ready || !books.some((b) => b.id === selectedBookId)))
       return (
-        <View style={{ flex: 1, padding: 24, justifyContent: "center" }}>
+        <View style={{ flex: 1, padding: 24, justifyContent: "center", backgroundColor: tokens.colors.app }}>
           {error ? (
             <EmptyState
               title="Cash books unavailable"

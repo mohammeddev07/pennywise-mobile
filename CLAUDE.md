@@ -23,6 +23,27 @@ These are the conventions this project actually follows. Read this before branch
 - `npx jest` must pass.
 - Don't add a dependency if the standard library, an already-installed package, or a native platform feature already covers it.
 
+## Autonomous Agent Execution & Single-Prompt Workflow
+
+When tasked with building or refactoring a feature:
+
+### 1. Architectural Encapsulation (Shortest Path)
+- **Co-locate Feature Code**: Put all feature-specific logic inside `src/features/<feature-name>/` (components, Zustand slices, custom hooks, and local types). Do not pollute `src/shared/` unless a component is actively reused across >2 features.
+- **Consult `FEATURE_MAP.md` First**: Before searching the codebase, check `FEATURE_MAP.md` at the root for relevant entry points, DOM/React Native test IDs, and existing routes.
+- **Zero Hallucination / Zero Speculation**: Read existing files before modifying them. Do not write historical comments (e.g., "Updated per PR review") or speculative abstractions.
+
+### 2. Feature Map Requirement
+- Whenever you add or significantly modify a feature, update `FEATURE_MAP.md` with:
+  - Feature directory path & entry component (`expo-router` screen path).
+  - Relevant `testID` props or key UI selectors.
+  - Verification command (e.g., `npx jest src/features/<feature-name>`).
+
+### 3. Verification Loop (Must Complete Before Reporting Success)
+Do not report a task as complete without verifying your changes:
+1. **Type Checking**: Run `npx tsc --noEmit` and fix any compiler issues.
+2. **Unit / Integration Tests**: Run `npx jest` (or targeted feature tests).
+3. **Linting & Rules**: Ensure no restricted imports or banned anti-patterns were introduced.
+
 ## Code style
 
 - Reuse existing shared components for a UI shape that already exists (`FilterChip`, `SettingsRow`, the toast pattern in `src/shared/ui/state/` + `src/shared/ui/components/*Toast.tsx`) instead of hand-rolling a new one.
