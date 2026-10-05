@@ -1,5 +1,6 @@
 import React from "react";
 import { Alert } from "react-native";
+import { SafeAreaInsetsContext } from "react-native-safe-area-context";
 import {
   act,
   fireEvent,
@@ -149,6 +150,27 @@ it("keeps one native modal mounted across the list, menu and editor", () => {
   expect(keyboardView.props.style).toMatchObject({
     flex: 1,
     justifyContent: "flex-end",
+  });
+});
+
+it("keeps scrolling editor headers below the top safe area", () => {
+  render(
+    <SafeAreaInsetsContext.Provider
+      value={{ top: 32, right: 0, bottom: 20, left: 0 }}
+    >
+      <BookSheets />
+    </SafeAreaInsetsContext.Provider>,
+  );
+  const keyboardView = () =>
+    screen.UNSAFE_getByType(require("react-native").KeyboardAvoidingView);
+  expect(keyboardView().props.style).toMatchObject({
+    justifyContent: "flex-end",
+    paddingTop: 0,
+  });
+  fireEvent.press(screen.getByText("Add new book"));
+  expect(keyboardView().props.style).toMatchObject({
+    justifyContent: "flex-end",
+    paddingTop: 32,
   });
 });
 

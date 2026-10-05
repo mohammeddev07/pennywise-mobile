@@ -126,7 +126,9 @@ export function BottomSheetModal({
             // still above the keyboard is tappable. "height" resizes the view in JS instead of
             // relying on native window resize, so it works even inside a Modal.
             behavior={Platform.OS === "ios" ? "padding" : "height"}
-            style={{ flex: 1, justifyContent: "flex-end", alignItems: "center" }}
+            // A scrolling sheet fills this view. Reserve the status-bar/notch
+            // inset above it while keeping its bottom edge at the screen edge.
+            style={{ flex: 1, justifyContent: "flex-end", alignItems: "center", paddingTop: scroll ? insets.top : 0 }}
             pointerEvents="box-none"
           >
             <Animated.View
