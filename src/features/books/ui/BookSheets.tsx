@@ -1,10 +1,11 @@
+import { useRef, type MutableRefObject } from "react";
 import { useResolvedAppearance } from "@/shared/ui/theme/appearance";
 import { MoneyAmount } from "@/shared/ui/components/MoneyAmount";
 import { useBookOperations } from "../operations";
 import { confirmDeleteBook } from "../deleteBook";
 import { BookEditor } from "./BookEditor";
 import { useRouter } from "expo-router";
-import { View } from "react-native";
+import { Modal, View } from "react-native";
 import {
   BottomSheetModal,
   SheetCloseButton,
@@ -22,7 +23,32 @@ import { BOOK_LIMIT } from "../constants";
 import { selectBook } from "../coordinator";
 import { useBookUIStore } from "./store";
 import { BookTile } from "./BookTile";
+// Keep the native window mounted when switching between list, menu and editor.
+// Replacing a visible Modal with another can race native dismissal/presentation.
 export function BookSheets() {
+  const visible = useBookUIStore((s) => s.sheet !== null);
+  const close = useBookUIStore((s) => s.close);
+  const closeRequest = useRef(close);
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      presentationStyle="overFullScreen"
+      animationType="none"
+      statusBarTranslucent
+      navigationBarTranslucent
+      onRequestClose={() => closeRequest.current()}
+    >
+      {visible ? <BookSheetContent closeRequest={closeRequest} /> : null}
+    </Modal>
+  );
+}
+
+function BookSheetContent({
+  closeRequest,
+}: {
+  closeRequest: MutableRefObject<() => void>;
+}) {
   useResolvedAppearance();
   const router = useRouter();
   const { sheet, bookId, close, open, error, setError } = useBookUIStore();
@@ -55,13 +81,23 @@ export function BookSheets() {
       )}
     </>
   );
-  if (sheet === "create") return <BookEditor />;
+  if (sheet === "create")
+    return <BookEditor embedded closeRequest={closeRequest} />;
   const editing = books.find((b) => b.id === bookId);
   if (sheet === "edit" && editing)
-    return <BookEditor key={editing.id} book={editing} />;
+    return (
+      <BookEditor
+        embedded
+        closeRequest={closeRequest}
+        key={editing.id}
+        book={editing}
+      />
+    );
   if (sheet === "menu" && editing) {
     return (
       <BottomSheetModal
+        embedded
+        animateIn={false}
         visible
         title={editing.name}
         onClose={close}
@@ -86,6 +122,8 @@ export function BookSheets() {
   }
   return (
     <BottomSheetModal
+      embedded
+      animateIn={false}
       visible={sheet === "switcher"}
       onClose={close}
       title="Cash books"

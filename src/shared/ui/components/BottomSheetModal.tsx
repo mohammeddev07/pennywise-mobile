@@ -1,5 +1,5 @@
 import { type PropsWithChildren, type ReactNode, useRef } from "react";
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, View } from "react-native";
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
 import Animated, {
@@ -21,6 +21,8 @@ import { useScreenPaddingX } from "@/shared/ui/components/Screen";
 
 type Props = PropsWithChildren<{
   visible: boolean;
+  /** Render inside a caller-owned Modal for multi-step sheets. */
+  embedded?: boolean;
   onClose: () => void;
   title?: string;
   rightAction?: ReactNode;
@@ -54,6 +56,7 @@ const SWIPE_CLOSE_VELOCITY = 900;
  */
 export function BottomSheetModal({
   visible,
+  embedded = false,
   onClose,
   title,
   rightAction,
@@ -65,8 +68,7 @@ export function BottomSheetModal({
 }: Props) {
   const insets = useSafeAreaInsets();
 
-  // Swipe down on the handle + title strip to dismiss. It is a pan on the
-  // header only, so the body's own scrolling and inputs never compete with it.
+  // Swipe only on the handle, so the X and other header controls receive taps.
   // Past 96px or a flick, the sheet closes; otherwise it springs back.
   const dragY = useSharedValue(0);
   const drag = Gesture.Pan()
@@ -78,6 +80,8 @@ export function BottomSheetModal({
       if (e.translationY > SWIPE_CLOSE_DISTANCE || e.velocityY > SWIPE_CLOSE_VELOCITY) {
         runOnJS(onClose)();
       }
+    })
+    .onFinalize(() => {
       dragY.value = withSpring(0, tokens.spring.snappy);
     });
   const dragStyle = useAnimatedStyle(() => ({ transform: [{ translateY: dragY.value }] }));
@@ -90,9 +94,8 @@ export function BottomSheetModal({
   // a fresh open (animateIn) always starts at the top.
   const scrollY = useRef(0);
 
-  return (
-    <Modal visible={visible} transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
-      {/* Android renders a Modal outside the app's root gesture view, so it needs its own. */}
+  // Android modals need their own gesture root.
+  const content = (
       <GestureHandlerRootView style={{ flex: 1 }}>
         {/*
           Entering only - never `exiting` - on anything inside this Modal. With
@@ -108,7 +111,7 @@ export function BottomSheetModal({
           style={{ flex: 1, backgroundColor: withAlpha(tokens.colors.black, 0.55) }}
         >
           <Pressable
-            style={scroll ? { height: insets.top + tokens.space[6] } : { flex: 1 }}
+            style={StyleSheet.absoluteFill}
             onPress={onClose}
             accessibilityRole="button"
             accessibilityLabel="Close"
@@ -123,7 +126,8 @@ export function BottomSheetModal({
             // still above the keyboard is tappable. "height" resizes the view in JS instead of
             // relying on native window resize, so it works even inside a Modal.
             behavior={Platform.OS === "ios" ? "padding" : "height"}
-            style={[fill, { alignItems: "center" }]}
+            style={{ flex: 1, justifyContent: "flex-end", alignItems: "center" }}
+            pointerEvents="box-none"
           >
             <Animated.View
               // Reduced motion: the sheet fades in place instead of travelling up the screen.
@@ -151,7 +155,11 @@ export function BottomSheetModal({
                 ]}
               >
                 <GestureDetector gesture={drag}>
-                  <View collapsable={false} style={{ paddingTop: tokens.space[3] }}>
+                  <View
+                    testID="sheet-drag-handle"
+                    collapsable={false}
+                    style={{ minHeight: 32, justifyContent: "center" }}
+                  >
                     <View
                       style={{
                         alignSelf: "center",
@@ -160,11 +168,12 @@ export function BottomSheetModal({
                         borderRadius: 2,
                         // Was the hairline colour (1.2:1): a drag handle nobody could see.
                         backgroundColor: withAlpha(tokens.colors.muted, 0.5),
-                        marginBottom: tokens.space[3],
                       }}
                     />
+                  </View>
+                </GestureDetector>
 
-                    {title || rightAction ? (
+                {title || rightAction ? (
                       <View
                         style={{
                           flexDirection: "row",
@@ -174,14 +183,18 @@ export function BottomSheetModal({
                           marginBottom: tokens.space[4],
                         }}
                       >
-                        <AppText variant="lg" weight="semibold" accessibilityRole="header">
+                        <AppText
+                          style={{ flex: 1, marginRight: 12 }}
+                          numberOfLines={2}
+                          variant="lg"
+                          weight="semibold"
+                          accessibilityRole="header"
+                        >
                           {title}
                         </AppText>
                         {rightAction ?? <View style={{ width: tokens.layout.minTap }} />}
                       </View>
-                    ) : null}
-                  </View>
-                </GestureDetector>
+                ) : null}
 
                 {scroll ? (
                   <ScrollView
@@ -218,6 +231,12 @@ export function BottomSheetModal({
           </KeyboardAvoidingView>
         </Animated.View>
       </GestureHandlerRootView>
+  );
+
+  if (embedded) return visible ? content : null;
+  return (
+    <Modal visible={visible} transparent presentationStyle="overFullScreen" animationType="none" onRequestClose={onClose} statusBarTranslucent navigationBarTranslucent>
+      {content}
     </Modal>
   );
 }

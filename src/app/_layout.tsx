@@ -170,7 +170,7 @@ export default function RootLayout() {
         <QueryClientProvider client={queryClient}>
           <DataBootstrap />
           <StatusBar style={appearance === "dark" ? "light" : "dark"} />
-          <View style={[{ flex: 1 }, vars(Object.fromEntries(Object.entries({ ...tokens.colors,
+          <View style={[{ flex: 1, backgroundColor: tokens.colors.app }, vars(Object.fromEntries(Object.entries({ ...tokens.colors,
             accentSoft: tokens.colors.greenSoft, dangerSoft: tokens.colors.redSoft, warningSoft: tokens.colors.amberSoft,
           }).map(([key, value]) => [`--color-${key}`, value])))]}>
             <Stack

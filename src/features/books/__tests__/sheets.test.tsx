@@ -123,10 +123,93 @@ it("lets the current book be managed and drops the move buttons", () => {
   expect(screen.queryByText("Move up")).toBeNull();
   expect(screen.queryByText("Move down")).toBeNull();
 });
-it("closes the editor with X while a slow write is still running", () => {
+it("closes the editor with X while a slow write is still running", async () => {
   render(<BookSheets />);
   fireEvent.press(screen.getByText("Add new book"));
-  act(() => useBooksStore.setState({ isManaging: true }));
+  await act(async () => { useBooksStore.setState({ isManaging: true }); });
   fireEvent.press(screen.getAllByLabelText("Close")[1]);
   expect(useBookUIStore.getState().sheet).toBeNull();
+});
+
+it("keeps one native modal mounted across the list, menu and editor", () => {
+  render(<BookSheets />);
+  const host = screen.UNSAFE_getByType(require("react-native").Modal);
+  fireEvent.press(screen.getByLabelText("Manage Travel"));
+  expect(screen.UNSAFE_getByType(require("react-native").Modal)).toBe(host);
+  fireEvent.press(screen.getByText("Rename or change icon/color"));
+  expect(screen.UNSAFE_getByType(require("react-native").Modal)).toBe(host);
+  expect(
+    screen
+      .getByTestId("sheet-drag-handle")
+      .findAllByProps({ accessibilityLabel: "Close" }),
+  ).toHaveLength(0);
+  const keyboardView = screen.UNSAFE_getByType(
+    require("react-native").KeyboardAvoidingView,
+  );
+  expect(keyboardView.props.style).toMatchObject({
+    flex: 1,
+    justifyContent: "flex-end",
+  });
+});
+
+it("switches books on the first press across repeated reopenings", async () => {
+  render(<BookSheets />);
+  for (const [id, name] of [
+    ["1", "Travel"],
+    ["0", "Personal"],
+    ["1", "Travel"],
+  ]) {
+    act(() => useBookUIStore.getState().open("switcher"));
+    await act(async () =>
+      fireEvent.press(screen.getByLabelText(`Switch to ${name}`)),
+    );
+    expect(useBooksStore.getState().selectedBookId).toBe(id);
+    expect(useBookUIStore.getState().sheet).toBeNull();
+  }
+});
+
+it("saves a rename, icon and color selected with one press each", async () => {
+  const update = jest
+    .spyOn(useBooksStore.getState(), "updateBook")
+    .mockResolvedValue(undefined);
+  render(<BookSheets />);
+  fireEvent.press(screen.getByLabelText("Manage Travel"));
+  fireEvent.press(screen.getByText("Rename or change icon/color"));
+  fireEvent.changeText(screen.getByLabelText("Book name"), "Holidays");
+  fireEvent.press(screen.getByLabelText("blue book color"));
+  fireEvent.press(screen.getByLabelText("airplane book icon"));
+  expect(
+    screen.getByLabelText("blue book color").props.accessibilityState.checked,
+  ).toBe(true);
+  expect(
+    screen.getByLabelText("airplane book icon").props.accessibilityState
+      .checked,
+  ).toBe(true);
+  await act(async () => fireEvent.press(screen.getByText("Save changes")));
+  expect(update).toHaveBeenCalledWith("1", {
+    name: "Holidays",
+    color: "blue",
+    icon: "airplane",
+  });
+  expect(useBookUIStore.getState().sheet).toBeNull();
+});
+
+it("uses the editor discard guard for native Back and resets it after close", () => {
+  const alert = jest.spyOn(Alert, "alert").mockImplementation(() => {});
+  render(<BookSheets />);
+  fireEvent.press(screen.getByText("Add new book"));
+  fireEvent.changeText(screen.getByLabelText("Book name"), "Unsaved");
+  const host = screen.UNSAFE_getByType(require("react-native").Modal);
+  act(() => host.props.onRequestClose());
+  expect(alert).toHaveBeenCalledWith(
+    "Discard new book?",
+    expect.any(String),
+    expect.any(Array),
+  );
+  expect(useBookUIStore.getState().sheet).toBe("create");
+  act(() => useBookUIStore.getState().close());
+  act(() => useBookUIStore.getState().open("switcher"));
+  act(() => host.props.onRequestClose());
+  expect(useBookUIStore.getState().sheet).toBeNull();
+  expect(alert).toHaveBeenCalledTimes(1);
 });
