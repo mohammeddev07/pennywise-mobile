@@ -37,6 +37,12 @@ function uid(prefix: string) {
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
+function mockJwt() {
+  const b64url = (o: object) => btoa(JSON.stringify(o)).replace(/=+$/, "").replace(/\+/g, "-").replace(/\//g, "_");
+  const exp = Math.floor(Date.now() / 1000) + 30 * 24 * 3600;
+  return `${b64url({ alg: "none" })}.${b64url({ sub: "mock", exp })}.mock`;
+}
+
 function nowIso() {
   return new Date().toISOString();
 }
@@ -337,7 +343,7 @@ async function handle(config: InternalAxiosRequestConfig): Promise<AxiosResponse
       defaultCurrencyCode: defaultCurrencyCode ?? state.user.defaultCurrencyCode,
     };
     const res: AuthResponse = {
-      accessToken: "mock-access-token",
+      accessToken: mockJwt(),
       tokenType: "Bearer",
       expiresInSeconds: 3600,
       user: state.user,
@@ -347,7 +353,7 @@ async function handle(config: InternalAxiosRequestConfig): Promise<AxiosResponse
 
   if ((m = route("/v1/auth/google", "POST"))) {
     const res: AuthResponse = {
-      accessToken: "mock-access-token",
+      accessToken: mockJwt(),
       tokenType: "Bearer",
       expiresInSeconds: 3600,
       user: state.user,
@@ -363,7 +369,7 @@ async function handle(config: InternalAxiosRequestConfig): Promise<AxiosResponse
     const { email } = body as { email?: string };
     if (email) state.user = { ...state.user, email };
     const res: AuthResponse = {
-      accessToken: "mock-access-token",
+      accessToken: mockJwt(),
       tokenType: "Bearer",
       expiresInSeconds: 3600,
       user: state.user,

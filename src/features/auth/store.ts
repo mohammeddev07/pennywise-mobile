@@ -7,9 +7,10 @@ import { ACCESS_TOKEN_KEY, isAuthError } from "@/shared/api/client";
 import * as authApi from "@/shared/api/auth";
 import type { MeResponse } from "@/shared/types/api";
 import { useSettingsStore, type CurrencyCode } from "@/features/settings/store";
-import { bumpAccountEpoch } from "@/shared/session/accountEpoch";
+import { bumpAccountEpoch, getAccountEpoch, isCurrentAccountEpoch } from "@/shared/session/accountEpoch";
 import { markLaunch } from "@/shared/launchTiming";
 import { signOutOfGoogle } from "./google";
+import { isTokenExpired } from "./token";
 
 export const AUTH_STORAGE_KEY = "pennywise_demo_auth_v1";
 
@@ -39,7 +40,8 @@ type State = {
   setUnlocked: (v: boolean) => void;
   completeOnboarding: () => void;
   hydrateAccessToken: () => Promise<void>;
-  validateSession: () => Promise<void>;
+  restoreSession: () => void;
+  refreshSession: () => Promise<void>;
 };
 
 type PersistedState = Pick<State, "user" | "unlocked" | "onboardingCompleted">;
@@ -224,42 +226,29 @@ export const useAuthStore = create<State>()(
         set({ accessToken });
       },
 
-      validateSession: async () => {
-        const accessToken = useAuthStore.getState().accessToken;
-        if (!accessToken) {
-          await useAuthStore.getState().logout();
-          return;
+      restoreSession: () => {
+        const { accessToken, user } = useAuthStore.getState();
+        if (accessToken && user && !isTokenExpired(accessToken)) {
+          set({ sessionStatus: "authenticated", unlocked: true });
+          markLaunch("session authenticated");
+          void useAuthStore.getState().refreshSession();
+        } else {
+          void useAuthStore.getState().logout();
         }
+      },
 
-        set({ sessionStatus: "resolving" });
+      refreshSession: async () => {
+        const epoch = getAccountEpoch();
         try {
           const user = await authApi.getMe();
+          if (!isCurrentAccountEpoch(epoch)) return;
           syncDefaultCurrency(user);
-          set({
-            accessToken,
-            user,
-            sessionStatus: "authenticated",
-            unlocked: true,
-          });
-          markLaunch("session authenticated");
+          set({ user });
         } catch (err) {
-          if (isAuthError(err)) {
-            if (useAuthStore.getState().sessionStatus !== "unauthenticated") {
-              await useAuthStore.getState().logout();
-            }
-            return;
+          // Only a real 401/403 signs out; timeouts and network errors (cold backend) are ignored.
+          if (isAuthError(err) && useAuthStore.getState().sessionStatus !== "unauthenticated") {
+            await useAuthStore.getState().logout();
           }
-
-          // Timeout/network failure (e.g. a cold backend) - the token may still be
-          // valid, so don't wipe the session. Fall back to the cached user and let
-          // the screens' own requests retry; only a real 401/403 means logged out.
-          const cachedUser = useAuthStore.getState().user;
-          set({
-            accessToken,
-            sessionStatus: cachedUser ? "authenticated" : "unauthenticated",
-            unlocked: Boolean(cachedUser),
-          });
-          if (cachedUser) markLaunch("session authenticated");
         }
       },
     }),

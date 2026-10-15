@@ -93,7 +93,6 @@ export default function RootLayout() {
   const sessionStatus = useAuthStore((s) => s.sessionStatus);
   const onboardingCompleted = useAuthStore((s) => s.onboardingCompleted);
   const hydrateAccessToken = useAuthStore((s) => s.hydrateAccessToken);
-  const validateSession = useAuthStore((s) => s.validateSession);
   const authPersist = useAuthStore.persist;
   const [authStorageHydrated, setAuthStorageHydrated] = useState(() => authPersist.hasHydrated());
   const sessionBootstrapStarted = useRef(false);
@@ -141,12 +140,12 @@ export default function RootLayout() {
       try {
         await hydrateAccessToken();
         markLaunch("token read");
-        await validateSession();
+        useAuthStore.getState().restoreSession();
       } catch {
         await useAuthStore.getState().logout();
       }
     })();
-  }, [authStorageHydrated, hydrateAccessToken, validateSession]);
+  }, [authStorageHydrated, hydrateAccessToken]);
 
   useEffect(() => {
     if ((!fontsLoaded && !fontError) || sessionStatus === "resolving") return;
