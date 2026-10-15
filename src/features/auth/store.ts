@@ -237,9 +237,9 @@ export const useAuthStore = create<State>()(
           openColdStartWindow();
           set({ sessionStatus: "authenticated", unlocked: true });
           markLaunch("session authenticated");
-          void useAuthStore.getState().refreshSession();
+          void useAuthStore.getState().refreshSession().catch(() => {});
         } else {
-          void useAuthStore.getState().logout();
+          void useAuthStore.getState().logout().catch(() => {});
         }
       },
 
@@ -252,7 +252,7 @@ export const useAuthStore = create<State>()(
           set({ user });
         } catch (err) {
           // Only a real 401/403 signs out; timeouts and network errors (cold backend) are ignored.
-          if (isAuthError(err) && useAuthStore.getState().sessionStatus !== "unauthenticated") {
+          if (isAuthError(err) && isCurrentAccountEpoch(epoch) && useAuthStore.getState().sessionStatus !== "unauthenticated") {
             await useAuthStore.getState().logout();
           }
         }

@@ -32,7 +32,8 @@ export function useSaveHomeSnapshot(
           weekEnd,
           balance,
           summary,
-          weekAnalysis,
+          // Home never renders largestExpense, and it carries a full transaction incl. note.
+          weekAnalysis: { ...weekAnalysis, largestExpense: null },
           recent: recent.map(({ note, ...t }) => t),
         },
         epoch,

@@ -376,7 +376,8 @@ function Home() {
   useEffect(() => { if (summaryQuery.isFetched) markLaunch("home: summary settled"); }, [summaryQuery.isFetched]);
   useEffect(() => { if (weekQuery.isFetched) markLaunch("home: week settled"); }, [weekQuery.isFetched]);
   useEffect(() => { if (recentQuery.isFetched) markLaunch("home: recent settled"); }, [recentQuery.isFetched]);
-  useEffect(() => { if (balanceMinor !== undefined) markLaunch("home: first render with data"); }, [balanceMinor !== undefined]);
+  const hasBalance = balanceMinor !== undefined;
+  useEffect(() => { if (hasBalance) markLaunch("home: first render with data"); }, [hasBalance]);
 
   const { emoji, text: greetingText } = greeting();
 

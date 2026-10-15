@@ -113,6 +113,15 @@ it("recent rows are saved without note", () => {
   expect(store().snapshot?.recent[0].title).toBe("Coffee");
 });
 
+it("weekAnalysis is saved without largestExpense (it carries a note)", () => {
+  jest.useFakeTimers();
+  const weekAnalysis = { ...live().weekAnalysis, largestExpense: tx("big") } as unknown as AnalyzeResponse;
+  renderHook(() => useSaveHomeSnapshot(ctx, { ...live(), weekAnalysis, recent: [tx("t1")] }));
+  act(() => jest.advanceTimersByTime(2000));
+  expect(store().snapshot?.weekAnalysis.largestExpense).toBeNull();
+  expect(JSON.stringify(store().snapshot)).not.toContain("private note");
+});
+
 it("does not save until every value is loaded", () => {
   jest.useFakeTimers();
   renderHook(() => useSaveHomeSnapshot(ctx, { ...live(), recent: undefined }));

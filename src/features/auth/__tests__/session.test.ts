@@ -97,6 +97,20 @@ it("refresh result from a previous account is dropped", async () => {
   expect(useAuthStore.getState().user).toBe(user);
 });
 
+it("auth error from a previous account's refresh does not log out", async () => {
+  let reject!: (e: unknown) => void;
+  getMe.mockReturnValue(new Promise<MeResponse>((_, r) => (reject = r)));
+  useAuthStore.setState({ sessionStatus: "authenticated" });
+  const logout = jest.spyOn(useAuthStore.getState(), "logout");
+  const p = useAuthStore.getState().refreshSession();
+  bumpAccountEpoch();
+  reject(httpError(403));
+  await p;
+  expect(logout).not.toHaveBeenCalled();
+  expect(useAuthStore.getState().sessionStatus).toBe("authenticated");
+  expect(useAuthStore.getState().user).toBe(user);
+});
+
 it("mock login yields a non-expired token", async () => {
   await useAuthStore.getState().login("test@example.com", "password");
   expect(isTokenExpired(useAuthStore.getState().accessToken!)).toBe(false);
