@@ -1,3 +1,4 @@
+import { markLaunch } from "@/shared/launchTiming";
 import { vars } from "nativewind";
 import { useSettingsStore } from "@/features/settings/store";
 import { useResolvedAppearance } from "@/shared/ui/theme/appearance";
@@ -139,6 +140,7 @@ export default function RootLayout() {
     void (async () => {
       try {
         await hydrateAccessToken();
+        markLaunch("token read");
         await validateSession();
       } catch {
         await useAuthStore.getState().logout();

@@ -8,6 +8,7 @@ import * as authApi from "@/shared/api/auth";
 import type { MeResponse } from "@/shared/types/api";
 import { useSettingsStore, type CurrencyCode } from "@/features/settings/store";
 import { bumpAccountEpoch } from "@/shared/session/accountEpoch";
+import { markLaunch } from "@/shared/launchTiming";
 import { signOutOfGoogle } from "./google";
 
 export const AUTH_STORAGE_KEY = "pennywise_demo_auth_v1";
@@ -240,6 +241,7 @@ export const useAuthStore = create<State>()(
             sessionStatus: "authenticated",
             unlocked: true,
           });
+          markLaunch("session authenticated");
         } catch (err) {
           if (isAuthError(err)) {
             if (useAuthStore.getState().sessionStatus !== "unauthenticated") {
@@ -257,6 +259,7 @@ export const useAuthStore = create<State>()(
             sessionStatus: cachedUser ? "authenticated" : "unauthenticated",
             unlocked: Boolean(cachedUser),
           });
+          if (cachedUser) markLaunch("session authenticated");
         }
       },
     }),

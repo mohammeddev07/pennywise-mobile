@@ -36,6 +36,7 @@ import { balanceColor } from "@/shared/ui/theme/money";
 import { useUndoToastStore } from "@/shared/ui/state/useUndoToastStore";
 import { withAlpha } from "@/shared/ui/theme/color";
 import { useCountUp } from "@/shared/ui/utils/useCountUp";
+import { markLaunch } from "@/shared/launchTiming";
 
 function nowMonthKey() {
   const d = new Date();
@@ -311,7 +312,8 @@ function Home() {
     return { rows: rows.slice(0, 4), total };
   }, [categories, summaryQuery.data?.byCategory]);
 
-  const recentTransactions = useRecentTransactions(4).data ?? [];
+  const recentQuery = useRecentTransactions(4);
+  const recentTransactions = recentQuery.data ?? [];
 
   const retryHydration = () => {
     setHydrationError(false);
@@ -345,6 +347,12 @@ function Home() {
   // The balance counts up when it first lands and again when a save changes
   // it - never on a plain re-render, so returning to the tab is silent.
   const countedBalance = useCountUp(balanceMinor);
+
+  useEffect(() => { if (balanceQuery.isFetched) markLaunch("home: balance settled"); }, [balanceQuery.isFetched]);
+  useEffect(() => { if (summaryQuery.isFetched) markLaunch("home: summary settled"); }, [summaryQuery.isFetched]);
+  useEffect(() => { if (weekQuery.isFetched) markLaunch("home: week settled"); }, [weekQuery.isFetched]);
+  useEffect(() => { if (recentQuery.isFetched) markLaunch("home: recent settled"); }, [recentQuery.isFetched]);
+  useEffect(() => { if (balanceMinor !== undefined) markLaunch("home: first render with data"); }, [balanceMinor !== undefined]);
 
   const { emoji, text: greetingText } = greeting();
 
