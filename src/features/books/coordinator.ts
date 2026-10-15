@@ -12,6 +12,7 @@ import { queryClient } from "@/shared/api/queryClient";
 import { getAccountEpoch } from "@/shared/session/accountEpoch";
 import { hasBookOperation } from "./operations";
 import { useBookUIStore } from "./ui/store";
+import { useHomeSnapshotStore } from "@/features/home-snapshot/store";
 
 let revision = 0;
 let path = "";
@@ -176,6 +177,7 @@ export async function purgeBookData(id: string) {
     predicate: (q) => queryForBook(q.queryKey, id),
   });
   if (epoch !== getAccountEpoch()) return;
+  useHomeSnapshotStore.getState().dropBook(id);
   queryClient.removeQueries({ predicate: (q) => queryForBook(q.queryKey, id) });
   useCategoriesStore.setState((s) => ({
     categories: s.categories.filter((c) => c.bookId !== id),

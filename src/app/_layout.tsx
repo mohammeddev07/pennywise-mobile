@@ -39,6 +39,7 @@ import { useUpdateToastStore } from "@/shared/ui/state/useUpdateToastStore";
 import { useAppUpdates } from "@/features/app-updates/useAppUpdates";
 import { useAuthStore } from "@/features/auth/store";
 import { useBooksStore } from "@/features/books/store";
+import { useHomeSnapshotStore } from "@/features/home-snapshot/store";
 import { queryClient } from "@/shared/api/queryClient";
 import { purgeLegacyTransactionCache } from "@/features/transactions/legacy";
 
@@ -138,7 +139,7 @@ export default function RootLayout() {
 
     void (async () => {
       try {
-        await hydrateAccessToken();
+        await Promise.all([hydrateAccessToken(), useHomeSnapshotStore.persist.rehydrate()]);
         markLaunch("token read");
         useAuthStore.getState().restoreSession();
       } catch {

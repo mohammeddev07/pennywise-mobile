@@ -21,6 +21,7 @@ const ACCOUNT_STORAGE_KEYS = [
   "pennywise_budgets_v1",
   "pennywise_transactions_v1",
   "pennywise_settings_v1",
+  "pennywise_home_snapshot_v1",
 ];
 
 export type SessionStatus = "resolving" | "authenticated" | "unauthenticated";
@@ -67,6 +68,7 @@ async function clearAccountState() {
     { useAddTransactionDraftStore },
     { useOnboardingStore },
     { useUndoToastStore },
+    { useHomeSnapshotStore },
   ] = await Promise.all([
     import("@/features/books/store"),
     import("@/features/categories/store"),
@@ -78,6 +80,7 @@ async function clearAccountState() {
     import("@/features/transactions/addDraftStore"),
     import("@/features/onboarding/useOnboardingStore"),
     import("@/shared/ui/state/useUndoToastStore"),
+    import("@/features/home-snapshot/store"),
   ]);
 
   // Supersede and await any automatic hydration still in flight. Otherwise a
@@ -89,6 +92,7 @@ async function clearAccountState() {
     Promise.resolve(useBudgetsStore.persist.rehydrate()),
     Promise.resolve(useFilterStore.persist.rehydrate()),
     Promise.resolve(useSettingsStore.persist.rehydrate()),
+    Promise.resolve(useHomeSnapshotStore.persist.rehydrate()),
   ]);
 
   (await import("@/features/books/operations")).resetBookOperations();
@@ -112,6 +116,7 @@ async function clearAccountState() {
     isLoading: false,
     error: null,
   });
+  useHomeSnapshotStore.getState().clear();
   // Server data lives in the query cache, not a store: cancel what is in flight and drop every
   // cached row, detail and aggregate of the previous account. Filters are per-account UI state.
   await clearQueryCache();

@@ -10,3 +10,9 @@ Use this index to instantly identify component locations, UI selectors, and veri
   - Main Container: `[data-testid="onboarding-container"]`
   - Submit Button: `[data-testid="onboarding-submit"]`
 - **Verification Command**: `npm test -- src/features/onboarding`
+
+### Home snapshot (fast launch)
+- **Directory**: `src/features/home-snapshot/`
+- **Entry Point**: `useHomeSnapshot` / `useSaveHomeSnapshot`, used by `src/app/(tabs)/home.tsx`; rehydrated in `src/app/_layout.tsx` before the session restores
+- **Storage key**: `pennywise_home_snapshot_v1` (cleared on logout, dropped per book in `purgeBookData`)
+- **Verification Command**: `npx jest src/features/home-snapshot`

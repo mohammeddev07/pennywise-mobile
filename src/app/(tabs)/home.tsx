@@ -37,6 +37,7 @@ import { useUndoToastStore } from "@/shared/ui/state/useUndoToastStore";
 import { withAlpha } from "@/shared/ui/theme/color";
 import { useCountUp } from "@/shared/ui/utils/useCountUp";
 import { markLaunch } from "@/shared/launchTiming";
+import { useHomeSnapshot, useSaveHomeSnapshot } from "@/features/home-snapshot/useHomeSnapshot";
 
 function nowMonthKey() {
   const d = new Date();
@@ -239,25 +240,41 @@ function Home() {
     return name ? name.slice(0, 1).toUpperCase() + name.slice(1) : selectedBookName;
   }, [savedName, selectedBookName, user?.email]);
 
-  const balanceQuery = useQuery({
-    queryKey: ["balance", selectedBookId],
-    queryFn: () => summaryApi.getBalance(selectedBookId),
-    enabled: Boolean(selectedBookId),
-  });
-
-  const summaryQuery = useQuery({
-    queryKey: ["summary", selectedBookId, currentMonth],
-    queryFn: () => summaryApi.getMonthlySummary(selectedBookId, currentMonth),
-    enabled: Boolean(selectedBookId),
-  });
-
   // Last seven days of spending, from the server's per-day totals. Days with no activity
   // render as an empty column rather than being skipped, so the shape of the week stays honest.
   const weekWindow = useMemo(() => {
     const end = todayInTimeZone(selectedBook?.timezone);
     return { startDate: addDaysYmd(end, -6), endDate: end };
   }, [selectedBook?.timezone]);
-  const weekQuery = useWindowAnalysis(weekWindow, "DAY");
+
+  // The last data seen for exactly this account, book, month and week paints at once;
+  // the queries still refetch it, and keep it on screen if the server is slow or down.
+  const snapshotContext = {
+    accountId: user?.id ?? "",
+    bookId: selectedBookId,
+    month: currentMonth,
+    weekStart: weekWindow.startDate,
+    weekEnd: weekWindow.endDate,
+  };
+  const snap = useHomeSnapshot(snapshotContext);
+
+  const balanceQuery = useQuery({
+    queryKey: ["balance", selectedBookId],
+    queryFn: () => summaryApi.getBalance(selectedBookId),
+    initialData: snap?.balance,
+    initialDataUpdatedAt: snap?.savedAt,
+    enabled: Boolean(selectedBookId),
+  });
+
+  const summaryQuery = useQuery({
+    queryKey: ["summary", selectedBookId, currentMonth],
+    queryFn: () => summaryApi.getMonthlySummary(selectedBookId, currentMonth),
+    initialData: snap?.summary,
+    initialDataUpdatedAt: snap?.savedAt,
+    enabled: Boolean(selectedBookId),
+  });
+
+  const weekQuery = useWindowAnalysis(weekWindow, "DAY", undefined, snap && { data: snap.weekAnalysis, updatedAt: snap.savedAt });
   const weekSpend = useMemo<AreaPoint[]>(() => {
     const byDay = new Map((weekQuery.data?.buckets ?? []).map((b) => [b.key, b.expenseTotalMinor]));
     return Array.from({ length: 7 }, (_, i) => {
@@ -312,8 +329,15 @@ function Home() {
     return { rows: rows.slice(0, 4), total };
   }, [categories, summaryQuery.data?.byCategory]);
 
-  const recentQuery = useRecentTransactions(4);
+  const recentQuery = useRecentTransactions(4, undefined, snap && { data: snap.recent, updatedAt: snap.savedAt });
   const recentTransactions = recentQuery.data ?? [];
+
+  useSaveHomeSnapshot(snapshotContext, {
+    balance: balanceQuery.data,
+    summary: summaryQuery.data,
+    weekAnalysis: weekQuery.data,
+    recent: recentQuery.data,
+  });
 
   const retryHydration = () => {
     setHydrationError(false);
