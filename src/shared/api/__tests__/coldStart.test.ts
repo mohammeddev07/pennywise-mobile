@@ -5,6 +5,7 @@ const T0 = new Date("2026-01-01T00:00:00Z").getTime();
 let calls: Record<string, number>;
 let timeouts: Record<string, (number | undefined)[]>;
 let apiClient: typeof import("../client").apiClient;
+let openColdStartWindow: typeof import("../client").openColdStartWindow;
 
 // Times out on the first call per URL, succeeds on the second.
 const adapter: AxiosAdapter = async (config: InternalAxiosRequestConfig) => {
@@ -22,7 +23,7 @@ beforeEach(() => {
   timeouts = {};
   // coldStartUntil is computed at module load, so load the client at T0.
   jest.isolateModules(() => {
-    apiClient = require("../client").apiClient;
+    ({ apiClient, openColdStartWindow } = require("../client"));
   });
 });
 afterEach(() => jest.useRealTimers());
@@ -39,4 +40,12 @@ it("requests after the window fail fast", async () => {
   jest.setSystemTime(T0 + 4_000);
   await expect(get("/v1/me")).rejects.toMatchObject({ code: "ECONNABORTED" });
   expect(calls["/v1/me"]).toBe(1);
+});
+
+it("openColdStartWindow re-anchors the window after a slow start", async () => {
+  jest.setSystemTime(T0 + 10_000);
+  openColdStartWindow();
+  await Promise.all([get("/v1/me"), get("/v1/books")]);
+  expect(calls["/v1/me"]).toBe(2);
+  expect(calls["/v1/books"]).toBe(2);
 });

@@ -3,7 +3,7 @@ import * as SecureStore from "expo-secure-store";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
-import { ACCESS_TOKEN_KEY, isAuthError } from "@/shared/api/client";
+import { ACCESS_TOKEN_KEY, isAuthError, openColdStartWindow } from "@/shared/api/client";
 import * as authApi from "@/shared/api/auth";
 import type { MeResponse } from "@/shared/types/api";
 import { useSettingsStore, type CurrencyCode } from "@/features/settings/store";
@@ -234,6 +234,7 @@ export const useAuthStore = create<State>()(
       restoreSession: () => {
         const { accessToken, user } = useAuthStore.getState();
         if (accessToken && user && !isTokenExpired(accessToken)) {
+          openColdStartWindow();
           set({ sessionStatus: "authenticated", unlocked: true });
           markLaunch("session authenticated");
           void useAuthStore.getState().refreshSession();

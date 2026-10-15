@@ -36,8 +36,11 @@ export const apiClient = axios.create({
 // genuinely dead connection doesn't also pay the 60s tax.
 const COLD_START_WINDOW_MS = 3_000;
 let coldStartUntil = Date.now() + COLD_START_WINDOW_MS;
+export function openColdStartWindow() {
+  coldStartUntil = Date.now() + COLD_START_WINDOW_MS;
+}
 AppState.addEventListener("change", (state: AppStateStatus) => {
-  if (state === "active") coldStartUntil = Date.now() + COLD_START_WINDOW_MS;
+  if (state === "active") openColdStartWindow();
 });
 
 let unauthorizedCleanup: Promise<void> | null = null;
