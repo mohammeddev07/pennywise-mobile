@@ -37,6 +37,7 @@ it("every request in the launch window gets the cold-start retry", async () => {
 });
 
 it("requests after the window fail fast", async () => {
+  await get("/v1/first"); // consumes the first-request retry
   jest.setSystemTime(T0 + 4_000);
   await expect(get("/v1/me")).rejects.toMatchObject({ code: "ECONNABORTED" });
   expect(calls["/v1/me"]).toBe(1);
@@ -48,4 +49,12 @@ it("openColdStartWindow re-anchors the window after a slow start", async () => {
   await Promise.all([get("/v1/me"), get("/v1/books")]);
   expect(calls["/v1/me"]).toBe(2);
   expect(calls["/v1/books"]).toBe(2);
+});
+
+it("the first request after load is retried even long after the window", async () => {
+  jest.setSystemTime(T0 + 20_000);
+  await get("/v1/login");
+  expect(calls["/v1/login"]).toBe(2);
+  await expect(get("/v1/later")).rejects.toMatchObject({ code: "ECONNABORTED" });
+  expect(calls["/v1/later"]).toBe(1);
 });
