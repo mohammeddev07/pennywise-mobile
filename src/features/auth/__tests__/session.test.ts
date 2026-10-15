@@ -1,6 +1,10 @@
-import { AxiosError } from "axios";
-import { waitFor } from "@testing-library/react-native";
+import { AxiosError, type AxiosAdapter } from "axios";
+import { createElement } from "react";
+import { act, render, waitFor } from "@testing-library/react-native";
+import { DataBootstrap } from "@/app/_layout";
 import * as authApi from "@/shared/api/auth";
+import * as booksApi from "@/shared/api/books";
+import { apiClient } from "@/shared/api/client";
 import { bumpAccountEpoch } from "@/shared/session/accountEpoch";
 import type { MeResponse } from "@/shared/types/api";
 import { useAuthStore } from "../store";
@@ -12,6 +16,14 @@ const user = { id: "u1", email: "a@b.co", defaultCurrencyCode: "USD", createdAt:
 const fresh = { ...user, email: "fresh@b.co" } as MeResponse;
 const httpError = (status: number) =>
   new AxiosError("x", "ERR_BAD_REQUEST", undefined, undefined, { status, statusText: "", data: {}, headers: {}, config: {} as never });
+
+jest.mock("../../../../global.css", () => ({}), { virtual: true });
+jest.mock("expo-router", () => ({
+  router: { replace: jest.fn(), push: jest.fn(), back: jest.fn() },
+  useRouter: () => ({ replace: jest.fn(), push: jest.fn(), back: jest.fn() }),
+  useLocalSearchParams: () => ({}),
+  usePathname: () => "/",
+}));
 
 let getMe: jest.SpyInstance;
 
@@ -88,4 +100,25 @@ it("refresh result from a previous account is dropped", async () => {
 it("mock login yields a non-expired token", async () => {
   await useAuthStore.getState().login("test@example.com", "password");
   expect(isTokenExpired(useAuthStore.getState().accessToken!)).toBe(false);
+});
+
+it("two parallel 401s produce exactly one logout", async () => {
+  const logout = jest.fn(async () => {});
+  useAuthStore.setState({ sessionStatus: "authenticated", logout });
+  const adapter: AxiosAdapter = async (config) => {
+    throw new AxiosError("x", "ERR_BAD_REQUEST", config, undefined, { status: 401, statusText: "", data: {}, headers: {}, config });
+  };
+  await Promise.allSettled([apiClient.get("/v1/me", { adapter }), apiClient.get("/v1/books", { adapter })]);
+  expect(logout).toHaveBeenCalledTimes(1);
+});
+
+it("background refresh does not re-run ensureBook", async () => {
+  const listBooks = jest.spyOn(booksApi, "listBooks").mockResolvedValue({ items: [{ id: "b1", name: "Personal" }] } as never);
+  useAuthStore.setState({ sessionStatus: "authenticated", onboardingCompleted: true });
+  render(createElement(DataBootstrap));
+  await waitFor(() => expect(listBooks).toHaveBeenCalledTimes(1));
+  await flush();
+  await act(async () => { useAuthStore.getState().setUser({ ...user }); });
+  await flush();
+  expect(listBooks).toHaveBeenCalledTimes(1);
 });

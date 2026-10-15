@@ -58,28 +58,29 @@ function applyDefaultFont() {
   TextInputAny.defaultProps.style = [{ fontFamily: fonts.regular }, TextInputAny.defaultProps.style].filter(Boolean);
 }
 
-function DataBootstrap() {
+export function DataBootstrap() {
   const pathname = usePathname();
   useLayoutEffect(() => installBookCoordinator(), []);
   useLayoutEffect(() => { setBookNavigation(pathname, () => router.replace('/(tabs)/home')); }, [pathname]);
-  const user = useAuthStore((s) => s.user);
+  const userId = useAuthStore((s) => s.user?.id);
+  const userCurrency = useAuthStore((s) => s.user?.defaultCurrencyCode);
   const sessionStatus = useAuthStore((s) => s.sessionStatus);
   const onboardingCompleted = useAuthStore((s) => s.onboardingCompleted);
   const loadBooks = useBooksStore((s) => s.loadBooks);
   const ensureBook = useBooksStore((s) => s.ensureBook);
 
   useEffect(() => {
-    if (sessionStatus !== "authenticated" || !user) return;
+    if (sessionStatus !== "authenticated" || !userId) return;
     if (onboardingCompleted) {
       ensureBook({
         name: "Personal",
-        currencyCode: user.defaultCurrencyCode ?? "USD",
+        currencyCode: userCurrency ?? "USD",
         openingBalanceMinor: 0,
       }).catch(() => {});
       return;
     }
     loadBooks().catch(() => {});
-  }, [ensureBook, loadBooks, onboardingCompleted, sessionStatus, user]);
+  }, [ensureBook, loadBooks, onboardingCompleted, sessionStatus, userId, userCurrency]);
 
   return null;
 }

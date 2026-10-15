@@ -31,11 +31,13 @@ export const apiClient = axios.create({
 });
 
 // App launch and every foreground resume may hit a backend that just spun down -
-// only the next request gets the cold-start retry ladder below; everything else
-// fails fast so a genuinely dead connection doesn't also pay the 60s tax.
-let coldStartCandidate = true;
+// every request in the first few seconds after launch/resume (the parallel launch
+// burst) gets the cold-start retry ladder below; later requests fail fast so a
+// genuinely dead connection doesn't also pay the 60s tax.
+const COLD_START_WINDOW_MS = 3_000;
+let coldStartUntil = Date.now() + COLD_START_WINDOW_MS;
 AppState.addEventListener("change", (state: AppStateStatus) => {
-  if (state === "active") coldStartCandidate = true;
+  if (state === "active") coldStartUntil = Date.now() + COLD_START_WINDOW_MS;
 });
 
 let unauthorizedCleanup: Promise<void> | null = null;
@@ -71,10 +73,7 @@ apiClient.interceptors.request.use(async (config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
-  if (coldStartCandidate) {
-    config._coldStartCandidate = true;
-    coldStartCandidate = false;
-  }
+  if (Date.now() < coldStartUntil) config._coldStartCandidate = true;
   return config;
 });
 
