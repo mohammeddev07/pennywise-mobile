@@ -10,3 +10,10 @@ Use this index to instantly identify component locations, UI selectors, and veri
   - Main Container: `[data-testid="onboarding-container"]`
   - Submit Button: `[data-testid="onboarding-submit"]`
 - **Verification Command**: `npm test -- src/features/onboarding`
+
+### Home snapshot / fast launch
+- **Directories**: `src/features/home-snapshot/`, `src/features/auth/token.ts` (local JWT expiry check, `isTokenExpired`, used by `restoreSession`)
+- **Entry Points**: `src/app/(tabs)/home.tsx` (`useHomeSnapshot` / `useSaveHomeSnapshot`); the `src/app/_layout.tsx` bootstrap (rehydrates the snapshot and token, then `restoreSession`)
+- **Test IDs**: none
+- **Storage key**: `pennywise_home_snapshot_v1` (cleared on logout, dropped per book in `purgeBookData`)
+- **Verification Command**: `npx jest src/features/home-snapshot src/features/auth src/shared/api`

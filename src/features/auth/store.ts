@@ -3,12 +3,14 @@ import * as SecureStore from "expo-secure-store";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
-import { ACCESS_TOKEN_KEY, isAuthError } from "@/shared/api/client";
+import { ACCESS_TOKEN_KEY, isAuthError, openColdStartWindow } from "@/shared/api/client";
 import * as authApi from "@/shared/api/auth";
 import type { MeResponse } from "@/shared/types/api";
 import { useSettingsStore, type CurrencyCode } from "@/features/settings/store";
-import { bumpAccountEpoch } from "@/shared/session/accountEpoch";
+import { bumpAccountEpoch, getAccountEpoch, isCurrentAccountEpoch } from "@/shared/session/accountEpoch";
+import { markLaunch } from "@/shared/launchTiming";
 import { signOutOfGoogle } from "./google";
+import { isTokenExpired } from "./token";
 
 export const AUTH_STORAGE_KEY = "pennywise_demo_auth_v1";
 
@@ -19,6 +21,7 @@ const ACCOUNT_STORAGE_KEYS = [
   "pennywise_budgets_v1",
   "pennywise_transactions_v1",
   "pennywise_settings_v1",
+  "pennywise_home_snapshot_v1",
 ];
 
 export type SessionStatus = "resolving" | "authenticated" | "unauthenticated";
@@ -38,7 +41,8 @@ type State = {
   setUnlocked: (v: boolean) => void;
   completeOnboarding: () => void;
   hydrateAccessToken: () => Promise<void>;
-  validateSession: () => Promise<void>;
+  restoreSession: () => void;
+  refreshSession: () => Promise<void>;
 };
 
 type PersistedState = Pick<State, "user" | "unlocked" | "onboardingCompleted">;
@@ -64,6 +68,7 @@ async function clearAccountState() {
     { useAddTransactionDraftStore },
     { useOnboardingStore },
     { useUndoToastStore },
+    { useHomeSnapshotStore },
   ] = await Promise.all([
     import("@/features/books/store"),
     import("@/features/categories/store"),
@@ -75,6 +80,7 @@ async function clearAccountState() {
     import("@/features/transactions/addDraftStore"),
     import("@/features/onboarding/useOnboardingStore"),
     import("@/shared/ui/state/useUndoToastStore"),
+    import("@/features/home-snapshot/store"),
   ]);
 
   // Supersede and await any automatic hydration still in flight. Otherwise a
@@ -86,6 +92,7 @@ async function clearAccountState() {
     Promise.resolve(useBudgetsStore.persist.rehydrate()),
     Promise.resolve(useFilterStore.persist.rehydrate()),
     Promise.resolve(useSettingsStore.persist.rehydrate()),
+    Promise.resolve(useHomeSnapshotStore.persist.rehydrate()),
   ]);
 
   (await import("@/features/books/operations")).resetBookOperations();
@@ -109,6 +116,7 @@ async function clearAccountState() {
     isLoading: false,
     error: null,
   });
+  useHomeSnapshotStore.getState().clear();
   // Server data lives in the query cache, not a store: cancel what is in flight and drop every
   // cached row, detail and aggregate of the previous account. Filters are per-account UI state.
   await clearQueryCache();
@@ -223,40 +231,30 @@ export const useAuthStore = create<State>()(
         set({ accessToken });
       },
 
-      validateSession: async () => {
-        const accessToken = useAuthStore.getState().accessToken;
-        if (!accessToken) {
-          await useAuthStore.getState().logout();
-          return;
+      restoreSession: () => {
+        const { accessToken, user } = useAuthStore.getState();
+        if (accessToken && user && !isTokenExpired(accessToken)) {
+          openColdStartWindow();
+          set({ sessionStatus: "authenticated", unlocked: true });
+          markLaunch("session authenticated");
+          void useAuthStore.getState().refreshSession().catch(() => {});
+        } else {
+          void useAuthStore.getState().logout().catch(() => {});
         }
+      },
 
-        set({ sessionStatus: "resolving" });
+      refreshSession: async () => {
+        const epoch = getAccountEpoch();
         try {
           const user = await authApi.getMe();
+          if (!isCurrentAccountEpoch(epoch)) return;
           syncDefaultCurrency(user);
-          set({
-            accessToken,
-            user,
-            sessionStatus: "authenticated",
-            unlocked: true,
-          });
+          set({ user });
         } catch (err) {
-          if (isAuthError(err)) {
-            if (useAuthStore.getState().sessionStatus !== "unauthenticated") {
-              await useAuthStore.getState().logout();
-            }
-            return;
+          // Only a real 401/403 signs out; timeouts and network errors (cold backend) are ignored.
+          if (isAuthError(err) && isCurrentAccountEpoch(epoch) && useAuthStore.getState().sessionStatus !== "unauthenticated") {
+            await useAuthStore.getState().logout();
           }
-
-          // Timeout/network failure (e.g. a cold backend) - the token may still be
-          // valid, so don't wipe the session. Fall back to the cached user and let
-          // the screens' own requests retry; only a real 401/403 means logged out.
-          const cachedUser = useAuthStore.getState().user;
-          set({
-            accessToken,
-            sessionStatus: cachedUser ? "authenticated" : "unauthenticated",
-            unlocked: Boolean(cachedUser),
-          });
         }
       },
     }),

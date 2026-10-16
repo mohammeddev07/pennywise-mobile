@@ -225,7 +225,11 @@ export function useActivityResults(query: BuiltQuery | null) {
 const ALL_ROWS: Pick<BuiltQuery, "filter" | "sort"> = { filter: { kind: "group", op: "AND", children: [] }, sort: [] };
 
 /** The newest `limit` transactions of the book, server-sorted. One small page, never the whole ledger. */
-export function useRecentTransactions(limit: number, bookIdOverride?: string) {
+export function useRecentTransactions(
+  limit: number,
+  bookIdOverride?: string,
+  seed?: { data: Transaction[]; updatedAt: number }
+) {
   const scope = useAccountScope();
   const bookId = bookIdOverride ?? scope.bookId;
   const keyScope = { accountId: scope.accountId, bookId };
@@ -233,6 +237,8 @@ export function useRecentTransactions(limit: number, bookIdOverride?: string) {
     queryKey: ["transactions", "recent", keyScope.accountId, keyScope.bookId, limit] as const,
     queryFn: ({ signal }) =>
       fetchSearchPage(keyScope, ALL_ROWS, 0, signal, limit).then((page) => page.items.map(mapTransactionResponse)),
+    initialData: seed?.data,
+    initialDataUpdatedAt: seed?.updatedAt,
     enabled: Boolean(keyScope.accountId && bookId),
   });
 }
@@ -245,7 +251,8 @@ export function useRecentTransactions(limit: number, bookIdOverride?: string) {
 export function useWindowAnalysis(
   window: { startDate: string; endDate: string } | null,
   bucket: "DAY" | "MONTH" | "YEAR",
-  bookIdOverride?: string
+  bookIdOverride?: string,
+  seed?: { data: AnalyzeResponse; updatedAt: number }
 ) {
   const scope = useAccountScope();
   const bookId = bookIdOverride ?? scope.bookId;
@@ -254,6 +261,8 @@ export function useWindowAnalysis(
   return useQuery({
     queryKey: txKeys.analyze(keyScope, `window|${window?.startDate}|${window?.endDate}`, bucket),
     queryFn: ({ signal }) => fetchAnalysis(keyScope, { analyzeFilter: filter, window: window! }, bucket, signal),
+    initialData: seed?.data,
+    initialDataUpdatedAt: seed?.updatedAt,
     enabled: Boolean(keyScope.accountId && bookId && window),
   });
 }
