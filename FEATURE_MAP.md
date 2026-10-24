@@ -17,3 +17,9 @@ Use this index to instantly identify component locations, UI selectors, and veri
 - **Test IDs**: none
 - **Storage key**: `pennywise_home_snapshot_v1` (cleared on logout, dropped per book in `purgeBookData`)
 - **Verification Command**: `npx jest src/features/home-snapshot src/features/auth src/shared/api`
+
+### HTTP startup and overload behavior
+- **Transport**: `src/shared/api/client.ts`, shared by authenticated features.
+- **Behavior**: launch/resume requests use one startup timeout; failures never automatically replay an HTTP operation.
+- **Test IDs**: none; adapter call counts measure attempts.
+- **Verification Command**: `npx jest src/shared/api/__tests__/coldStart.test.ts`

@@ -66,5 +66,5 @@ Do not report a task as complete without verifying your changes:
 
 ## Backend behavior worth knowing
 
-- Render's free tier spins the backend down after ~15 min idle; the next request cold-starts in 30-60s. `src/shared/api/client.ts` already handles this (a timeout + one automatic retry at a longer timeout, plus honest "waking up the server" copy on login). Don't strip this out to "fix" a slow first request - that's expected given the hosting tier, not a bug.
+- Render's free tier spins the backend down after ~15 min idle; the next request cold-starts in 30-60s. `src/shared/api/client.ts` gives launch/resume requests one longer startup timeout, plus honest "waking up the server" copy on login. Preserve the startup wait budget; automatic replays can duplicate work that is still running.
 - Gemini model IDs get deprecated over time. If the AI filter feature (`Describe your filter`) starts 404ing, check Render's logs for the `Gemini call failed: model=..., httpStatus=...` line before assuming it's a code bug - it's usually a stale `AI_MODEL` value.

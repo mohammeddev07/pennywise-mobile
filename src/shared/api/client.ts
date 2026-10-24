@@ -6,9 +6,8 @@ import { AppState, type AppStateStatus } from "react-native";
 
 declare module "axios" {
   export interface AxiosRequestConfig {
-    _retriedForColdStart?: boolean;
+    _skipColdStartTimeout?: boolean;
     _bookOperation?: number;
-    _coldStartCandidate?: boolean;
   }
 }
 
@@ -16,15 +15,14 @@ export const ACCESS_TOKEN_KEY = "access_token";
 export const BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? "http://localhost:8080/api";
 export const USE_MOCK_API = process.env.EXPO_PUBLIC_MOCK_API === "true";
 
-// Render's free tier spins the backend down after ~15 min idle; the next request
-// can take 30-60s+ to wake it. The default timeout below covers a warm backend -
-// a request that times out gets one retry at COLD_START_RETRY_TIMEOUT_MS before
-// surfacing an error, so a cold start doesn't look like a dead connection.
-const COLD_START_RETRY_TIMEOUT_MS = 45_000;
+// A cold backend may need the entire startup wait budget. Keep one request alive
+// instead of replaying timed-out reads, logins, or writes while it may still run.
+const WARM_TIMEOUT_MS = 15_000;
+const COLD_START_TIMEOUT_MS = 60_000;
 
 export const apiClient = axios.create({
   baseURL: BASE_URL,
-  timeout: 15_000,
+  timeout: WARM_TIMEOUT_MS,
   // Required lazily: with EXPO_PUBLIC_MOCK_API unset the constant folds to false and the bundler drops the
   // whole in-memory backend (seed data, fake token) from a release bundle.
   ...(USE_MOCK_API ? { adapter: require("@/shared/api/mockAdapter").mockAdapter } : {}),
@@ -32,9 +30,8 @@ export const apiClient = axios.create({
 
 // App launch and every foreground resume may hit a backend that just spun down -
 // the first request after launch/resume (however late it fires) plus every request
-// in the first few seconds (the parallel launch burst) gets the cold-start retry
-// ladder below; later requests fail fast so a genuinely dead connection doesn't
-// also pay the 60s tax.
+// in the first few seconds (the parallel launch burst) gets the longer timeout.
+// Later requests use the warm timeout. No transport failure replays an operation.
 const COLD_START_WINDOW_MS = 3_000;
 let coldStartCandidate = true;
 let coldStartUntil = Date.now() + COLD_START_WINDOW_MS;
@@ -82,8 +79,10 @@ apiClient.interceptors.request.use(async (config) => {
     config.headers.Authorization = `Bearer ${token}`;
   }
   if (coldStartCandidate || Date.now() < coldStartUntil) {
-    config._coldStartCandidate = true;
     coldStartCandidate = false;
+    if (!config._skipColdStartTimeout && config.timeout === WARM_TIMEOUT_MS) {
+      config.timeout = COLD_START_TIMEOUT_MS;
+    }
   }
   return config;
 });
@@ -109,14 +108,7 @@ apiClient.interceptors.response.use(
       });
     }
 
-    const config = err.config;
-    if (isTimeout(err) && config && config._coldStartCandidate && !config._retriedForColdStart) {
-      config._retriedForColdStart = true;
-      config.timeout = COLD_START_RETRY_TIMEOUT_MS;
-      return apiClient(config);
-    }
-
-    endBookOperation(config?._bookOperation);
+    endBookOperation(err.config?._bookOperation);
     return Promise.reject(err);
   }
 );
