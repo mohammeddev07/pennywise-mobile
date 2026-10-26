@@ -1,0 +1,39 @@
+name: EAS Build (Android)
+
+# Native builds are the only way to ship native changes: the app icon, splash, adaptive icon, new native
+# modules, permissions or an Expo SDK bump. `eas update` (OTA) cannot change any of these.
+# The build runs on EAS's servers; this job only queues it (--no-wait). Download the APK from the link in
+# the job log or from expo.dev once it finishes.
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: "eas.json build profile (preview = installable APK, production = Play Store bundle)"
+        required: true
+        default: preview
+        type: choice
+        options:
+          - preview
+          - production
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Same as eas-update.yml: eas-cli needs Node >=22, newer than the repo's .node-version.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - run: npm ci
+      - run: npx tsc --noEmit
+
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - run: eas build --platform android --profile ${{ inputs.profile }} --non-interactive --no-wait
