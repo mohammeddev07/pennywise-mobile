@@ -1,11 +1,9 @@
 import React, { useEffect } from "react";
 import { View } from "react-native";
-import Animated, {
+import {
   interpolateColor,
   useAnimatedStyle,
   useSharedValue,
-  withSequence,
-  withSpring,
   withTiming,
 } from "react-native-reanimated";
 
@@ -49,19 +47,11 @@ export function FilterChip({
   role?: "filter" | "category";
   style?: object;
 }) {
-  const pop = useSharedValue(1);
   const focus = useSharedValue(active ? 1 : 0);
-
-  useEffect(() => {
-    if (!active) return;
-    pop.value = withSequence(withTiming(1.12, { duration: 90 }), withSpring(1, tokens.spring.chipIcon));
-  }, [active, pop]);
 
   useEffect(() => {
     focus.value = withTiming(active ? 1 : 0, { duration: tokens.motion.fast });
   }, [active, focus]);
-
-  const iconPop = useAnimatedStyle(() => ({ transform: [{ scale: pop.value }] }));
 
   const selectedColor =
     tone === "income"
@@ -81,7 +71,7 @@ export function FilterChip({
     <HapticPressable
       onPress={onPress}
       haptic={role === "category" ? "selection" : "none"}
-      pressScale={0.97}
+      pressScale={1}
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ selected: active }}
@@ -103,13 +93,13 @@ export function FilterChip({
       ]}
     >
       {icon ? (
-        <Animated.View style={[{ marginRight: tokens.space[2] }, iconPop]}>
+        <View style={{ marginRight: tokens.space[2] }}>
           <Icon
             name={icon as any}
             size={tokens.icon.chip}
             color={active ? selectedColor : (iconColor ?? tokens.colors.muted)}
           />
-        </Animated.View>
+        </View>
       ) : null}
 
       <AppText

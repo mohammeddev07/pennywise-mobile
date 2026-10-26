@@ -1,7 +1,6 @@
 import { useEffect } from "react";
 import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import * as Updates from "expo-updates";
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 
 import { tokens } from "@/shared/ui/theme/tokens";
@@ -9,12 +8,14 @@ import { useUpdateToastStore } from "@/shared/ui/state/useUpdateToastStore";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
 import { AppText } from "@/shared/ui/components/AppText";
 import { Icon } from "@/shared/ui/components/Icon";
+import { useAppUpdates } from "@/features/app-updates/useAppUpdates";
 
 export function UpdateToast() {
   const insets = useSafeAreaInsets();
 
   const visible = useUpdateToastStore((s) => s.visible);
   const hide = useUpdateToastStore((s) => s.hide);
+  const { status, error, applyUpdate } = useAppUpdates();
 
   const y = useSharedValue(22);
   const o = useSharedValue(0);
@@ -81,12 +82,13 @@ export function UpdateToast() {
             Update ready
           </AppText>
           <AppText variant="sm" tone="muted">
-            Restart to apply it.
+            {error ?? "Restart to apply it."}
           </AppText>
         </View>
 
         <HapticPressable
-          onPress={() => Updates.reloadAsync()}
+          onPress={applyUpdate}
+          disabled={status === "restarting"}
           haptic="selection"
           style={{
             marginLeft: tokens.space[2],
@@ -99,7 +101,7 @@ export function UpdateToast() {
           accessibilityLabel="Restart to apply update"
         >
           <AppText variant="sm" weight="semibold">
-            Restart
+            {status === "restarting" ? "Restarting..." : error ? "Retry" : "Restart"}
           </AppText>
         </HapticPressable>
 

@@ -291,15 +291,19 @@ function ProfileScreen() {
                     : updateStatus === "downloading"
                       ? "Downloading..."
                       : updateStatus === "available"
-                        ? "Update ready - tap to restart"
-                        : updateStatus === "up-to-date"
-                          ? "You're up to date"
-                          : updateStatus === "error"
-                            ? "Couldn't check right now"
-                            : undefined
+                        ? (updateError ? "Restart failed - tap to retry" : "Update ready - tap to restart")
+                        : updateStatus === "restarting"
+                          ? "Restarting..."
+                          : updateStatus === "unavailable"
+                            ? "Updates unavailable in this build"
+                            : updateStatus === "up-to-date"
+                              ? "You're up to date"
+                              : updateStatus === "error"
+                                ? "Couldn't check right now"
+                                : undefined
                 }
                 onPress={
-                  updateStatus === "checking" || updateStatus === "downloading"
+                  updateStatus === "checking" || updateStatus === "downloading" || updateStatus === "restarting"
                     ? undefined
                     : updateStatus === "available"
                       ? applyUpdate
@@ -307,15 +311,15 @@ function ProfileScreen() {
                 }
               />
             </SettingsGroup>
-            {updateStatus === "error" && updateError ? (
+            {updateError || updateStatus === "unavailable" ? (
               // SettingsRow's value is a single truncated line - a multiword diagnostic
               // (channel/runtime-version/network detail) needs to wrap in full to be useful.
               <AppText
                 variant="sm"
-                tone="danger"
+                tone={updateError ? "danger" : "muted"}
                 style={{ marginTop: tokens.space[2], paddingHorizontal: tokens.space[2] }}
               >
-                {updateError}
+                {updateError ?? "In-app updates aren't available in this build. Install the latest release to update the app."}
               </AppText>
             ) : null}
           </>

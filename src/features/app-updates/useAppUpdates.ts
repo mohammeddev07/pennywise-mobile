@@ -1,48 +1,74 @@
-import { useCallback, useState } from "react";
+import { useEffect } from "react";
 import * as Updates from "expo-updates";
+import { create } from "zustand";
 
-export type AppUpdateStatus = "idle" | "checking" | "downloading" | "available" | "up-to-date" | "error";
+export type AppUpdateStatus = "idle" | "checking" | "downloading" | "available" | "restarting" | "up-to-date" | "unavailable" | "error";
 
-/**
- * expo-updates only covers JS/asset changes shipped via `eas update` - a
- * native change (new native module, SDK bump, new permission) still needs a
- * fresh build from expo.dev regardless of this. Updates.isEnabled is false
- * in Expo Go and in any build without a configured update channel (e.g. a
- * local dev build), so this is a deliberate no-op there rather than a crash.
- */
-export function useAppUpdates() {
-  const [status, setStatus] = useState<AppUpdateStatus>("idle");
-  const [error, setError] = useState<string | null>(null);
+type State = {
+  status: AppUpdateStatus;
+  error: string | null;
+  checkAndDownload: () => Promise<void>;
+  applyUpdate: () => Promise<void>;
+};
 
-  const checkAndDownload = useCallback(async () => {
+// Startup, Settings and the restart banner all operate on the same native updater.
+// Keep their state together so they cannot run competing checks or lose a ready update.
+export const useAppUpdateStore = create<State>((set, get) => ({
+  status: "idle",
+  error: null,
+  checkAndDownload: async () => {
+    const { status } = get();
+    if (["checking", "downloading", "available", "restarting"].includes(status)) return;
     if (!Updates.isEnabled) {
-      setStatus("up-to-date");
+      set({ status: "unavailable", error: null });
       return;
     }
-    setStatus("checking");
-    setError(null);
+    set({ status: "checking", error: null });
     try {
       const result = await Updates.checkForUpdateAsync();
-      if (!result.isAvailable) {
-        setStatus("up-to-date");
+      if (!result.isAvailable && !result.isRollBackToEmbedded) {
+        set({ status: "up-to-date" });
         return;
       }
-      setStatus("downloading");
-      await Updates.fetchUpdateAsync();
-      setStatus("available");
+      set({ status: "downloading" });
+      const download = await Updates.fetchUpdateAsync();
+      if (!download.isNew && !download.isRollBackToEmbedded) {
+        throw new Error("The update could not be downloaded. Please try again.");
+      }
+      set({ status: "available", error: null });
     } catch (err) {
       // Only ever surfaced as a generic "Couldn't check right now" in the UI otherwise -
       // logging the real message is the only way to tell a stale/misconfigured channel
       // apart from a network error apart from an actual expo-updates bug.
       console.error("[useAppUpdates] check/fetch failed:", err);
-      setStatus("error");
-      setError(err instanceof Error ? err.message : "Couldn't check for updates.");
+      set({ status: "error", error: err instanceof Error ? err.message : "Couldn't check for updates." });
     }
-  }, []);
+  },
+  applyUpdate: async () => {
+    if (get().status !== "available") return;
+    set({ status: "restarting", error: null });
+    try {
+      await Updates.reloadAsync();
+    } catch (err) {
+      console.error("[useAppUpdates] restart failed:", err);
+      // The downloaded update is still ready. Let either restart button retry.
+      set({ status: "available", error: "Couldn't restart to apply the update. Please try again." });
+    }
+  },
+}));
 
-  const applyUpdate = useCallback(() => {
-    Updates.reloadAsync();
-  }, []);
+/** OTA updates cover compatible JS/assets; native changes still require a new build. */
+export function useAppUpdates() {
+  const state = useAppUpdateStore();
+  const { isUpdatePending } = Updates.useUpdates();
 
-  return { status, error, checkAndDownload, applyUpdate };
+  useEffect(() => {
+    // Also recognize updates downloaded by the native updater before this screen mounted.
+    const { status } = useAppUpdateStore.getState();
+    if (Updates.isEnabled && isUpdatePending && !["checking", "downloading", "restarting"].includes(status)) {
+      useAppUpdateStore.setState({ status: "available", error: null });
+    }
+  }, [isUpdatePending]);
+
+  return state;
 }
