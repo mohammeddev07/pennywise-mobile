@@ -167,7 +167,6 @@ export function CustomRangeSheet({
     <BottomSheetModal
       visible={visible && !picking}
       animateIn={!returning}
-      entrance="fade"
       onClose={onClose}
       title="Custom range"
       rightAction={<SheetCloseButton onPress={onClose} />}

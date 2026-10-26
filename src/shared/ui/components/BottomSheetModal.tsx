@@ -1,16 +1,15 @@
-import { type PropsWithChildren, type ReactNode, useRef } from "react";
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { type PropsWithChildren, type ReactNode, useEffect, useRef } from "react";
+import { Animated as NativeAnimated, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
 import Animated, {
   Easing,
-  FadeIn,
-  SlideInDown,
+  cancelAnimation,
   runOnJS,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
-  withSpring,
+  withTiming,
 } from "react-native-reanimated";
 
 import { tokens } from "@/shared/ui/theme/tokens";
@@ -30,19 +29,13 @@ type Props = PropsWithChildren<{
   /** Tall sheet: body scrolls under a fixed header and footer. For long forms (filters, sort). */
   scroll?: boolean;
   /**
-   * Slide in on show. Defaults to true. Pass false when the sheet is coming
+   * Fade in on show. Defaults to true. Pass false when the sheet is coming
    * back from being briefly hidden (e.g. behind an Android date dialog), so it
-   * reappears where it was instead of travelling up the screen a second time.
+   * reappears immediately in place.
    * A `scroll` sheet also returns at the scroll position it was left at.
    */
   animateIn?: boolean;
-  entrance?: "slide" | "fade";
 }>;
-
-// The sheet decelerates into place and stops - no spring, so there is no
-// overshoot to wait out before the controls can be used.
-const SHEET_ENTER = SlideInDown.duration(tokens.motion.base).easing(Easing.out(Easing.cubic));
-const FADE_ENTER = FadeIn.duration(tokens.motion.fast);
 
 const SWIPE_CLOSE_DISTANCE = 96;
 const SWIPE_CLOSE_VELOCITY = 900;
@@ -63,16 +56,21 @@ export function BottomSheetModal({
   footer,
   scroll,
   animateIn = true,
-  entrance = "slide",
   children,
 }: Props) {
   const insets = useSafeAreaInsets();
+  const reduceMotion = useReducedMotion();
+  const opacity = useRef(new NativeAnimated.Value(1)).current;
 
   // Swipe only on the handle, so the X and other header controls receive taps.
-  // Past 96px or a flick, the sheet closes; otherwise it springs back.
+  // Past 96px or a flick, the sheet closes; otherwise it settles without bounce.
   const dragY = useSharedValue(0);
   const drag = Gesture.Pan()
+    .withTestId("sheet-swipe")
     .activeOffsetY(8)
+    .onBegin(() => {
+      cancelAnimation(dragY);
+    })
     .onUpdate((e) => {
       dragY.value = Math.max(0, e.translationY);
     })
@@ -82,12 +80,34 @@ export function BottomSheetModal({
       }
     })
     .onFinalize(() => {
-      dragY.value = withSpring(0, tokens.spring.snappy);
+      dragY.value = reduceMotion ? 0 : withTiming(0, {
+        duration: tokens.motion.fast,
+        easing: Easing.out(Easing.cubic),
+      });
     });
   const dragStyle = useAnimatedStyle(() => ({ transform: [{ translateY: dragY.value }] }));
 
   const paddingX = useScreenPaddingX();
-  const reduceMotion = useReducedMotion();
+  useEffect(() => {
+    // A persistent modal can reopen while its previous gesture is settling.
+    // Never carry a translated panel or an unfinished fade into the next open.
+    cancelAnimation(dragY);
+    dragY.value = 0;
+    opacity.setValue(1);
+    if (!visible || !animateIn || reduceMotion) return;
+
+    // Opacity only: layout and touch targets stay at their final coordinates.
+    // Avoid Reanimated entering/exiting transitions inside native modal windows.
+    opacity.setValue(0);
+    const fade = NativeAnimated.timing(opacity, {
+      toValue: 1,
+      duration: tokens.motion.fast,
+      useNativeDriver: true,
+      isInteraction: false,
+    });
+    fade.start();
+    return () => fade.stop();
+  }, [animateIn, dragY, opacity, reduceMotion, visible]);
   const fill = scroll ? { flex: 1 } : null;
   // A hidden Modal unmounts its contents, scroll view included. Remember where
   // the body was so a sheet returning from being hidden is not reset to the top;
@@ -97,18 +117,9 @@ export function BottomSheetModal({
   // Android modals need their own gesture root.
   const content = (
       <GestureHandlerRootView style={{ flex: 1 }}>
-        {/*
-          Entering only - never `exiting` - on anything inside this Modal. With
-          animationType="none" the Modal's window is torn down the moment
-          `visible` goes false, so an exit animation has nowhere to play; worse,
-          on Android a Reanimated `exiting` animation inside a Modal can leave
-          the view stuck and the whole sheet unresponsive to touches (Cancel,
-          close and Apply all "doing nothing"). Closing is instant by design.
-        */}
-        <Animated.View
-          entering={animateIn ? FADE_ENTER : undefined}
+        <NativeAnimated.View
           collapsable={false}
-          style={{ flex: 1, backgroundColor: withAlpha(tokens.colors.black, 0.55) }}
+          style={{ flex: 1, opacity, backgroundColor: withAlpha(tokens.colors.black, 0.55) }}
         >
           <Pressable
             style={StyleSheet.absoluteFill}
@@ -131,9 +142,7 @@ export function BottomSheetModal({
             style={{ flex: 1, justifyContent: "flex-end", alignItems: "center", paddingTop: scroll ? insets.top : 0 }}
             pointerEvents="box-none"
           >
-            <Animated.View
-              // Reduced motion: the sheet fades in place instead of travelling up the screen.
-              entering={animateIn ? (reduceMotion || entrance === "fade" ? FADE_ENTER : SHEET_ENTER) : undefined}
+            <View
               collapsable={false}
               accessibilityViewIsModal
               aria-modal
@@ -229,16 +238,16 @@ export function BottomSheetModal({
                   </View>
                 ) : null}
               </Animated.View>
-            </Animated.View>
+            </View>
           </KeyboardAvoidingView>
-        </Animated.View>
+        </NativeAnimated.View>
       </GestureHandlerRootView>
   );
 
   if (embedded) return visible ? content : null;
   return (
     <Modal visible={visible} transparent presentationStyle="overFullScreen" animationType="none" onRequestClose={onClose} statusBarTranslucent navigationBarTranslucent>
-      {content}
+      {visible ? content : null}
     </Modal>
   );
 }

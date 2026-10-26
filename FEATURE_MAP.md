@@ -23,3 +23,16 @@ Use this index to instantly identify component locations, UI selectors, and veri
 - **Behavior**: launch/resume requests use one startup timeout; failures never automatically replay an HTTP operation.
 - **Test IDs**: none; adapter call counts measure attempts.
 - **Verification Command**: `npx jest src/shared/api/__tests__/coldStart.test.ts`
+
+### App updates
+- **Directory**: `src/features/app-updates/`
+- **Entry Points**: `src/features/app-updates/useAppUpdates.ts`; startup in `src/app/_layout.tsx`, manual checks in `src/app/(tabs)/settings.tsx`, restart banner in `src/shared/ui/components/UpdateToast.tsx`.
+- **Behavior**: shared check/download/restart state prevents competing requests; downloaded updates stay ready across screens; unavailable builds and failed downloads/restarts report their actual state.
+- **UI selectors**: Settings text `Check for updates`; banner accessibility labels `Restart to apply update` and `Dismiss`.
+- **Verification Command**: `npm test -- --runInBand src/features/app-updates`
+
+### Shared bottom sheets and filter motion
+- **Components**: `src/shared/ui/components/BottomSheetModal.tsx`, `FilterChip.tsx`, `SegmentedControl.tsx`.
+- **Behavior**: sheets fade into their final position, reset drag state on visibility changes, and return from partial swipes without bounce. Filter chips keep their icons stationary; segmented controls default to calm motion.
+- **UI selectors**: `sheet-drag-handle` view, `sheet-swipe` gesture, `Close` accessibility label.
+- **Verification Command**: `npm test -- --runInBand src/shared/ui src/features/books src/features/transactions`

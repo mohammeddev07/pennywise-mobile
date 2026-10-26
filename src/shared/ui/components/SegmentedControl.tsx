@@ -33,8 +33,7 @@ const PAD = 4;
  * the selection genuinely slides and its color cross-fades when the two
  * options mean different things (expense red vs income green).
  *
- * The thumb travels on a spring - cause precedes effect, so the control moves
- * before the screen answers with its own color change.
+ * By default the indicator settles with a short ease-out, without overshoot.
  */
 export function SegmentedControl<T extends string>({
   items,
@@ -42,7 +41,7 @@ export function SegmentedControl<T extends string>({
   onChange,
   disabled,
   haptic = "selection",
-  motion = "spring",
+  motion = "calm",
 }: {
   items: SegmentItem<T>[];
   value: T;
