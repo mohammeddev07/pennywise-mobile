@@ -55,7 +55,7 @@ Do not report a task as complete without verifying your changes:
 
 - Run `eas update` with **both** `--channel <name>` and `--environment <name>` (matching `preview` or `production`). `--environment` is what makes the published JS bundle pick up the same `EXPO_PUBLIC_*` values the native build gets from EAS's Environment Variables page - without it, the OTA bundle silently falls back to hardcoded defaults. This broke the app in production once already.
 - A channel must be **linked to a branch** on expo.dev (`eas channel:edit <name> --branch <name>`) before any update published to that branch actually reaches a device. Publishing succeeds either way - the failure is silent until a real device checks for updates and gets a rejected/opaque error.
-- OTA only ships JS/asset changes. Any native change (new native module, Expo SDK bump, new permission) needs a fresh `eas build` and a new APK install - no way around it.
+- OTA only ships JS/asset changes. Any native change (new native module, Expo SDK bump, new permission, app icon, splash or adaptive icon) needs a fresh `eas build` and a new APK install - no way around it. The manual `EAS Build (Android)` GitHub Action queues one.
 - The `EAS Update (OTA)` GitHub Action is manual (`workflow_dispatch`). When you've just pushed a workflow fix, run it from the branch that actually has the fix - the "Run workflow" dropdown defaults to `develop`, not your branch.
 
 ## Environment variables - two separate systems
