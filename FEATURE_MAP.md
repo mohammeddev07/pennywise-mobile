@@ -36,3 +36,10 @@ Use this index to instantly identify component locations, UI selectors, and veri
 - **Behavior**: sheets fade into their final position, reset drag state on visibility changes, and return from partial swipes without bounce. Filter chips keep their icons stationary; segmented controls default to calm motion.
 - **UI selectors**: `sheet-drag-handle` view, `sheet-swipe` gesture, `Close` accessibility label.
 - **Verification Command**: `npm test -- --runInBand src/shared/ui src/features/books src/features/transactions`
+
+### Add-transaction categories
+- **Directory**: `src/features/transactions/`
+- **Entry Points**: `src/app/modals/add-transaction/details.tsx` (all eligible category chips), `src/app/modals/add-transaction/category.tsx` (searchable browser).
+- **Behavior**: refreshes categories on entry and shows every active category for the draft's book and transaction type, without an eight-category cap.
+- **UI selectors**: category chips expose their names as button accessibility labels; `Search categories` opens the full browser.
+- **Verification Command**: `npm test -- --runInBand src/features/transactions/__tests__/addTransactionFlow.test.tsx`
