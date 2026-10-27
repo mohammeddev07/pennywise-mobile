@@ -12,6 +12,7 @@ import { IconButton } from "@/shared/ui/components/IconButton";
 import { Sheet } from "@/shared/ui/components/Sheet";
 import { tokens } from "@/shared/ui/theme/tokens";
 import { useUndoToastStore } from "@/shared/ui/state/useUndoToastStore";
+import { SUPPORT_EMAIL } from "@/features/support/constants";
 
 function newIdempotencyKey() {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -93,9 +94,11 @@ export default function ContactSupportModal() {
           </View>
         ) : (
           <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-            <AppText variant="sm" tone="muted" style={{ marginBottom: tokens.space[6] }}>
-              Tell us what you need help with. We'll reply to the email on your account.
-            </AppText>
+            <View style={{ marginBottom: tokens.space[6], gap: tokens.space[2] }}>
+              <AppText variant="lg" weight="semibold">How can we help?</AppText>
+              <AppText variant="sm" tone="muted">Send a message below. We'll reply to the email on your account.</AppText>
+              <AppText variant="sm" tone="muted" selectable>{SUPPORT_EMAIL}</AppText>
+            </View>
             <FormField
               label="Subject"
               accessibilityLabel="Subject"

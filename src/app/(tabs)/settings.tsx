@@ -13,7 +13,6 @@ import { Button } from "@/shared/ui/components/Button";
 import { Card } from "@/shared/ui/components/Card";
 import { EmptyState } from "@/shared/ui/components/EmptyState";
 import { ScreenHeader } from "@/shared/ui/components/ScreenHeader";
-import { SectionHeader } from "@/shared/ui/components/SectionHeader";
 import { SettingsRow } from "@/shared/ui/components/SettingsRow";
 import { Skeleton } from "@/shared/ui/components/Skeleton";
 import { useScreenPaddingX, useTabBarClearance } from "@/shared/ui/components/Screen";
@@ -29,22 +28,29 @@ import { Avatar } from "@/shared/ui/components/Avatar";
 import { AppearanceSetting } from "@/features/settings/ui/AppearanceSetting";
 import { DisplayNameSetting } from "@/features/settings/ui/DisplayNameSetting";
 import { ConnectGoogleRow } from "@/features/auth/ui/ConnectGoogleRow";
+import { googleSignInAvailable } from "@/features/auth/google";
+import { SUPPORT_EMAIL } from "@/features/support/constants";
 
 /** A titled group of settings rows, separated by hairlines. */
-function SettingsGroup({ children }: { children: React.ReactNode }) {
+function SettingsGroup({ title, children }: { title: string; children: React.ReactNode }) {
   const items = React.Children.toArray(children);
 
   return (
-    <Card variant="surface" padding={0} style={{ overflow: "hidden" }}>
-      {items.map((child, index) => (
-        <View key={index}>
-          {child}
-          {index !== items.length - 1 ? (
-            <View style={{ height: 1, marginLeft: tokens.space[4], backgroundColor: tokens.colors.divider }} />
-          ) : null}
-        </View>
-      ))}
-    </Card>
+    <View style={{ marginTop: tokens.space[6] }}>
+      <AppText variant="base" weight="semibold" accessibilityRole="header" style={{ marginBottom: tokens.space[3] }}>
+        {title}
+      </AppText>
+      <Card variant="surface" padding={0} style={{ overflow: "hidden", borderRadius: tokens.radii.lg }}>
+        {items.map((child, index) => (
+          <View key={index}>
+            {child}
+            {index !== items.length - 1 ? (
+              <View style={{ height: 1, marginLeft: 60, backgroundColor: tokens.colors.divider }} />
+            ) : null}
+          </View>
+        ))}
+      </Card>
+    </View>
   );
 }
 
@@ -223,57 +229,40 @@ function ProfileScreen() {
         ) : (
           <>
             {/* Account */}
-            <Card variant="surface" padding={16} style={{ marginTop: tokens.space[6] }}>
-              <View style={{ flexDirection: "row", alignItems: "center" }}>
-                <Avatar seed={avatarSeed} onShuffle={shuffleAvatar} />
+            <View style={{ flexDirection: "row", alignItems: "center", paddingVertical: tokens.space[5], gap: tokens.space[4] }}>
+              <Avatar seed={avatarSeed} size={64} onShuffle={shuffleAvatar} />
 
-                <View style={{ flex: 1, marginLeft: tokens.space[3] }}>
-                  <AppText variant="base" weight="semibold" numberOfLines={1}>
-                    {displayName || email}
-                  </AppText>
-                  <AppText variant="sm" tone="muted" numberOfLines={1} style={{ marginTop: 2 }}>
-                    {displayName ? email : `${selectedBook?.name ?? "Personal"} · signed in`}
-                  </AppText>
-                </View>
-
-                <View
-                  style={{
-                    paddingHorizontal: tokens.space[2],
-                    paddingVertical: 4,
-                    borderRadius: tokens.radii.pill,
-                    backgroundColor: tokens.colors.greenSoft,
-                  }}
-                >
-                  <AppText variant="xs" style={{ color: tokens.colors.accent }}>
-                    SYNCED
-                  </AppText>
-                </View>
+              <View style={{ flex: 1 }}>
+                <AppText variant="xl" weight="semibold" numberOfLines={1}>
+                  {displayName || "Your account"}
+                </AppText>
+                <AppText variant="sm" tone="muted" numberOfLines={2} selectable style={{ marginTop: tokens.space[1] }}>
+                  {email}
+                </AppText>
               </View>
-            </Card>
+            </View>
+
+            <SettingsGroup title="Account & preferences">
+              <DisplayNameSetting />
+              <AppearanceSetting />
+              {googleSignInAvailable ? <ConnectGoogleRow /> : null}
+            </SettingsGroup>
 
             <View onLayout={(event) => setBooksSectionY(event.nativeEvent.layout.y)}>
               <BookManagement onDrag={setDraggingBook} />
             </View>
 
-            {/* Preferences */}
-            <SectionHeader
-              title="Preferences"
-              style={{ marginTop: tokens.space[7], marginBottom: tokens.space[3] }}
-            />
-            <SettingsGroup>
-              <DisplayNameSetting />
-              <AppearanceSetting />
-              <ConnectGoogleRow />
+            <SettingsGroup title="Your data">
               <SettingsRow
                 icon="grid-outline"
                 label="Categories & budgets"
-                value="Names, icons, colors, budgets"
+                value="Organize this book"
                 onPress={() => router.push("/(tabs)/categories")}
               />
               <SettingsRow
                 icon="download-outline"
                 label="Import transactions"
-                value="Add transactions from an .xlsx file"
+                value="From an .xlsx file"
                 onPress={() => router.push("/modals/import-transactions")}
               />
               <SettingsRow
@@ -282,63 +271,63 @@ function ProfileScreen() {
                 value={isExporting ? "Exporting..." : `Save ${selectedBook?.name ?? "this book"} as .xlsx`}
                 onPress={isExporting ? undefined : onExport}
               />
-              <SettingsRow
-                icon="tips-and-updates"
-                label="Check for updates"
-                value={
-                  updateStatus === "checking"
-                    ? "Checking..."
-                    : updateStatus === "downloading"
-                      ? "Downloading..."
-                      : updateStatus === "available"
-                        ? (updateError ? "Restart failed - tap to retry" : "Update ready - tap to restart")
-                        : updateStatus === "restarting"
-                          ? "Restarting..."
-                          : updateStatus === "unavailable"
-                            ? "Updates unavailable in this build"
-                            : updateStatus === "up-to-date"
-                              ? "You're up to date"
-                              : updateStatus === "error"
-                                ? "Couldn't check right now"
-                                : undefined
-                }
-                onPress={
-                  updateStatus === "checking" || updateStatus === "downloading" || updateStatus === "restarting"
-                    ? undefined
-                    : updateStatus === "available"
-                      ? applyUpdate
-                      : checkAndDownload
-                }
-              />
             </SettingsGroup>
-            {updateError || updateStatus === "unavailable" ? (
-              // SettingsRow's value is a single truncated line - a multiword diagnostic
-              // (channel/runtime-version/network detail) needs to wrap in full to be useful.
-              <AppText
-                variant="sm"
-                tone={updateError ? "danger" : "muted"}
-                style={{ marginTop: tokens.space[2], paddingHorizontal: tokens.space[2] }}
-              >
-                {updateError ?? "In-app updates aren't available in this build. Install the latest release to update the app."}
-              </AppText>
-            ) : null}
           </>
         )}
 
-        {/* Outside the hydration branches: support stays reachable when the profile itself won't load. */}
-        <SectionHeader title="Support" style={{ marginTop: tokens.space[7], marginBottom: tokens.space[3] }} />
-        <SettingsGroup>
-          <SettingsRow icon="mail-outline" label="Contact support" value="Send us a message" onPress={() => router.push("/modals/contact-support")} />
+        {/* Help remains reachable while account data is loading. */}
+        <SettingsGroup title="Help & app">
+          <SettingsRow icon="mail-outline" label="Contact support" value={SUPPORT_EMAIL.replace("@", "@\u200b")} valueLines={2} onPress={() => router.push("/modals/contact-support")} />
+          <SettingsRow
+            icon="tips-and-updates"
+            label="Check for updates"
+            value={
+              updateStatus === "checking"
+                ? "Checking..."
+                : updateStatus === "downloading"
+                  ? "Downloading..."
+                  : updateStatus === "available"
+                    ? (updateError ? "Restart failed - tap to retry" : "Update ready - tap to restart")
+                    : updateStatus === "restarting"
+                      ? "Restarting..."
+                      : updateStatus === "unavailable"
+                        ? "Updates unavailable in this build"
+                        : updateStatus === "up-to-date"
+                          ? "You're up to date"
+                          : updateStatus === "error"
+                            ? "Couldn't check right now"
+                            : undefined
+            }
+            onPress={
+              updateStatus === "checking" || updateStatus === "downloading" || updateStatus === "restarting"
+                ? undefined
+                : updateStatus === "available"
+                  ? applyUpdate
+                  : checkAndDownload
+            }
+          />
         </SettingsGroup>
+        {updateError || updateStatus === "unavailable" ? (
+          // SettingsRow's value is a single truncated line - a multiword diagnostic
+          // (channel/runtime-version/network detail) needs to wrap in full to be useful.
+          <AppText
+            variant="sm"
+            tone={updateError ? "danger" : "muted"}
+            style={{ marginTop: tokens.space[2], paddingHorizontal: tokens.space[2] }}
+          >
+            {updateError ?? "In-app updates aren't available in this build. Install the latest release to update the app."}
+          </AppText>
+        ) : null}
 
         {/* Sign out sits apart from ordinary settings, and reads destructive. */}
-        <View style={{ marginTop: tokens.space[7] }}>
+        <View style={{ marginTop: tokens.space[5], alignItems: "center" }}>
           <Button
             label={isSigningOut ? "Signing out…" : "Sign out"}
-            variant="danger"
+            variant="ghost"
             onPress={onLogout}
             loading={isSigningOut}
             size="md"
+            style={{ width: "auto", paddingHorizontal: tokens.space[5] }}
             leftIcon={<Icon name="log-out-outline" size={tokens.icon.row} color={tokens.colors.danger} />}
           />
         </View>

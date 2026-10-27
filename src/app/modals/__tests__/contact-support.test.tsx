@@ -11,6 +11,7 @@ beforeEach(() => send.mockReset());
 it("requires both fields and sends trimmed content", async () => {
   send.mockResolvedValue(undefined);
   render(<ContactSupportModal />);
+  expect(screen.getByText("mohammed.dev07@gmail.com")).toBeTruthy();
   fireEvent.press(screen.getByText("Send message"));
   expect(send).not.toHaveBeenCalled();
 

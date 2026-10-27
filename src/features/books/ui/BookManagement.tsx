@@ -1,6 +1,6 @@
 import { MoneyAmount } from "@/shared/ui/components/MoneyAmount";
 import { useBookOperations } from "../operations";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { AccessibilityInfo, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
@@ -17,10 +17,10 @@ import { AppText } from "@/shared/ui/components/AppText";
 import { Icon } from "@/shared/ui/components/Icon";
 import { IconButton } from "@/shared/ui/components/IconButton";
 import { HapticPressable } from "@/shared/ui/components/HapticPressable";
-import { Button } from "@/shared/ui/components/Button";
-import { SectionHeader } from "@/shared/ui/components/SectionHeader";
+import { Button, LinkButton } from "@/shared/ui/components/Button";
 import { SettingsRow } from "@/shared/ui/components/SettingsRow";
 import { tokens } from "@/shared/ui/theme/tokens";
+import { withAlpha } from "@/shared/ui/theme/color";
 import { formatCurrency } from "@/shared/utils/formatCurrency";
 import { useUndoToastStore } from "@/shared/ui/state/useUndoToastStore";
 import { useBooksStore } from "../store";
@@ -111,7 +111,7 @@ function BookRow({
         {
           flexDirection: "row",
           alignItems: "center",
-          backgroundColor: tokens.colors.surface,
+          backgroundColor: selected ? withAlpha(tokens.colors.accent, 0.04) : tokens.colors.surface,
           paddingHorizontal: 12,
           borderBottomWidth: 1,
           borderBottomColor: tokens.colors.divider,
@@ -145,9 +145,12 @@ function BookRow({
       >
         <BookTile icon={book.icon} color={book.color} />
         <View style={{ flex: 1 }}>
-          <AppText weight="semibold" numberOfLines={1}>
-            {book.name}
-          </AppText>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: tokens.space[2] }}>
+            <AppText weight="semibold" numberOfLines={1} style={{ flexShrink: 1 }}>
+              {book.name}
+            </AppText>
+            {selected ? <Icon name="checkmark" size={14} color={tokens.colors.accent} /> : null}
+          </View>
           <MoneyAmount
             size="sm"
             tone="neutral"
@@ -199,6 +202,7 @@ function BookRow({
         accessibilityLabel={`Manage ${book.name}`}
         disabled={disabled}
         onPress={open}
+        size={44}
       />
     </Animated.View>
   );
@@ -218,6 +222,7 @@ export function BookManagement({
   } = useBooksStore();
   const activeOperations = useBookOperations((s) => s.active);
   const isManaging = managingBooks || activeOperations > 0;
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const drag: DragState = {
     from: useSharedValue(-1),
     to: useSharedValue(-1),
@@ -248,11 +253,16 @@ export function BookManagement({
   };
   const selected = books.find((b) => b.id === selectedBookId);
   return (
-    <View>
-      <SectionHeader
-        title="Cash books"
-        style={{ marginTop: 28, marginBottom: 12 }}
-      />
+    <View style={{ marginTop: tokens.space[6] }}>
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: tokens.space[2] }}>
+        <AppText variant="base" weight="semibold" accessibilityRole="header">Cash books</AppText>
+        <LinkButton
+          label="+ Add book"
+          accessibilityLabel="Add new book"
+          disabled={!ready || isManaging || books.length >= BOOK_LIMIT}
+          onPress={() => useBookUIStore.getState().open("create")}
+        />
+      </View>
       {!ready ? (
         <Button
           label={error ? "Retry cash books" : "Loading cash books"}
@@ -263,7 +273,7 @@ export function BookManagement({
         />
       ) : (
         <>
-          <Card padding={0}>
+          <Card padding={0} style={{ overflow: "hidden" }}>
             <View>
               {books.map((book, index) => (
                 <BookRow
@@ -279,44 +289,40 @@ export function BookManagement({
                 />
               ))}
             </View>
-            <View style={{ padding: 8 }}>
-              <Button
-                label="Add new book"
-                variant="outline"
-                disabled={isManaging || books.length >= BOOK_LIMIT}
-                onPress={() => useBookUIStore.getState().open("create")}
-                style={{ borderWidth: 1, borderColor: tokens.colors.accent }}
-              />
-            </View>
+            {selected ? (
+              <>
+                <HapticPressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Book details"
+                  accessibilityState={{ expanded: detailsOpen }}
+                  onPress={() => setDetailsOpen(!detailsOpen)}
+                  pressScale={1}
+                  style={{ minHeight: 64, paddingHorizontal: tokens.space[4], paddingVertical: tokens.space[3], flexDirection: "row", alignItems: "center", gap: tokens.space[3] }}
+                >
+                  <View style={{ flex: 1 }}>
+                    <AppText variant="sm" weight="semibold">Book details</AppText>
+                    <AppText variant="caption" tone="muted" style={{ marginTop: tokens.space[1] }}>
+                      {selected.currencyCode} · {selected.timezone.replace(/_/g, " ")}
+                    </AppText>
+                  </View>
+                  <Icon name={detailsOpen ? "chevron-up" : "chevron-down"} size={18} color={tokens.colors.muted} />
+                </HapticPressable>
+                {detailsOpen ? (
+                  <View style={{ borderTopWidth: 1, borderTopColor: tokens.colors.divider }}>
+                    <SettingsRow label="Opening balance" value={formatCurrency(selected.openingBalanceMinor, selected.currencyCode)} valueIsMoney locked />
+                    <SettingsRow label="Currency" value={selected.currencyCode} locked />
+                    <SettingsRow label="Timezone" value={selected.timezone} locked />
+                  </View>
+                ) : null}
+              </>
+            ) : null}
           </Card>
           {books.length >= BOOK_LIMIT && (
             <AppText tone="muted" style={{ marginTop: 8 }}>
               You can have up to 10 cash books.
             </AppText>
           )}
-          <AppText variant="caption" tone="muted" style={{ marginTop: 10 }}>
-            Hold the handle to reorder. Tap to switch. Deleting a book won't
-            delete your account data.
-          </AppText>
-          {selected && (
-            <Card padding={0} style={{ marginTop: 16 }}>
-              <SettingsRow
-                label="Opening balance"
-                value={formatCurrency(
-                  selected.openingBalanceMinor,
-                  selected.currencyCode,
-                )}
-                valueIsMoney
-                locked
-              />
-              <SettingsRow
-                label="Currency"
-                value={selected.currencyCode}
-                locked
-              />
-              <SettingsRow label="Timezone" value={selected.timezone} locked />
-            </Card>
-          )}
+          {books.length > 1 ? <AppText variant="caption" tone="muted" style={{ marginTop: tokens.space[2] }}>Tap a book to switch. Hold a handle to reorder.</AppText> : null}
         </>
       )}
     </View>
