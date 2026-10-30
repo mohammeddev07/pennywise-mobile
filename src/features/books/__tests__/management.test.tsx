@@ -74,3 +74,23 @@ it("disables management actions while a request is pending", () => {
   fireEvent.press(screen.getByLabelText("Manage Travel"));
   expect(useBookUIStore.getState().sheet).toBeNull();
 });
+
+it("keeps book details collapsed until requested and shows the selected book's values", () => {
+  render(<BookManagement />);
+  expect(screen.queryByText("Opening balance")).toBeNull();
+  fireEvent.press(screen.getByRole("button", { name: "Book details" }));
+  expect(screen.getByText("Opening balance")).toBeTruthy();
+  expect(screen.getByText("Currency")).toBeTruthy();
+  expect(screen.getByText("Timezone")).toBeTruthy();
+  expect(screen.getByText(books[0].timezone)).toBeTruthy();
+  expect(screen.getByText("$0.00")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Book details" }).props.accessibilityState.expanded).toBe(true);
+  fireEvent.press(screen.getByRole("button", { name: "Book details" }));
+  expect(screen.queryByText("Opening balance")).toBeNull();
+});
+
+it("opens creation from the compact add-book action", () => {
+  render(<BookManagement />);
+  fireEvent.press(screen.getByRole("button", { name: "Add new book" }));
+  expect(useBookUIStore.getState().sheet).toBe("create");
+});

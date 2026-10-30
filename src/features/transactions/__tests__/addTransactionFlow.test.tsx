@@ -9,6 +9,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react-
 
 import { queryClient } from "@/shared/api/queryClient";
 import { mockBackend } from "@/shared/api/mockAdapter";
+import * as categoriesApi from "@/shared/api/categories";
 import { useAuthStore } from "@/features/auth/store";
 import { useBooksStore } from "@/features/books/store";
 import { useCategoriesStore } from "@/features/categories/store";
@@ -77,6 +78,38 @@ describe("category browser", () => {
     useAddTransactionDraftStore.setState({ bookId: "", kind: "EXPENSE" });
     renderScreen(<AddTransactionCategory />);
     expect((await screen.findAllByText(expenseCategory.name)).length).toBeGreaterThan(0);
+  });
+
+  it.each(["EXPENSE", "INCOME"] as const)("shows and selects every active %s category, including beyond the eighth", async (kind) => {
+    const available = Array.from({ length: 12 }, (_, index) => ({
+      ...expenseCategory,
+      id: `picker-${kind}-${index}`,
+      name: `Picker ${kind} category ${index + 1}`,
+      type: kind,
+    }));
+    const disabled = { ...available[0], id: "disabled", name: "Disabled category", isDisabled: true };
+    const otherKind = { ...available[0], id: "other-kind", name: "Other transaction type", type: kind === "EXPENSE" ? "INCOME" as const : "EXPENSE" as const };
+    const otherBook = { ...available[0], id: "other-book", name: "Other book category", bookId: "another-book" };
+    jest.spyOn(categoriesApi, "listCategories").mockResolvedValue({ items: [...available, disabled, otherKind] });
+    // Only a partial cache is present before the fresh category response arrives.
+    useCategoriesStore.setState({ categories: [...available.slice(0, 2), otherBook] });
+    useAddTransactionDraftStore.setState({ bookId: book.id, kind, amount: "12" });
+    const create = jest.spyOn(actions, "createTransaction").mockResolvedValue(null);
+    renderScreen(<AddTransactionDetails />);
+
+    const last = available[available.length - 1];
+    await screen.findByRole("button", { name: last.name });
+    for (const category of available) {
+      expect(screen.getByRole("button", { name: category.name })).toBeTruthy();
+    }
+    for (const excluded of [disabled, otherKind, otherBook]) {
+      expect(screen.queryByRole("button", { name: excluded.name })).toBeNull();
+    }
+    fireEvent.press(screen.getByRole("button", { name: last.name }));
+    expect(useAddTransactionDraftStore.getState().categoryId).toBe(last.id);
+    expect(screen.getByRole("button", { name: last.name }).props.accessibilityState.selected).toBe(true);
+    fireEvent.press(screen.getByText("Save transaction"));
+    await waitFor(() => expect(create).toHaveBeenCalledWith(book.id, expect.any(String), expect.objectContaining({ type: kind, categoryId: last.id })));
   });
 });
 

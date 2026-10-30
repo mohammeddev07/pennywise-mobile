@@ -36,3 +36,17 @@ Use this index to instantly identify component locations, UI selectors, and veri
 - **Behavior**: sheets fade into their final position, reset drag state on visibility changes, and return from partial swipes without bounce. Filter chips keep their icons stationary; segmented controls default to calm motion.
 - **UI selectors**: `sheet-drag-handle` view, `sheet-swipe` gesture, `Close` accessibility label.
 - **Verification Command**: `npm test -- --runInBand src/shared/ui src/features/books src/features/transactions`
+
+### Add-transaction categories
+- **Directory**: `src/features/transactions/`
+- **Entry Points**: `src/app/modals/add-transaction/details.tsx` (all eligible category chips), `src/app/modals/add-transaction/category.tsx` (searchable browser).
+- **Behavior**: refreshes categories on entry and shows every active category for the draft's book and transaction type, without an eight-category cap.
+- **UI selectors**: category chips expose their names as button accessibility labels; `Search categories` opens the full browser.
+- **Verification Command**: `npm test -- --runInBand src/features/transactions/__tests__/addTransactionFlow.test.tsx`
+
+### Profile organization and support contact
+- **Entry Point**: `src/app/(tabs)/settings.tsx`; account controls in `src/features/settings/ui/`; cash books in `src/features/books/ui/BookManagement.tsx`.
+- **Sections**: Account & preferences, Cash books, Your data, Help & app. Help and update checks remain available when account data cannot load.
+- **UI selectors**: `Book details` toggles fixed book metadata; `Add new book` opens creation; `Contact support` opens the in-app message form at `src/app/modals/contact-support.tsx`.
+- **Support address**: `src/features/support/constants.ts` defines the address displayed in Profile and the support form. Submission still uses `POST /v1/support/contact`; delivery routing is controlled by the backend, outside this mobile project.
+- **Verification Command**: `npm test -- --runInBand src/features/settings src/features/books src/app/modals/__tests__/contact-support.test.tsx`

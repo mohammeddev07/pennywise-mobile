@@ -119,19 +119,6 @@ function AddTransactionDetails() {
     [categories, bookId, kind]
   );
 
-  // A wrapping grid rather than a horizontal rail: nothing is hidden off the
-  // right edge, so the common categories are all visible at a glance. The
-  // selected chip is pulled to the front if it falls outside the first slice,
-  // and "View all" reaches every category regardless.
-  const visibleOptions = useMemo(() => {
-    const head = options.slice(0, 8);
-    if (categoryId && !head.some((c) => c.id === categoryId)) {
-      const picked = options.find((c) => c.id === categoryId);
-      if (picked) return [picked, ...head.slice(0, 7)];
-    }
-    return head;
-  }, [options, categoryId]);
-
   const canSave = amountMinor !== null && amountMinor > 0 && Boolean(categoryId) && Boolean(selectedBook);
 
   const onSave = async () => {
@@ -288,10 +275,10 @@ function AddTransactionDetails() {
                 <AppText variant="xs" tone="muted">
                   CATEGORY
                 </AppText>
-                <LinkButton label="View all →" onPress={() => router.push("/modals/add-transaction/category")} />
+                <LinkButton label="Search categories" onPress={() => router.push("/modals/add-transaction/category")} />
               </View>
 
-              {visibleOptions.length === 0 ? (
+              {options.length === 0 ? (
                 <Card variant="surface" padding={16}>
                   <AppText variant="sm" tone="muted">
                     No {kind === "EXPENSE" ? "expense" : "income"} categories yet.
@@ -308,7 +295,7 @@ function AddTransactionDetails() {
                 </Card>
               ) : (
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: tokens.space[2] }}>
-                  {visibleOptions.map((c) => (
+                  {options.map((c) => (
                     <FilterChip
                       key={c.id}
                       label={c.name}

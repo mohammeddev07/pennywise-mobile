@@ -10,6 +10,8 @@ import { Icon, type IconName } from "./Icon";
 type Props = {
   label: string;
   value?: string;
+  /** Allow long values such as contact addresses to wrap on compact phones. */
+  valueLines?: number;
   /** Renders a lock instead of a chevron and makes the row non-interactive. */
   locked?: boolean;
   onPress?: () => void;
@@ -32,6 +34,7 @@ type Props = {
 export function SettingsRow({
   label,
   value,
+  valueLines = 1,
   locked,
   onPress,
   tone = "default",
@@ -82,7 +85,7 @@ export function SettingsRow({
               style={{ marginTop: 2 }}
             />
           ) : (
-            <AppText variant="sm" tone="muted" numberOfLines={1} style={{ marginTop: 2 }}>
+            <AppText variant="sm" tone="muted" numberOfLines={valueLines} style={{ marginTop: 2 }}>
               {value}
             </AppText>
           )
